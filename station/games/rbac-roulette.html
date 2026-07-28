@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RBAC Roulette — Certification Station</title>
+<link rel="stylesheet" href="../assets/css/station.css">
+<script src="../assets/js/station.js" defer></script>
+<style>
+/* ===================== RBAC ROULETTE — page-local styles ===================== */
+.rr-wrap { display: grid; gap: 1rem; }
+
+/* ---- status strip ---- */
+.rr-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: .55rem;
+}
+.rr-stat {
+  background: var(--board-2);
+  border: 2.5px solid var(--board-edge);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  padding: .5rem .45rem .55rem;
+  text-align: center;
+  box-shadow: var(--shadow-2);
+  min-width: 0;
+}
+.rr-stat b {
+  display: block; font-family: var(--font-hand); font-size: 1.5rem; line-height: 1.05;
+  color: var(--s-color, var(--ink)); overflow: hidden; text-overflow: ellipsis;
+}
+.rr-stat span { font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.rr-stat.is-hot b { animation: cs-pulse .8s ease-in-out infinite; }
+
+/* ---- meters ---- */
+.rr-meter { height: 11px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 13%, transparent);
+  border: 1.5px solid var(--board-edge); overflow: hidden; margin-top: .3rem; }
+.rr-meter i { display: block; height: 100%; width: 100%; background: var(--mk-green); transition: width .25s linear, background .3s ease; }
+
+/* ---- ticket queue ---- */
+.rr-queue { display: flex; gap: .4rem; flex-wrap: wrap; align-items: stretch; min-height: 46px; }
+.rr-qpill {
+  flex: 0 0 auto; width: 84px; padding: .3rem .4rem .35rem;
+  border: 2px dashed var(--board-edge); border-radius: 8px; background: var(--board-2);
+  font-size: .62rem; line-height: 1.25; color: var(--ink-soft); overflow: hidden;
+}
+.rr-qpill.is-active { border-style: solid; border-color: var(--mk-blue); color: var(--ink); }
+.rr-qpill b { display: block; font-size: .68rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rr-qbar { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 14%, transparent); margin-top: .25rem; overflow: hidden; }
+.rr-qbar i { display: block; height: 100%; background: var(--mk-orange); }
+.rr-qslot { flex: 0 0 auto; width: 84px; border: 2px dotted color-mix(in srgb, var(--ink) 16%, transparent); border-radius: 8px; }
+
+/* ---- the ticket ---- */
+.rr-ticket {
+  position: relative;
+  background: var(--board-2);
+  border: 3px solid var(--mk-blue);
+  border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
+  padding: .9rem 1rem 1rem;
+  box-shadow: var(--shadow-2);
+  min-height: 128px;
+}
+.rr-from { display: flex; align-items: center; gap: .5rem; margin-bottom: .45rem; flex-wrap: wrap; }
+.rr-av {
+  width: 30px; height: 30px; border-radius: 50%; flex: 0 0 auto;
+  display: grid; place-items: center; font-weight: 800; font-size: .8rem; color: #fff;
+  background: var(--av, var(--mk-blue));
+}
+.rr-name { font-weight: 800; font-size: .9rem; }
+.rr-ask { font-family: var(--font-hand); font-size: clamp(1.05rem, 2.6vw, 1.4rem); line-height: 1.32; }
+.rr-patience { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 14%, transparent);
+  overflow: hidden; margin-top: .7rem; border: 1px solid var(--board-edge); }
+.rr-patience i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--mk-green), var(--mk-orange)); }
+
+/* ---- tier bay on the start screen ---- */
+.rr-tierbay { margin-top: 1rem; border-top: 2px dashed var(--board-edge); padding-top: .8rem; }
+
+/* ---- hint line (foundation / practitioner tiers only) ---- */
+.rr-hint {
+  margin: .5rem 0 0; padding: .4rem .6rem;
+  border-left: 4px solid var(--mk-teal); border-radius: 3px 8px 8px 3px;
+  background: color-mix(in srgb, var(--mk-teal) calc(var(--wash-soft) * 100%), var(--board-2));
+  font-size: .78rem; line-height: 1.35; color: var(--ink-soft); max-width: none;
+}
+.rr-hint b { color: var(--mk-teal); }
+
+/* ---- answer controls ---- */
+.rr-lab { font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); font-weight: 800; margin: .9rem 0 .35rem; }
+.rr-roles { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .5rem; }
+@media (max-width: 620px) { .rr-roles { grid-template-columns: minmax(0,1fr); } }
+.rr-opt {
+  position: relative; text-align: left; width: 100%;
+  display: flex; align-items: center; gap: .55rem;
+  padding: .6rem .7rem; border: 2.5px solid var(--board-edge); border-radius: 10px;
+  background: var(--board-2); font-size: .88rem; font-weight: 600; line-height: 1.3;
+  transition: transform .1s ease, border-color .12s ease, background .12s ease;
+}
+.rr-opt:hover:not(:disabled) { border-color: var(--ink); transform: translateY(-2px); }
+.rr-opt:disabled { cursor: default; }
+.rr-opt .k {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: .72rem; font-weight: 700;
+  background: color-mix(in srgb, var(--ink) 10%, transparent); border: 1px solid var(--board-edge);
+}
+.rr-opt.is-picked { border-color: var(--mk-blue); background: color-mix(in srgb, var(--mk-blue) 14%, var(--board-2)); }
+.rr-opt.is-right { border-color: var(--mk-green); background: color-mix(in srgb, var(--mk-green) 18%, var(--board-2)); }
+.rr-opt.is-wrong { border-color: var(--mk-red); background: color-mix(in srgb, var(--mk-red) 16%, var(--board-2)); }
+
+.rr-scopes { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .45rem; }
+@media (max-width: 720px) { .rr-scopes { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.rr-scope {
+  border: 2.5px solid var(--board-edge); border-radius: 10px; background: var(--board-2);
+  padding: .5rem .55rem; text-align: left; font-size: .74rem; line-height: 1.3; font-weight: 600;
+  transition: transform .1s ease, border-color .12s ease, background .12s ease;
+}
+.rr-scope:hover:not(:disabled) { border-color: var(--ink); transform: translateY(-2px); }
+.rr-scope u { display: block; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-soft); text-decoration: none; font-weight: 800; margin-bottom: .12rem; }
+.rr-scope .k { font-family: var(--font-mono); font-size: .62rem; opacity: .7; }
+.rr-scope.is-picked { border-color: var(--mk-purple); background: color-mix(in srgb, var(--mk-purple) 14%, var(--board-2)); }
+.rr-scope.is-right { border-color: var(--mk-green); background: color-mix(in srgb, var(--mk-green) 18%, var(--board-2)); }
+.rr-scope.is-wrong { border-color: var(--mk-red); background: color-mix(in srgb, var(--mk-red) 16%, var(--board-2)); }
+
+/* ---- blast radius mini ---- */
+.rr-blast { width: 100%; max-width: 320px; margin: 0 auto; display: block; }
+.rr-blast rect { fill: none; stroke: color-mix(in srgb, var(--ink) 22%, transparent); stroke-width: 2.5; }
+.rr-blast text { font-family: var(--font-ui); font-size: 9px; font-weight: 800; letter-spacing: .08em;
+  fill: var(--ink-soft); text-transform: uppercase; }
+.rr-blast .lit-bad { stroke: var(--mk-red); stroke-width: 4; animation: rr-boom .6s ease-out; }
+.rr-blast .lit-good { stroke: var(--mk-green); stroke-width: 4; }
+.rr-blast .lit-warn { stroke: var(--mk-orange); stroke-width: 4; stroke-dasharray: 6 5; }
+@keyframes rr-boom { 0% { opacity: .15; transform: scale(.9); } 60% { opacity: 1; } 100% { opacity: 1; transform: scale(1); } }
+.rr-blast g { transform-origin: 50% 50%; transform-box: fill-box; }
+
+/* ---- verdict panel ---- */
+.rr-verdict { border-left: 7px solid var(--v-color, var(--ink-soft)); border-radius: 4px 12px 12px 4px;
+  background: color-mix(in srgb, var(--v-color, var(--ink)) calc(var(--wash) * 100%), var(--board-2));
+  padding: .7rem .9rem; box-shadow: var(--shadow-1); min-height: 74px; }
+.rr-verdict h4 { margin: 0 0 .2rem; color: var(--v-color); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
+.rr-verdict p { margin: 0 0 .3rem; font-size: .87rem; max-width: none; }
+.rr-verdict.v-good { --v-color: var(--mk-green); }
+.rr-verdict.v-over { --v-color: var(--mk-red); }
+.rr-verdict.v-under { --v-color: var(--mk-orange); }
+.rr-verdict.v-wrong { --v-color: var(--mk-purple); }
+.rr-verdict.v-idle { --v-color: var(--ink-soft); }
+
+/* ---- alarm flash ---- */
+.rr-alarm { position: fixed; inset: 0; pointer-events: none; z-index: 800;
+  box-shadow: inset 0 0 0 0 var(--mk-red); opacity: 0; }
+.rr-alarm.is-on { animation: rr-flash .55s ease-out; }
+@keyframes rr-flash {
+  0% { opacity: 0; box-shadow: inset 0 0 40px 6px var(--mk-red); }
+  35% { opacity: .85; box-shadow: inset 0 0 90px 22px var(--mk-red); }
+  100% { opacity: 0; box-shadow: inset 0 0 40px 6px var(--mk-red); }
+}
+
+/* ---- game over ---- */
+.rr-missed { display: grid; gap: .55rem; }
+.rr-missgroup { border: 2px solid var(--board-edge); border-left: 6px solid var(--mk-red);
+  border-radius: 4px 10px 10px 4px; background: var(--board-2); padding: .6rem .75rem; }
+.rr-missgroup h4 { margin: 0 0 .2rem; font-size: .92rem; }
+.rr-missgroup ul { margin: .25rem 0 .4rem; padding-left: 1.1rem; font-size: .82rem; color: var(--ink-soft); }
+.rr-missgroup li { margin-bottom: .2rem; }
+.rr-missgroup a { font-size: .76rem; font-weight: 800; color: var(--mk-blue); text-decoration: none;
+  border-bottom: 2px solid currentColor; }
+.rr-delta { font-family: var(--font-hand); font-size: clamp(1.3rem, 4vw, 2rem); }
+
+details.rr-drills { border: 2.5px dashed var(--board-edge); border-radius: 12px; background: var(--board-2); padding: .35rem .9rem; }
+details.rr-drills summary { cursor: pointer; font-weight: 800; font-size: .82rem; letter-spacing: .1em;
+  text-transform: uppercase; padding: .55rem 0; color: var(--ink-soft); }
+details.rr-drills[open] summary { color: var(--ink); }
+details.rr-drills ul { font-size: .86rem; }
+
+.rr-keys { font-size: .74rem; color: var(--ink-soft); }
+.rr-keys .kbd { margin: 0 .1em; }
+</style>
+</head>
+<body>
+
+<div class="rr-alarm" id="rr-alarm" aria-hidden="true"></div>
+
+<main class="page page--wide">
+
+  <header>
+    <div class="row" style="gap:.4rem">
+      <span class="chip chip--az104">AZ-104</span>
+      <span class="chip chip--az305">AZ-305</span>
+      <span class="chip chip--red">Least privilege</span>
+    </div>
+    <h1 style="margin-top:.35rem">RBAC Roulette 🎯</h1>
+    <p class="lede">Tickets land. You pick the <strong>role</strong> and the <strong>scope</strong>.
+      Over-grant and the alarm goes off and your blast radius lights up red. Under-grant and it bounces
+      back while the queue keeps filling. Nobody in this game gets Owner because it was faster.</p>
+  </header>
+
+  <!-- ==================== START ==================== -->
+  <section id="rr-start">
+    <div class="marker-box mk-blue">
+      <span class="box-title" style="color:var(--mk-blue)">The Rules of the Help Desk</span>
+      <div class="grid grid-2">
+        <div>
+          <ul>
+            <li><strong>Every ticket needs two answers:</strong> the role, and the scope you put it at.</li>
+            <li><strong>Over-permission</strong> = alarm, security score drops, blast radius animates outward. Combo dies.</li>
+            <li><strong>Under-permission</strong> = the ticket bounces back into the queue with less patience left.</li>
+            <li><strong>The queue has a limit</strong> — 7 pending at Foundation, 4 at Architect. One arrival past it ends the run.</li>
+            <li><strong>Security score hits zero</strong> and the CISO ends the run for you.</li>
+            <li>Every 5 solved tickets = next wave. Tickets arrive faster, patience gets shorter.</li>
+            <li><strong>The tier sets the pressure</strong>: option count, patience, penalties, queue limit and score multiplier all move with it. Best scores are kept per tier.</li>
+          </ul>
+        </div>
+        <div>
+          <div class="sticky sticky--yellow">
+            <strong>Combo math</strong><br>
+            3 clean tickets in a row = <strong>1.5×</strong><br>
+            6 in a row = <strong>2×</strong> · 9 = <strong>2.5×</strong> … caps at <strong>4×</strong>.<br>
+            Answering fast adds a time bonus. Answering <em>correctly</em> adds a lot more.
+          </div>
+          <p class="rr-keys" style="margin-top:.9rem">
+            <strong>Keyboard:</strong> <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> pick the role (fewer options at the lower tiers) ·
+            <span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span><span class="kbd">F</span> pick the scope ·
+            <span class="kbd">Space</span> next ticket. Touch: just tap.
+          </p>
+        </div>
+      </div>
+      <div class="rr-tierbay">
+        <p style="margin:0 0 .45rem">
+          <span class="tier-pill tier-pill--solid tier-any" id="rr-stierpill" data-tier="400"></span>
+          <span class="muted small" id="rr-stiername">Expert</span>
+        </p>
+        <div id="rr-tierhost"></div>
+        <p class="small muted" id="rr-tierline" style="margin:.55rem 0 0">—</p>
+      </div>
+
+      <div class="row" style="margin-top:.9rem">
+        <button class="btn btn--primary btn--lg" id="rr-begin" type="button">Open the queue ▸</button>
+        <a class="btn btn--ghost" href="../index.html#unlock" class="locked">AZ-104 track</a>
+        <span class="muted small" id="rr-best">personal best: —</span>
+      </div>
+    </div>
+
+    <div id="rr-tierempty"></div>
+  </section>
+
+  <!-- ==================== GAME ==================== -->
+  <section id="rr-game" class="is-hidden">
+    <div class="rr-wrap">
+
+      <div class="rr-strip">
+        <div class="rr-stat" style="--s-color:var(--mk-blue)"><b id="rr-score">0</b><span>Score</span></div>
+        <div class="rr-stat" style="--s-color:var(--mk-purple)"><b id="rr-combo">1×</b><span>Combo</span></div>
+        <div class="rr-stat" style="--s-color:var(--mk-orange)"><b id="rr-wave">1</b><span>Wave</span></div>
+        <div class="rr-stat" style="--s-color:var(--mk-green)">
+          <b id="rr-sec">100</b><span>Security</span>
+          <div class="rr-meter"><i id="rr-secbar"></i></div>
+        </div>
+        <div class="rr-stat" style="--s-color:var(--mk-teal)"><b id="rr-solved">0</b><span>Solved</span></div>
+      </div>
+
+      <div>
+        <div class="rr-lab">Pending queue — max 5</div>
+        <div class="rr-queue" id="rr-queue"></div>
+      </div>
+
+      <div class="grid grid-2" style="gap:1rem;align-items:start">
+        <div>
+          <div class="rr-ticket" id="rr-ticket">
+            <div class="rr-from">
+              <span class="rr-av" id="rr-av">?</span>
+              <span class="rr-name" id="rr-who">—</span>
+              <span class="chip chip--ink" id="rr-tag">—</span>
+            </div>
+            <p class="rr-ask" id="rr-ask">Waiting for the first ticket…</p>
+            <p class="rr-hint is-hidden" id="rr-hint"></p>
+            <div class="rr-patience"><i id="rr-pat"></i></div>
+          </div>
+
+          <div class="rr-lab">1 · Which role?</div>
+          <div class="rr-roles" id="rr-roles"></div>
+
+          <div class="rr-lab">2 · At which scope?</div>
+          <div class="rr-scopes" id="rr-scopes"></div>
+        </div>
+
+        <div class="stack">
+          <div class="board" style="padding:.85rem">
+            <div class="rr-lab" style="margin:0 0 .4rem">Blast radius</div>
+            <svg class="rr-blast" id="rr-blast" viewBox="0 0 300 190" role="img" aria-label="Nested scope diagram: management group, subscription, resource group, resource">
+              <g><rect id="bl-mg"  x="4"   y="4"   width="292" height="182" rx="12"></rect></g>
+              <g><rect id="bl-sub" x="26"  y="28"  width="248" height="134" rx="10"></rect></g>
+              <g><rect id="bl-rg"  x="52"  y="54"  width="196" height="82"  rx="9"></rect></g>
+              <g><rect id="bl-res" x="80"  y="78"  width="140" height="34"  rx="8"></rect></g>
+              <text x="12" y="18">Management group</text>
+              <text x="34" y="42">Subscription</text>
+              <text x="60" y="68">Resource group</text>
+              <text x="88" y="99">Resource</text>
+            </svg>
+            <p class="small center" id="rr-blastcap" style="margin:.4rem 0 0">An assignment at a tier hits that tier and everything inside it.</p>
+          </div>
+
+          <div class="rr-verdict v-idle" id="rr-verdict">
+            <h4 id="rr-vtitle">Standing by</h4>
+            <p id="rr-vbody">Pick a role, then a scope. The scope buttons are live only once a ticket is on the desk.</p>
+          </div>
+
+          <button class="btn btn--ghost btn--sm" id="rr-quit" type="button">End run</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== GAME OVER ==================== -->
+  <section id="rr-over" class="is-hidden">
+    <div class="marker-box mk-red">
+      <span class="box-title" style="color:var(--mk-red)" id="rr-overtitle">Run over</span>
+      <p class="rr-overtier" style="margin:.2rem 0 .6rem"><span class="tier-pill tier-pill--solid tier-any" id="rr-otierpill" data-tier="400"></span> <span id="rr-otiername" class="muted small">Expert</span></p>
+      <div class="grid grid-3" style="gap:.6rem">
+        <div class="rr-stat" style="--s-color:var(--mk-blue)"><b id="rr-fscore">0</b><span>Final score</span></div>
+        <div class="rr-stat" style="--s-color:var(--mk-orange)"><b id="rr-fwave">1</b><span>Wave reached</span></div>
+        <div class="rr-stat" style="--s-color:var(--mk-green)"><b id="rr-facc">0%</b><span>Clean first try</span></div>
+      </div>
+      <p class="rr-delta center" id="rr-deltamsg" style="margin:.9rem 0"></p>
+      <div class="row center" style="justify-content:center">
+        <button class="btn btn--primary btn--lg" id="rr-again" type="button">One more run ▸</button>
+        <a class="btn btn--ghost" href="../index.html">Back to the hub</a>
+      </div>
+    </div>
+
+    <h2 id="rr-missh">What bit you</h2>
+    <div class="rr-missed" id="rr-missed"></div>
+  </section>
+
+  <!-- ==================== WHAT THIS DRILLS ==================== -->
+  <section>
+    <details class="rr-drills">
+      <summary>▸ What this drills (and where to go read it)</summary>
+      <div class="grid grid-2">
+        <div>
+          <h4>Concepts in the bank</h4>
+          <ul>
+            <li><strong>Control plane vs data plane</strong> — the single biggest RBAC trap. Reader ≠ can read blobs.</li>
+            <li><strong>Built-in role look-alikes</strong> — VM Contributor vs VM User Login vs VM Administrator Login; Storage Account Contributor vs Storage Blob Data *; Key Vault Contributor vs Key Vault Secrets User.</li>
+            <li><strong>Key Vault RBAC vs access policies</strong> — which permission model is in play, and why one silently ignores the other.</li>
+            <li><strong>User Access Administrator &amp; RBAC Administrator</strong> — granting access without granting the resources.</li>
+            <li><strong>Entra ID roles vs Azure RBAC roles</strong> — Global Administrator has no Azure control-plane rights until it elevates.</li>
+            <li><strong>PIM</strong> — eligible vs active, activation, approval, time-bound assignments.</li>
+            <li><strong>Custom roles</strong> — when Actions/NotActions are needed, assignableScopes, and the DataActions limits.</li>
+            <li><strong>Deny assignments</strong> — the thing that beats Owner.</li>
+            <li><strong>Scope selection</strong> — management group vs subscription vs resource group vs resource, and inheritance.</li>
+            <li><strong>Ops roles</strong> — Monitoring Reader/Contributor, Metrics Publisher, Backup Operator vs Contributor, Cost Management, Reservations.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Whiteboards that cover it</h4>
+          <ul>
+            <li><a href="../index.html#unlock" class="locked">AZ-104 · Identity, RBAC &amp; Governance</a></li>
+            <li><a href="../index.html#unlock" class="locked">AZ-305 · Identity, Governance &amp; Monitoring Design</a></li>
+            <li><a href="../index.html#unlock" class="locked">AZ-104 · Monitoring &amp; Backup</a></li>
+            <li><a href="../index.html#unlock" class="locked">AZ-104 · Storage &amp; Compute</a></li>
+            <li><a href="../index.html#unlock" class="locked">AZ-104 · Virtual Networking</a></li>
+          </ul>
+          <h4>Sister game</h4>
+          <ul>
+            <li><a href="blast-radius.html">Blast Radius</a> — same hierarchy, but policy, locks and inheritance instead of roles.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================================
+     SCOPE SETS — [management group, subscription, resource group, resource]
+     ====================================================================== */
+  var SC = {
+    core: ['MG “Contoso”', 'Sub “Prod”', 'RG “rg-prod-app”', 'VM “vm-app-01”'],
+    stor: ['MG “Contoso”', 'Sub “Prod”', 'RG “rg-prod-data”', 'Storage acct “stprodlogs”'],
+    kv:   ['MG “Platform”', 'Sub “Prod”', 'RG “rg-prod-sec”', 'Key vault “kv-prod-01”'],
+    net:  ['MG “Platform”', 'Sub “Connectivity”', 'RG “rg-hub-net”', 'VNet “vnet-hub”'],
+    mon:  ['MG “Contoso”', 'Sub “Prod”', 'RG “rg-prod-ops”', 'Workspace “law-prod”'],
+    bkp:  ['MG “Contoso”', 'Sub “Prod”', 'RG “rg-prod-bcdr”', 'Vault “rsv-prod”'],
+    aks:  ['MG “Landing Zones”', 'Sub “Prod”', 'RG “rg-prod-aks”', 'Cluster “aks-prod”'],
+    sql:  ['MG “Contoso”', 'Sub “Prod”', 'RG “rg-prod-data”', 'SQL server “sql-prod-01”'],
+    cost: ['MG “Contoso” (all subs)', 'Sub “Prod”', 'RG “rg-prod-app”', 'VM “vm-app-01”'],
+    dir:  ['Entra tenant (directory)', 'Sub “Prod”', 'RG “rg-prod-app”', 'App reg “api-orders”'],
+    all:  ['MG “Contoso” (12 subs)', 'Sub “Prod”', 'RG “rg-prod-app”', 'VM “vm-app-01”'],
+    dev:  ['MG “Landing Zones”', 'Sub “Dev”', 'RG “rg-dev-app”', 'Web app “app-dev-01”'],
+    acr:  ['MG “Landing Zones”', 'Sub “Prod”', 'RG “rg-prod-aks”', 'Registry “acrprod”'],
+    sb:   ['MG “Landing Zones”', 'Sub “Prod”', 'RG “rg-prod-app”', 'Queue “sb-orders”'],
+    dns:  ['MG “Platform”', 'Sub “Connectivity”', 'RG “rg-hub-net”', 'DNS zone “contoso.com”']
+  };
+
+  /* =========================================================================
+     CONCEPT TAGS — used for the post-run breakdown
+     ====================================================================== */
+  var TAGS = {
+    plane:  ['Control plane vs data plane', '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    lookal: ['Look-alike built-in roles',   '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    kv:     ['Key Vault permission models', '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    grant:  ['Granting access (UAA / RBAC Admin)', '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    entra:  ['Entra ID roles vs Azure RBAC', '../whiteboards/az305-identity-governance.html', 'AZ-305 Identity, Governance & Monitoring Design'],
+    pim:    ['PIM: eligible vs active',      '../whiteboards/az305-identity-governance.html', 'AZ-305 Identity, Governance & Monitoring Design'],
+    custom: ['Custom roles, NotActions, assignableScopes', '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    deny:   ['Deny assignments',             '../whiteboards/az305-identity-governance.html', 'AZ-305 Identity, Governance & Monitoring Design'],
+    scope:  ['Scope choice & inheritance',   '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    ops:    ['Monitoring & backup roles',    '../whiteboards/az104-monitor-backup.html', 'AZ-104 Monitoring & Backup'],
+    net:    ['Networking roles',             '../whiteboards/az104-networking.html', 'AZ-104 Virtual Networking'],
+    cost:   ['Cost, billing & reservations', '../whiteboards/az305-identity-governance.html', 'AZ-305 Identity, Governance & Monitoring Design'],
+    ident:  ['Managed identities & workload access', '../whiteboards/az104-storage-compute.html', 'AZ-104 Storage & Compute']
+  };
+
+  /* =========================================================================
+     TICKET BANK
+     T(id, who, ask, scopeSet, correctScope, tag, why, roles, tier, hint)
+     roles: [ name, verdict, reason ]   verdict: 0 correct · 1 over · -1 under · 2 wrong tool
+     tier : 100 Foundation · 200 Practitioner · 300 Professional
+            400 Expert (everything written before the tier system) · 500 Architect
+     hint : shown automatically at the tiers whose config sets hints:true
+     ====================================================================== */
+  function T(id, who, ask, sc, ans, tag, why, roles, tier, hint) {
+    return { id: id, who: who, ask: ask, sc: sc, ans: ans, tag: tag, why: why,
+             roles: roles, tier: tier || 400, hint: hint || '' };
+  }
+
+  var BANK = [
+
+  T('t01', 'Dana (audit)',
+    'I have to walk the external auditor through every resource in the Prod subscription next week. I need to see everything and change nothing.',
+    SC.all, 'sub', 'scope',
+    'Reader at the subscription: read every resource in it, write nothing. Anything narrower means re-issuing tickets for each RG.',
+    [['Reader', 0, ''],
+     ['Contributor', 1, 'Contributor can create, modify and delete everything except access. “Change nothing” rules it out immediately.'],
+     ['Owner', 1, 'Owner is Contributor plus the right to hand out access. Never the answer to a read-only request.'],
+     ['Security Reader', 2, 'That is a Microsoft Entra / Defender for Cloud role about security posture. It will not show her the disks and VNets.']], 400),
+
+  T('t02', 'Marco (app team)',
+    'Our service principal already has Reader on the resource group and it still gets 403 when it lists blobs in stprodlogs. Fix it — read only.',
+    SC.stor, 'res', 'plane',
+    'Blob access via Entra ID is a DATA-plane operation. Storage Blob Data Reader on the account grants it. Reader is control plane and will never move the needle.',
+    [['Storage Blob Data Reader', 0, ''],
+     ['Reader', -1, 'Reader is exactly what it already has. Control-plane RBAC does not grant data-plane blob reads — this is the 403.'],
+     ['Storage Account Contributor', 1, 'Control plane: it can rotate keys, change the SKU, delete the account. And it still does not grant Entra-based blob reads.'],
+     ['Storage Blob Data Contributor', 1, 'Adds write and delete on every blob in the account. They asked to read.']], 400),
+
+  T('t03', 'Sofia (support)',
+    'I need to SSH into the Linux VMs in rg-prod-app with my Entra ID credentials. Normal user — I should not be able to sudo.',
+    SC.core, 'rg', 'lookal',
+    'Virtual Machine User Login = sign in with Entra ID as a regular user. Administrator Login adds local admin / root.',
+    [['Virtual Machine User Login', 0, ''],
+     ['Virtual Machine Administrator Login', 1, 'Same login path, but it grants local administrator / root on the box. She explicitly said no sudo.'],
+     ['Virtual Machine Contributor', 2, 'Control plane on the VM object — start, stop, resize. It grants no OS-level sign-in at all.'],
+     ['Reader', -1, 'Lets her see that the VM exists. Does not let her sign in to it.']], 400),
+
+  T('t04', 'Ben (platform)',
+    'The payments API managed identity must read secrets out of kv-prod-01. The vault is on the Azure RBAC permission model.',
+    SC.kv, 'res', 'kv',
+    'Key Vault Secrets User = get/list secret VALUES, data plane, and it is the least-privileged fit. Scope it to the vault, not the RG.',
+    [['Key Vault Secrets User', 0, ''],
+     ['Key Vault Secrets Officer', 1, 'Adds set, delete and recover on secrets. Reading is not writing.'],
+     ['Key Vault Contributor', 2, 'Manages the vault RESOURCE — networking, SKU, delete. On the RBAC model it grants zero access to secret values.'],
+     ['Key Vault Administrator', 1, 'Full data-plane control over keys, secrets AND certificates. Enormous over-grant for one API reading one secret type.']], 400),
+
+  T('t05', 'Ravi (identity)',
+    'Our new cloud lead needs to hand out Contributor to her own team inside the Prod subscription. She should not gain the ability to manage the resources herself.',
+    SC.all, 'sub', 'grant',
+    'Role Based Access Control Administrator: create and delete role assignments, nothing else. User Access Administrator also works but drags Reader along with it.',
+    [['Role Based Access Control Administrator', 0, ''],
+     ['Owner', 1, 'Owner grants access AND full control of every resource. This is the classic “just give them Owner” over-grant.'],
+     ['User Access Administrator', 1, 'Close, and a valid answer on older content — but it also carries full read on everything. RBAC Administrator is the tighter modern fit.'],
+     ['Contributor', 2, 'Contributor is the one thing that explicitly CANNOT manage role assignments. Wrong direction entirely.']], 400),
+
+  T('t06', 'Nadia (new CTO)',
+    'I am Global Administrator in Entra ID. I opened the Prod subscription in the portal and I cannot see a single resource. Explain and fix.',
+    SC.dir, 'mg', 'entra',
+    'Entra ID roles and Azure RBAC are separate systems. Global Administrator must elevate access (User Access Administrator at root “/”) and then assign real Azure roles.',
+    [['Elevate access → User Access Administrator at root scope', 0, ''],
+     ['Owner on the subscription, permanently', 1, 'Permanent Owner for a visibility problem. Elevation is temporary and auditable by design; this is not.'],
+     ['Global Reader (Entra role)', 2, 'Still an Entra directory role. It reads directory objects, not Azure resource-manager resources.'],
+     ['Directory Readers (Entra role)', 2, 'Reads users and groups in the directory. Nothing to do with the Azure control plane.']], 400),
+
+  T('t07', 'Chen (SecOps)',
+    'On-call engineers need Contributor on Prod, but only during an incident, only for 8 hours, and it must be approved and logged.',
+    SC.all, 'sub', 'pim',
+    'PIM eligible assignment: they hold nothing day to day and activate with justification, approval and a time limit. Active assignment = standing access.',
+    [['PIM eligible assignment of Contributor', 0, ''],
+     ['PIM active assignment of Contributor', 1, 'Active means they hold the role right now with no activation step. That is standing access with extra paperwork.'],
+     ['Permanent Contributor + a conditional access policy', 1, 'CA controls how they sign in, not what they hold. The standing permission is still there at 3am on a Sunday.'],
+     ['Reader now, Contributor by ticket when needed', -1, 'A manual escalation process is not access control. It also fails “approved and logged” as a system.']], 400),
+
+  T('t08', 'Priya (ops)',
+    'I need to restart the VMs in rg-prod-app when they hang. I must not be able to resize them, change their NICs, or touch the disks.',
+    SC.core, 'rg', 'custom',
+    'No built-in role is restart-only. Custom role with Microsoft.Compute/virtualMachines/restart/action (+ read) is the least-privilege answer.',
+    [['Custom role: virtualMachines/read + /restart/action', 0, ''],
+     ['Virtual Machine Contributor', 1, 'It restarts, yes — and resizes, reattaches disks, changes NICs and deletes the VM. The ticket rules all of that out.'],
+     ['Contributor', 1, 'Full control over every resource in the RG. Wildly beyond “restart the VM”.'],
+     ['Virtual Machine User Login', 2, 'An OS sign-in role. Restarting from inside the guest is not the same operation as an Azure control-plane restart.']], 400),
+
+  T('t09', 'Ola (governance)',
+    'Give the app team Contributor over rg-prod-app but they must never be able to create or modify network resources — the network team owns those.',
+    SC.core, 'rg', 'custom',
+    'This is the textbook NotActions case: clone Contributor, add NotActions for Microsoft.Network/*/write and /delete.',
+    [['Custom role: Contributor with NotActions on Microsoft.Network', 0, ''],
+     ['Contributor', 1, 'Contributor includes full network write. Exactly the thing the ticket forbids.'],
+     ['Contributor + a Deny policy on Microsoft.Network', 2, 'Azure Policy shapes what resources may look like, not who may act. It is a governance guardrail, not a permission boundary — and it is the wrong instrument for “this team specifically”.'],
+     ['Virtual Machine Contributor', -1, 'Too narrow. They also need storage, app service and everything else in that RG.']], 400),
+
+  T('t10', 'Ibrahim (platform)',
+    'I built a custom role with DataActions for blob access and I want to assign it once at the Contoso management group so it covers all 12 subscriptions.',
+    SC.all, 'sub', 'custom',
+    'Custom roles that include DataActions cannot be assigned at management group scope. Assign at subscription (or lower) instead.',
+    [['Assign the custom role at the subscription', 0, ''],
+     ['Assign the custom role at the management group', 2, 'Blocked: a custom role containing DataActions is not assignable at management group scope. The assignment will fail.'],
+     ['Add the MG to assignableScopes and assign there anyway', 2, 'The MG can be in assignableScopes for a role without DataActions — but with DataActions present the assignment is still rejected.'],
+     ['Owner at the management group', 1, 'A colossal over-grant to work around a scope restriction. This is how tenants end up compromised.']], 400),
+
+  T('t11', 'Lena (support)',
+    'A managed application deployed by our vendor is stopping me deleting a resource in its managed RG — and I am Owner on the subscription. What is doing this?',
+    SC.core, 'rg', 'deny',
+    'A DENY assignment. Deny assignments block actions even for Owner, and they are created by Azure (managed apps, Deployment Stacks) — you cannot author one by hand.',
+    [['A deny assignment — request the change through the vendor', 0, ''],
+     ['Owner at the management group', 1, 'Escalating scope does nothing. Deny assignments beat allow assignments at every scope, including Owner at root.'],
+     ['User Access Administrator on the managed RG', 2, 'You cannot out-assign a deny assignment. It is evaluated before your allow permissions.'],
+     ['Remove the CanNotDelete lock', 2, 'A lock would say “locked”. The message here is a deny assignment — different mechanism, different fix.']], 400),
+
+  T('t12', 'Yusuf (network)',
+    'The hub and the prod spoke need to be peered. I own the hub VNet; the spoke lives in another subscription owned by the app team.',
+    SC.net, 'res', 'net',
+    'Peering is a write on BOTH VNets. Network Contributor on each VNet (or the RG containing it) — not Contributor on the whole subscription.',
+    [['Network Contributor on each VNet', 0, ''],
+     ['Contributor on both subscriptions', 1, 'Full control of two entire subscriptions to create one peering link. Textbook over-grant.'],
+     ['Network Contributor on the hub only', -1, 'Peering must be created on both sides. Write on one VNet gets you half a link and a Disconnected state.'],
+     ['Reader on both VNets', -1, 'Read cannot create the peering object.']], 400),
+
+  T('t13', 'Fatima (finance)',
+    'I need to build cost analysis views and budgets across every subscription under Contoso. I must not see or touch any resource.',
+    SC.cost, 'mg', 'cost',
+    'Cost Management Contributor at the management group: create budgets and cost views across all child subscriptions, zero resource access.',
+    [['Cost Management Contributor', 0, ''],
+     ['Cost Management Reader', -1, 'Views costs, but cannot create the budgets she was asked to build.'],
+     ['Billing Reader', 2, 'Billing roles live on the billing account / EA scope and read invoices and billing profiles — a different surface from Cost Management on ARM scopes.'],
+     ['Contributor', 1, 'Grants full resource control across twelve subscriptions to make a chart.']], 400),
+
+  T('t14', 'Gustav (FinOps)',
+    'Someone must be able to buy reserved instances and manage the existing reservation orders for the tenant. No resource access.',
+    SC.cost, 'mg', 'cost',
+    'Reservations Administrator manages reservation orders. Note reservations are tenant-level objects, not ordinary ARM resources — this is a deliberate odd one.',
+    [['Reservations Administrator', 0, ''],
+     ['Reservations Reader', -1, 'Reads reservation orders and utilisation. Cannot purchase or modify.'],
+     ['Owner on every subscription', 1, 'Reservation management is not a per-subscription resource permission. This over-grants massively and still misses the point.'],
+     ['Cost Management Contributor', -1, 'Budgets and cost views — it does not purchase or administer reservation orders.']], 400),
+
+  T('t15', 'Amara (SRE)',
+    'The NOC needs to view metrics, activity log and alert state across Prod. Read only, and they must not be able to run cross-workspace KQL against sensitive log tables.',
+    SC.mon, 'sub', 'ops',
+    'Monitoring Reader reads all monitoring data and settings at the scope. Log Analytics Reader specifically adds workspace query rights.',
+    [['Monitoring Reader', 0, ''],
+     ['Log Analytics Reader', 1, 'Adds the ability to query all data in the workspaces — the exact thing the ticket carves out.'],
+     ['Monitoring Contributor', 1, 'Adds write: create and edit alert rules, diagnostic settings, action groups. Read-only was the ask.'],
+     ['Reader', -1, 'Reader sees resources, but Monitoring Reader is the role built for monitoring data and settings across the scope.']], 400),
+
+  T('t16', 'Amara (SRE)',
+    'Now the same NOC team needs to actually create the alert rules and action groups themselves, still with no rights over the workloads.',
+    SC.mon, 'sub', 'ops',
+    'Monitoring Contributor: create/edit alert rules, diagnostic settings, action groups and workbooks — without control over the resources being monitored.',
+    [['Monitoring Contributor', 0, ''],
+     ['Contributor', 1, 'Gives them the VMs and databases too. The ticket says no rights over the workloads.'],
+     ['Monitoring Reader', -1, 'Read only. It cannot create the alert rules they were asked to create.'],
+     ['Log Analytics Contributor', 2, 'Manages the workspaces themselves (and can read all data). Alert rules and action groups are the Monitoring Contributor surface.']], 400),
+
+  T('t17', 'Ben (platform)',
+    'Our custom telemetry agent runs under a user-assigned managed identity and has to push custom metrics into Azure Monitor for the app VMs. Nothing else.',
+    SC.core, 'rg', 'ident',
+    'Monitoring Metrics Publisher — that is its entire job: emit custom metrics against resources at the scope.',
+    [['Monitoring Metrics Publisher', 0, ''],
+     ['Monitoring Contributor', 1, 'Publishes metrics, sure — plus rewrites every alert rule and diagnostic setting in the scope.'],
+     ['Monitoring Reader', -1, 'Read only. It cannot emit anything.'],
+     ['Log Analytics Contributor', 2, 'Custom METRICS go through the metrics ingestion path, not workspace management.']], 400),
+
+  T('t18', 'Grace (backup)',
+    'The service desk should be able to run on-demand backups and restore items from rsv-prod. They must never be able to stop protection or delete a backup policy.',
+    SC.bkp, 'res', 'ops',
+    'Backup Operator can back up and restore but cannot stop protection, delete policies or remove the vault. Backup Contributor can.',
+    [['Backup Operator', 0, ''],
+     ['Backup Contributor', 1, 'Adds create/modify policies and stop-protection — the exact destructive operations the ticket forbids.'],
+     ['Backup Reader', -1, 'Monitors backup status only. It cannot trigger a backup or a restore.'],
+     ['Contributor', 1, 'Full control of the vault and everything else in the RG. Enormous over-grant.']], 400),
+
+  T('t19', 'Ines (containers)',
+    'The AKS kubelet identity must pull images from our container registry. It never pushes.',
+    SC.aks, 'res', 'ident',
+    'AcrPull on the registry resource. This is a data-plane registry role assigned to the cluster’s kubelet identity.',
+    [['AcrPull', 0, ''],
+     ['AcrPush', 1, 'Adds push. A compromised node could then publish images into your registry — a supply-chain gift.'],
+     ['Reader', -1, 'Control-plane read of the registry resource. It does not authenticate a docker pull.'],
+     ['Contributor', 1, 'Full control of the registry: delete repositories, change the SKU, disable admin user. Absurd for a pull.']], 400),
+
+  T('t20', 'Ines (containers)',
+    'Developers need to run kubectl against aks-prod. They must land on the cluster with their own namespace-scoped Kubernetes rights, not cluster-admin credentials.',
+    SC.aks, 'res', 'lookal',
+    'Azure Kubernetes Service Cluster User Role downloads the USER kubeconfig; Kubernetes RBAC (or Azure RBAC for Kubernetes) then decides what they can do.',
+    [['Azure Kubernetes Service Cluster User Role', 0, ''],
+     ['Azure Kubernetes Service Cluster Admin Role', 1, 'Downloads the clusterAdmin kubeconfig, which bypasses Kubernetes RBAC entirely. That is the credential you protect, not the one you hand out.'],
+     ['Contributor on the cluster', 1, 'Control plane over the cluster resource — scale, upgrade, delete. Also lets them pull the admin credential.'],
+     ['Reader on the cluster', -1, 'Cannot download any kubeconfig, so kubectl never authenticates.']], 400),
+
+  T('t21', 'Ines (containers)',
+    'With Azure RBAC for Kubernetes authorization enabled, the QA team needs read-only access to pods and logs in one namespace only.',
+    SC.aks, 'res', 'lookal',
+    'Azure Kubernetes Service RBAC Reader, assigned at the namespace scope (the cluster resource id plus /namespaces/qa).',
+    [['Azure Kubernetes Service RBAC Reader (namespace scope)', 0, ''],
+     ['Azure Kubernetes Service RBAC Cluster Admin', 1, 'Full admin over every namespace in the cluster. The ticket says one namespace, read only.'],
+     ['Azure Kubernetes Service RBAC Writer', 1, 'Adds create/update of most namespace objects. QA asked to look.'],
+     ['Azure Kubernetes Service Cluster User Role only', -1, 'That gets them a kubeconfig. It grants no authorization once they are in.']], 400),
+
+  T('t22', 'Ben (platform)',
+    'The deployment pipeline identity must attach our shared user-assigned managed identity to new VM scale sets. It must not be able to change the identity itself.',
+    SC.core, 'res', 'ident',
+    'Managed Identity Operator: read and ASSIGN a user-assigned identity. Managed Identity Contributor can create, edit and delete it.',
+    [['Managed Identity Operator', 0, ''],
+     ['Managed Identity Contributor', 1, 'Adds create, update and delete of the identity object — including federated credentials. Way past “attach it”.'],
+     ['Contributor', 1, 'Full control of the resource group, identity included.'],
+     ['Reader', -1, 'Read alone cannot perform the assign action, so the VMSS deployment fails.']], 400),
+
+  T('t23', 'Marco (app team)',
+    'kv-prod-01 is still on the legacy access policy model. The app identity needs to read secrets. I assigned Key Vault Secrets User and it still fails.',
+    SC.kv, 'res', 'kv',
+    'On the access-policy model, RBAC data-plane roles are ignored. Either add an access policy with Get/List on secrets, or migrate the vault to the Azure RBAC model.',
+    [['Add a vault access policy: Secret Get + List', 0, ''],
+     ['Assign Key Vault Administrator instead', 1, 'Still an RBAC role — still ignored while the vault uses access policies. And it is a full data-plane over-grant.'],
+     ['Assign Key Vault Contributor', 2, 'Manages the vault resource. It can flip the permission model, which is a privilege-escalation path, and it grants no secret reads by itself.'],
+     ['Add an access policy with all key, secret and certificate permissions', 1, 'Correct mechanism, wrong blast radius. Get + List on secrets is the ask.']], 400),
+
+  T('t24', 'Nia (data)',
+    'The analytics job writes into an ADLS Gen2 container and must be able to set POSIX ACLs and change owner on the files it creates.',
+    SC.stor, 'res', 'plane',
+    'Storage Blob Data Owner is the one that grants POSIX ACL management and ownership on ADLS Gen2. Contributor writes data but cannot manage ACLs the same way.',
+    [['Storage Blob Data Owner', 0, ''],
+     ['Storage Blob Data Contributor', -1, 'Reads, writes and deletes blobs — but does not give full POSIX ACL and ownership control on Data Lake Storage Gen2.'],
+     ['Storage Account Contributor', 2, 'Control plane. Manages the account, not the file ACLs — and grants no Entra data-plane access at all.'],
+     ['Owner', 1, 'Owner on the resource does not automatically grant data-plane blob access either, and it hands over everything else in the bargain.']], 400),
+
+  T('t25', 'Sam (files)',
+    'The finance team mounts an Azure Files SMB share and needs to read and write documents on it. Identity-based auth is configured.',
+    SC.stor, 'res', 'lookal',
+    'Storage File Data SMB Share Contributor — the SMB data-plane role for read/write/delete on files in the share.',
+    [['Storage File Data SMB Share Contributor', 0, ''],
+     ['Storage File Data SMB Share Elevated Contributor', 1, 'Adds the ability to modify NTFS ACLs on the share. Finance does not need to rewrite permissions.'],
+     ['Storage Blob Data Contributor', 2, 'Wrong service surface. Blob roles do nothing for an SMB file share.'],
+     ['Storage Account Contributor', 1, 'Control plane over the account — and a route to the account keys, which is the opposite of identity-based access.']], 400),
+
+  T('t26', 'Chen (SecOps)',
+    'We disabled shared key access on stprodlogs. A legacy tool still needs the account keys, and one operator must be able to retrieve them without any other rights.',
+    SC.stor, 'res', 'plane',
+    'Reader and Data Access grants listKeys plus read on the account — the narrow “I need the key” role. (And note: with shared key access disabled, those keys will not authenticate anyway — a favourite exam sting.)',
+    [['Reader and Data Access', 0, ''],
+     ['Storage Account Contributor', 1, 'Also lists keys — plus regenerate, delete, change SKU and firewall. Far past the ask.'],
+     ['Reader', -1, 'Reader cannot call listKeys. This is why “Reader” tickets about keys always bounce.'],
+     ['Storage Blob Data Reader', 2, 'A data-plane Entra role. It has nothing to do with retrieving shared keys.']], 400),
+
+  T('t27', 'Ravi (identity)',
+    'The service desk must create and delete user accounts and reset passwords for standard users in Entra ID. Nothing in Azure.',
+    SC.dir, 'mg', 'entra',
+    'User Administrator is an Entra ID directory role scoped to the tenant. Azure RBAC roles do not manage directory objects at all.',
+    [['User Administrator (Entra ID role)', 0, ''],
+     ['Contributor on the subscription', 2, 'Azure RBAC manages ARM resources. It cannot create a single user in the directory.'],
+     ['Global Administrator', 1, 'The nuclear option for password resets. Global Admin owns the entire tenant including all of M365.'],
+     ['Helpdesk Administrator', -1, 'Resets passwords for non-admin users, but cannot create or delete accounts.']], 400),
+
+  T('t28', 'Ravi (identity)',
+    'A team lead needs to assign Entra ID roles to her staff and configure PIM settings for those roles.',
+    SC.dir, 'mg', 'entra',
+    'Privileged Role Administrator: manage Entra role assignments and PIM configuration. Note it does NOT grant the roles it can assign.',
+    [['Privileged Role Administrator', 0, ''],
+     ['Global Administrator', 1, 'It works, and it also gives her every other permission in the tenant. Privileged Role Administrator is the targeted role.'],
+     ['User Access Administrator', 2, 'That is Azure RBAC — role assignments on ARM scopes, not directory roles or PIM for Entra roles.'],
+     ['Groups Administrator', -1, 'Manages groups and their membership, not role assignments.']], 400),
+
+  T('t29', 'Ola (governance)',
+    'Landing-zone owners must be able to create and assign Azure Policy at their own subscription, but not hand out RBAC.',
+    SC.all, 'sub', 'grant',
+    'Resource Policy Contributor: create/edit policy definitions, assignments and exemptions, without role-assignment rights.',
+    [['Resource Policy Contributor', 0, ''],
+     ['Owner', 1, 'Policy authoring plus everything else including access management. That is the one thing they are not supposed to have.'],
+     ['Contributor', -1, 'Contributor can assign policy, but the ticket wants deliberate policy authority — and Contributor drags in full resource control they may not need.'],
+     ['User Access Administrator', 2, 'That is precisely the RBAC-granting power the ticket forbids.']], 400),
+
+  T('t30', 'Lena (support)',
+    'Every engineer in the org should be able to open Azure support tickets. Today only Owners can. They must gain nothing else.',
+    SC.all, 'sub', 'lookal',
+    'Support Request Contributor — creates and manages support tickets, and does nothing else at all.',
+    [['Support Request Contributor', 0, ''],
+     ['Contributor', 1, 'Yes it can open tickets. It can also delete the production database.'],
+     ['Reader', -1, 'Reader cannot create a support request. This is the exact ticket the exam loves.'],
+     ['Owner', 1, 'Absolutely not, for a support form.']], 300),
+
+  T('t31', 'Ola (governance)',
+    'Our tagging bot service principal must add and correct tags on resources across the Prod subscription. It must not read the resources’ contents or change them.',
+    SC.all, 'sub', 'lookal',
+    'Tag Contributor manages tags on resources without any other read/write on them. Watch the sting: it cannot tag through the portal blade, because the portal needs read on the resource.',
+    [['Tag Contributor', 0, ''],
+     ['Contributor', 1, 'Tags plus total control of the subscription. The bot needs one verb.'],
+     ['Reader', -1, 'Read is not write. Tags are written through Microsoft.Resources/tags/write, which Reader does not carry.'],
+     ['Resource Policy Contributor', 2, 'Right idea for enforcing tags via policy Modify — but the ticket asks for a bot that writes tags directly.']], 400),
+
+  T('t32', 'Nia (data)',
+    'The DBA team manages databases on sql-prod-01 — create, scale, configure. They must not manage server-level security policies like auditing and Advanced Threat Protection.',
+    SC.sql, 'res', 'lookal',
+    'SQL DB Contributor manages databases but explicitly not security policies. SQL Security Manager owns auditing / threat policies.',
+    [['SQL DB Contributor', 0, ''],
+     ['SQL Server Contributor', 1, 'Manages the logical server itself — including things the security team owns. Broader than the ask.'],
+     ['SQL Security Manager', 2, 'That is the exact carve-out the ticket removes: auditing and threat-protection policies.'],
+     ['Contributor', 1, 'Everything in the RG. Over-grant.']], 400),
+
+  T('t33', 'Marco (app team)',
+    'The order service identity must send messages to one Service Bus queue. It never reads them and never manages the namespace.',
+    SC.core, 'res', 'plane',
+    'Azure Service Bus Data Sender, scoped to the queue itself — data plane, one verb, smallest possible object.',
+    [['Azure Service Bus Data Sender (queue scope)', 0, ''],
+     ['Azure Service Bus Data Owner', 1, 'Full data-plane send AND receive AND manage on the whole namespace.'],
+     ['Azure Service Bus Data Receiver', 2, 'The other direction. It can consume messages but not publish them.'],
+     ['Contributor on the namespace', 1, 'Control plane over the namespace: it can also read the connection strings, which is a data-plane bypass.']], 400),
+
+  T('t34', 'Marco (app team)',
+    'Our web app reads feature flags from App Configuration using its managed identity. Read only.',
+    SC.dev, 'res', 'plane',
+    'App Configuration Data Reader — the data-plane read role on the store. Contributor on the resource does not read key-values via Entra ID.',
+    [['App Configuration Data Reader', 0, ''],
+     ['App Configuration Data Owner', 1, 'Read, write and delete every key-value and feature flag in the store.'],
+     ['Contributor', 2, 'Control plane. It can read the access keys — a data-plane bypass — but grants no Entra-based key-value read.'],
+     ['Reader', -1, 'Control-plane read of the store resource. Key-values stay 403.']], 400),
+
+  T('t35', 'Ines (containers)',
+    'The reporting service reads documents from a Cosmos DB account with its managed identity. Security demands no keys and no portal-created assignments.',
+    SC.sql, 'res', 'plane',
+    'Cosmos DB Built-in Data Reader — a Cosmos-specific data-plane role assigned via CLI/PowerShell/ARM. It is deliberately not offered in the portal RBAC blade.',
+    [['Cosmos DB Built-in Data Reader (assigned via CLI/ARM)', 0, ''],
+     ['Cosmos DB Account Reader Role', 2, 'A control-plane role that reads the account definition — and can read account keys. Not data-plane document access.'],
+     ['Cosmos DB Built-in Data Contributor', 1, 'Adds create, replace and delete on items. The ticket says read.'],
+     ['Contributor', 1, 'Control plane, key access, full account management. Every box the ticket said not to tick.']], 400),
+
+  T('t36', 'Ben (platform)',
+    'We are at 3,900 role assignments in the Prod subscription and new ones are starting to fail. Nine hundred developers need Contributor on their own RGs.',
+    SC.all, 'sub', 'scope',
+    'Assign to GROUPS, not users. Role assignments per subscription are capped in the low thousands; one assignment to a group replaces hundreds to users.',
+    [['Assign Contributor to Entra ID groups instead of users', 0, ''],
+     ['Assign Contributor at the subscription to everyone', 1, 'Fewer assignments, catastrophically more access. Never solve a quota problem with a blast-radius problem.'],
+     ['Open a support ticket to raise the limit', 2, 'The role-assignment limit per subscription is not the knob to turn here; group-based assignment is the designed answer.'],
+     ['Create custom roles per developer', 2, 'Custom roles are also capped per tenant, and role definitions are not the thing hitting the ceiling — assignments are.']], 300),
+
+  T('t37', 'Chen (SecOps)',
+    'Contributor was assigned at the Contoso management group “temporarily” eighteen months ago. Only the Prod subscription team ever needed it. Fix the scope.',
+    SC.all, 'sub', 'scope',
+    'Remove the MG assignment and re-assign at the subscription. Inheritance flows downward only: an MG assignment silently covers every current and FUTURE child subscription.',
+    [['Contributor at the subscription', 0, ''],
+     ['Leave it at the management group', 1, 'It covers all twelve subscriptions today and every subscription anyone creates under Contoso tomorrow.'],
+     ['Contributor at each resource group instead', -1, 'Now every new RG needs another ticket. The subscription is the stated boundary of the team.'],
+     ['Add a Deny policy at the other subscriptions', 2, 'Policy does not remove permissions. You would be patching an RBAC mistake with a governance control that answers a different question.']], 300),
+
+  T('t38', 'Sofia (support)',
+    'One vendor engineer needs to manage exactly one VM — vm-app-01 — for a two-week migration. Nothing else in the resource group.',
+    SC.core, 'res', 'scope',
+    'Virtual Machine Contributor at the RESOURCE scope. Assignments can target an individual resource; that is the tightest scope available.',
+    [['Virtual Machine Contributor', 0, ''],
+     ['Contributor', 1, 'Full control including networking, storage and anything else in scope.'],
+     ['Owner', 1, 'Owner on a resource still lets the vendor grant access to themselves and others. Never for a vendor.'],
+     ['Virtual Machine Administrator Login', -1, 'An OS sign-in role. It cannot resize, restart or reconfigure the VM object.']], 300),
+
+  T('t39', 'Grace (backup)',
+    'Site Recovery is being configured. The operator must be able to fail over protected items but must not be able to change replication policy or delete the vault.',
+    SC.bkp, 'res', 'ops',
+    'Site Recovery Operator: run failovers and manage protected item operations, without changing replication configuration.',
+    [['Site Recovery Operator', 0, ''],
+     ['Site Recovery Contributor', 1, 'Manages the whole Site Recovery service in the vault, including replication policy — exactly what the ticket carves out.'],
+     ['Site Recovery Reader', -1, 'Monitors the vault. It cannot initiate a failover.'],
+     ['Backup Operator', 2, 'Wrong service. Azure Backup and Site Recovery have separate role families even though they share the vault.']], 400),
+
+  T('t40', 'Yusuf (network)',
+    'The application team needs to add DNS records into the private DNS zone for their new services, but must not create or delete zones or change VNet links.',
+    SC.net, 'res', 'net',
+    'A custom role (or narrowly-scoped assignment) on the record sets: Private DNS Zone Contributor covers the whole zone including links, so the least-privilege answer is the record-set-scoped custom role.',
+    [['Custom role: privateDnsZones/A/* on the zone', 0, ''],
+     ['Private DNS Zone Contributor', 1, 'Manages the zone itself: delete it, add or remove virtual network links. Broader than record management.'],
+     ['DNS Zone Contributor', 2, 'That is the PUBLIC DNS zone role. Different resource provider surface entirely.'],
+     ['Network Contributor', 1, 'The whole networking stack — NSGs, route tables, load balancers. Nothing to do with DNS record hygiene.']], 400),
+
+  T('t41', 'Nadia (CTO)',
+    'Break-glass account design. Two emergency accounts must be able to recover the tenant if PIM or federation fails.',
+    SC.dir, 'mg', 'entra',
+    'Permanent, excluded-from-CA, cloud-only Global Administrator — the deliberate exception to “never permanent”. Break-glass accounts are not PIM-eligible, because PIM may be the thing that is broken.',
+    [['Permanent Global Administrator, cloud-only, excluded from CA', 0, ''],
+     ['PIM eligible Global Administrator', -1, 'If Entra ID PIM or MFA is the outage, activation fails and you are locked out of your own tenant. Break-glass must not depend on the thing it rescues.'],
+     ['Owner at the root management group', 2, 'An Azure RBAC role. It cannot recover directory-level identity failures.'],
+     ['User Access Administrator at root scope', 2, 'Elevation is an Azure control-plane fix, not a tenant recovery identity.']], 500),
+
+  T('t42', 'Chen (SecOps)',
+    'An engineer holds Contributor on rg-prod-app via a group and Reader at the subscription directly. What is effectively in force, and what do we assign for “Reader only on that RG”?',
+    SC.core, 'rg', 'scope',
+    'Azure RBAC allow assignments are ADDITIVE — the union wins, so today they are Contributor on that RG. To make it Reader only, remove the Contributor assignment; adding Reader changes nothing.',
+    [['Remove the Contributor assignment (Reader already inherits)', 0, ''],
+     ['Assign Reader on the resource group', -1, 'Allow assignments add up. Adding Reader next to Contributor still leaves Contributor in force.'],
+     ['Assign a custom Reader role with NotActions', 2, 'NotActions subtract from the role that contains them, not from other assignments the user holds.'],
+     ['Add a ReadOnly lock on the resource group', 1, 'A lock stops everyone including Owner and every automation you own. It is a change-control tool, not an RBAC fix.']], 400),
+
+  T('t43', 'Ola (governance)',
+    'We want one role definition usable in both the Prod and Dev subscriptions, authored once.',
+    SC.all, 'mg', 'custom',
+    'Put the management group in the custom role’s assignableScopes (assuming no DataActions), then assign at whichever child scope you need.',
+    [['Custom role with the management group in assignableScopes', 0, ''],
+     ['Two identical custom roles, one per subscription', -1, 'It works and immediately drifts. Custom role definitions are also capped per tenant — do not burn two on one job.'],
+     ['A built-in role plus a Deny policy', 2, 'Policy cannot subtract permissions from a person. Different instrument, different question.'],
+     ['Owner at the management group', 1, 'Solves nothing about role definitions and hands over both subscriptions.']], 400),
+
+  T('t44', 'Fatima (finance)',
+    'Our cost analyst must see the actual invoice and billing profile for the EA enrollment, not just ARM cost data.',
+    SC.cost, 'mg', 'cost',
+    'Billing Reader on the BILLING scope — billing account / profile / enrollment. Azure RBAC on management groups never exposes invoices.',
+    [['Billing Reader on the billing account', 0, ''],
+     ['Cost Management Reader at the management group', -1, 'Shows ARM cost analysis and budgets, but not the invoices and billing profiles themselves.'],
+     ['Reader at the root management group', 2, 'Resource read across the tenant. Billing objects live outside the ARM resource hierarchy.'],
+     ['Owner at the root management group', 1, 'Every resource in the tenant — and still no invoice.']], 400),
+
+  T('t45', 'Priya (ops)',
+    'The runbook that stops dev VMs nightly runs on an Automation account managed identity. It needs to start and stop VMs in the Dev subscription only.',
+    SC.dev, 'sub', 'ident',
+    'Virtual Machine Contributor at the Dev subscription is the standard fit; the tighter answer is a custom role with start/deallocate — but VM Contributor scoped to Dev is the accepted least-privilege built-in.',
+    [['Virtual Machine Contributor at Sub “Dev”', 0, ''],
+     ['Contributor at Sub “Dev”', 1, 'Full control of every resource type in Dev to press stop on some VMs.'],
+     ['Virtual Machine Contributor at MG “Landing Zones”', 1, 'That reaches Prod as well. A nightly shutdown runbook with Prod reach is an outage waiting for a Tuesday.'],
+     ['Automation Operator', 2, 'Lets an identity START the runbook. It grants the runbook nothing against the VMs it targets.']], 400),
+
+  T('t46', 'Sam (files)',
+    'Someone must be able to move a storage account from rg-prod-data to rg-prod-app. What do they need, and where?',
+    SC.stor, 'sub', 'scope',
+    'A move needs write on the source AND the destination, so assign at the common parent — the subscription — or at both RGs. Contributor is the practical role.',
+    [['Contributor at the subscription', 0, ''],
+     ['Contributor on the source resource group only', -1, 'A move writes to both ends. Source-only rights fail at the destination.'],
+     ['Owner at the subscription', 1, 'Adds access-granting rights nobody asked for.'],
+     ['Storage Account Contributor on the storage account', -1, 'Scoped to the resource itself, it cannot write the new resource into the destination RG.']], 400),
+
+  T('t47', 'Nadia (CTO)',
+    'Auditors want to know who could theoretically delete production. Which single assignment should we hunt for first across the tenant?',
+    SC.all, 'mg', 'scope',
+    'Owner (and Contributor) at management group scope — inherited, invisible from the subscription blade unless you look up, and it covers subscriptions that do not exist yet.',
+    [['Owner assigned at management group scope', 0, ''],
+     ['Owner assigned at each subscription', -1, 'Worth auditing, but MG-level assignments are the ones people forget exist and the ones that auto-cover new subscriptions.'],
+     ['Contributor at resource group scope', -1, 'Real risk, smallest blast radius of the four. Not where you start.'],
+     ['Reader at the root management group', 2, 'Read cannot delete anything. Not a deletion risk.']], 500),
+
+  T('t48', 'Chen (SecOps)',
+    'PIM is configured. An engineer has an eligible Owner assignment on Prod and says he still cannot delete a resource even after activating.',
+    SC.all, 'sub', 'pim',
+    'Activation is the first thing to check — but if activation succeeded, the block is a LOCK or a deny assignment, because Owner cannot beat either.',
+    [['Check for a CanNotDelete lock or deny assignment', 0, ''],
+     ['Give him a permanent active Owner assignment', 1, 'Standing Owner to work around a control that Owner cannot beat anyway. Two mistakes for the price of one.'],
+     ['Assign User Access Administrator as well', 2, 'Neither locks nor deny assignments care about how much RBAC you stack on top.'],
+     ['Escalate the assignment to the management group', 1, 'Broader scope, same block. Locks and deny assignments are evaluated regardless of scope.']], 500),
+
+  T('t49', 'Marco (app team)',
+    'The build agent identity needs to deploy ARM/Bicep templates into rg-dev-app, including creating role assignments for the workload identities it provisions.',
+    SC.dev, 'rg', 'grant',
+    'Contributor cannot create role assignments. Pair Contributor with Role Based Access Control Administrator (or User Access Administrator) at the RG.',
+    [['Contributor + Role Based Access Control Administrator on the RG', 0, ''],
+     ['Contributor on the RG', -1, 'Deployments will fail the moment the template contains a role assignment — Contributor explicitly excludes Microsoft.Authorization writes.'],
+     ['Owner on the subscription', 1, 'Correct capability, wrong blast radius by an entire subscription.'],
+     ['User Access Administrator on the RG only', -1, 'Now it can grant access but cannot deploy the resources.']], 400),
+
+  T('t50', 'Ravi (identity)',
+    'An app registration owner needs to grant admin consent for Microsoft Graph application permissions for one enterprise app.',
+    SC.dir, 'mg', 'entra',
+    'Privileged Role Administrator (or Global Administrator) — granting tenant-wide admin consent for app permissions is deliberately a highly privileged directory action.',
+    [['Privileged Role Administrator', 0, ''],
+     ['Application Administrator', -1, 'Manages app registrations and enterprise apps, and can consent to many delegated permissions — but not the privileged application permissions that require higher rights.'],
+     ['Cloud Application Administrator', -1, 'Same as Application Administrator minus the app proxy. Still short of granting privileged Graph app permissions.'],
+     ['Owner on the subscription', 2, 'Azure RBAC has no say in Microsoft Graph consent.']], 400),
+
+  /* ---------------------------------------------------------------------
+     TIER 100 · FOUNDATION
+     What a role IS, what a scope IS, and the mental model underneath both.
+     No lookalike roles, no defaults trivia, no plane splitting.
+     ------------------------------------------------------------------ */
+
+  T('f01', 'Ana (new hire)',
+    'I start on the app team on Monday. For my first week I only need to look at the machines in rg-prod-app so I can learn how it fits together. I will not be changing anything.',
+    SC.core, 'rg', 'scope',
+    'Reader is the built-in role for look-but-do-not-touch. Put it on the resource group she was told to learn — one assignment covers every resource inside it.',
+    [['Reader', 0, ''],
+     ['Contributor', 1, 'Contributor can create, change and delete resources. She told you she is only looking.'],
+     ['Owner', 1, 'Owner is everything Contributor can do PLUS handing out access to other people. Never the answer to “I just want to look”.'],
+     ['No assignment at all — everyone in the company can see Azure resources by default', 2, 'Azure starts from zero. With no role assignment you see nothing whatsoever. Access is only ever added, never assumed.']],
+    100, 'Two questions, every time: what is the smallest verb that satisfies the ask, and what is the smallest box that contains the thing they named?'),
+
+  T('f02', 'Ana (new hire)',
+    'Second week. Now I actually have to create and change resources inside rg-prod-app. I do not need to give anybody else access.',
+    SC.core, 'rg', 'scope',
+    'Contributor: full management of resources — create, read, update, delete — with one deliberate hole in it. It cannot manage access.',
+    [['Contributor', 0, ''],
+     ['Reader', -1, 'Reader cannot create or change anything, which is exactly what she now needs to do.'],
+     ['Owner', 1, 'Owner adds the ability to grant other people access. She said she does not need that, so she should not have it.'],
+     ['User Access Administrator', 2, 'That role only hands out access to other people. It does not let her build a single thing.']],
+    100, 'Contributor and Owner differ by exactly one thing: managing access. Read the ticket for whether they need that one thing.'),
+
+  T('f03', 'Ravi (identity)',
+    'Our new platform lead has to be able to build resources across the whole Prod subscription AND grant her own team access to them. One role, please.',
+    SC.all, 'sub', 'scope',
+    'Owner = Contributor + the ability to manage role assignments, at whatever scope you assign it. Here the ask genuinely covers the whole subscription.',
+    [['Owner', 0, ''],
+     ['Contributor', -1, 'Contributor does everything except manage access. That single exclusion is the whole reason Owner exists.'],
+     ['Reader', -1, 'Read-only. She has to build things.'],
+     ['Global Administrator (Entra ID role)', 2, 'That is a directory role. It manages users and groups in Entra ID, not resources inside an Azure subscription.']],
+    100, 'Owner is the only built-in that can hand out access. If the ticket says “and grant access”, that is the tell.'),
+
+  T('f04', 'Sofia (support)',
+    'A vendor engineer is here for two weeks to work on exactly one machine — vm-app-01. Nothing else in that resource group is any of his business.',
+    SC.core, 'res', 'scope',
+    'You can assign a role directly to a single resource. That is the tightest scope Azure has, and it is the right one when the ticket names one thing.',
+    [['Virtual Machine Contributor', 0, ''],
+     ['Contributor', 1, 'Contributor covers every resource type, not just machines. When a purpose-built role exists for the job, use it.'],
+     ['Owner', 1, 'Hands a two-week vendor the ability to grant access to other people. No.'],
+     ['Reader', -1, 'He is here to work on the machine, not to look at it.']],
+    100, 'The four scopes nest: management group → subscription → resource group → resource. The ticket names one machine.'),
+
+  T('f05', 'Dana (audit)',
+    'I need read access across every subscription under the Contoso management group. There are twelve of them and I am not filling in twelve forms.',
+    SC.all, 'mg', 'scope',
+    'A management group sits ABOVE subscriptions. One assignment there is inherited by every subscription under it — including subscriptions that get created next year.',
+    [['Reader', 0, ''],
+     ['Contributor', 1, 'She asked to read. Contributor lets her change and delete across twelve subscriptions.'],
+     ['Owner', 1, 'Owner across the entire management group for an audit read. This is how tenants get compromised.'],
+     ['Directory Readers (Entra ID role)', 2, 'Reads users and groups in the directory. It shows her nothing about Azure resources.']],
+    100, 'Management group first, then subscription, then resource group, then resource. Wider scope, wider blast radius.'),
+
+  T('f06', 'Priya (ops)',
+    'There are twelve people on my team and every one of them needs the same access to rg-prod-app. I am not doing this twelve times, and I am not doing it again next month when someone joins.',
+    SC.core, 'rg', 'scope',
+    'Assign the role to an Entra security group, then manage people by group membership. The assignment stops changing; only the membership does.',
+    [['Assign Contributor to an Entra security group', 0, ''],
+     ['Assign Contributor to each of the twelve users', 2, 'It grants the same access and it is twelve times the maintenance. Every joiner and leaver becomes an access-control change instead of a membership change.'],
+     ['Assign Owner to the group so nobody ever gets blocked', 1, 'Twelve people who can now hand out access to anyone else. “So nobody gets blocked” is the sentence that precedes most breaches.'],
+     ['Create one shared login the team all uses', 2, 'A shared account destroys the audit trail. You can never answer “who did that”, which is usually the only question that matters afterwards.']],
+    100, 'Groups are the unit of access management. People move; groups stay.'),
+
+  T('f07', 'Ana (new hire)',
+    'My manager said “just assign her Reader on the resource group”. What are the pieces I actually have to fill in?',
+    SC.core, 'rg', 'scope',
+    'Every role assignment is exactly three fields: WHO (a user, group, service principal or managed identity), WHAT (the role definition) and WHERE (the scope).',
+    [['Security principal + role definition + scope', 0, ''],
+     ['Username + password + resource', 2, 'RBAC never touches credentials. It says what an already-authenticated identity is allowed to do.'],
+     ['Subscription + region + SKU', 2, 'Those describe where a resource lives and how big it is. They have nothing to do with permissions.'],
+     ['Role and scope only — the person is whoever is signed in', -1, 'Without a principal there is nothing to grant. “Who” is the whole point.']],
+    100, 'Who · what · where. If you can name those three, you can write the assignment.'),
+
+  T('f08', 'Marco (app team)',
+    'Our web app has to read a connection string out of kv-prod-01. Right now that password is sitting in a config file in the git repo and I hate it.',
+    SC.kv, 'res', 'ident',
+    'Turn on a managed identity for the app, then assign that identity Key Vault Secrets User on the vault. No password exists anywhere, so no password can leak.',
+    [['Give the app a managed identity and assign it Key Vault Secrets User', 0, ''],
+     ['Move the vault password into an app setting instead of the repo', 2, 'You moved the secret. You did not remove it. It is still a credential somebody can copy.'],
+     ['Give the app team Owner on the vault', 1, 'Now humans can grant access to the vault too, and the app still has a password in a file.'],
+     ['Assign Reader on the vault to the app identity', -1, 'Reader shows that the vault exists. Reading a secret VALUE is a different permission entirely.']],
+    100, 'A managed identity is an identity Azure creates and rotates for you. It still needs a role — creating it grants nothing.'),
+
+  T('f09', 'Ola (governance)',
+    'We assigned Reader on rg-prod-app. The team says they can now see vm-app-01 inside it as well. Is that a mistake we need to undo?',
+    SC.core, 'rg', 'scope',
+    'No — that is inheritance working exactly as designed. Access granted at a scope applies to everything inside that scope.',
+    [['No — leave it; that is inheritance', 0, ''],
+     ['Yes — remove it and grant on each resource one at a time', -1, 'That produces the same access with fifty times the paperwork, and it drifts the moment somebody adds a resource.'],
+     ['Yes — add a rule on the VM to block them', 2, 'RBAC has no ordinary “deny” you can author. You control access by choosing what to grant and where.'],
+     ['Yes — switch it to Owner so at least it is explicit', 1, 'Explicit and enormous. Owner is not a clearer Reader.']],
+    100, 'RBAC flows downward only. Never sideways, never up.'),
+
+  T('f10', 'Fatima (finance)',
+    'I need to see what the Prod subscription is spending. I must not see, touch or open a single resource.',
+    SC.cost, 'sub', 'cost',
+    'Cost Management Reader: cost data, budgets and exports at the scope, and no access to the resources generating the cost.',
+    [['Cost Management Reader', 0, ''],
+     ['Reader', 2, 'Reader shows her the resources and not the invoice. Cost is its own family of roles for exactly this reason.'],
+     ['Contributor', 1, 'Full control of production so somebody can read a spending chart.'],
+     ['Owner', 1, 'As above, plus the ability to hand that out to other people.']],
+    100, 'Azure has purpose-built roles for cost, backup, monitoring and networking. Reach for the shaped one before the generic one.'),
+
+  T('f11', 'Grace (backup)',
+    'I only want to look at rsv-prod and see whether last night’s backup jobs succeeded. I do not run anything and I do not configure anything.',
+    SC.bkp, 'res', 'ops',
+    'Backup Reader: view the vault, the protected items and the job history. It runs nothing and changes nothing.',
+    [['Backup Reader', 0, ''],
+     ['Backup Operator', 1, 'Operator can actually trigger backups and restores. She said she only wants to look.'],
+     ['Contributor', 1, 'Full control of the vault and everything else in scope, for a status check.'],
+     ['Support Request Contributor', 2, 'That role opens Azure support tickets. It shows her nothing about backups.']],
+    100, 'Reader-shaped roles exist for most services. If the ask is “look”, look for the Reader.'),
+
+  T('f12', 'Yusuf (network)',
+    'My team owns everything network-shaped inside rg-hub-net — subnets, NSGs, route tables. We do not own the VMs or storage in there.',
+    SC.net, 'rg', 'net',
+    'Network Contributor: full management of networking resources at the scope, and nothing else in it.',
+    [['Network Contributor', 0, ''],
+     ['Contributor', 1, 'Contributor at that resource group also hands them the VMs, the storage and everything else in it.'],
+     ['Owner', 1, 'Contributor’s over-grant plus the ability to give it to other people.'],
+     ['Reader', -1, 'They own the networking. They cannot own it read-only.']],
+    100, 'A resource-type role limits WHAT you can touch. The scope limits WHERE. You need both to be right.'),
+
+  T('f13', 'Amara (SRE)',
+    'The NOC just needs to look at dashboards, metrics and alert status across Prod. They never change a thing.',
+    SC.mon, 'sub', 'ops',
+    'Monitoring Reader: read all monitoring data and monitoring settings across the scope. Purpose-built, read-only.',
+    [['Monitoring Reader', 0, ''],
+     ['Monitoring Contributor', 1, 'That lets them create and edit alert rules. Watching is not authoring.'],
+     ['Owner', 1, 'Full control of the production subscription so somebody can watch a graph.'],
+     ['Virtual Machine User Login', 2, 'That signs you in to the operating system of a VM. Nothing to do with dashboards.']],
+    100, 'Monitoring is a service with its own Reader and Contributor. Same shape as everything else.'),
+
+  T('f14', 'Nia (data)',
+    'The DBA team manages the databases on sql-prod-01 — create them, scale them, configure them.',
+    SC.sql, 'res', 'lookal',
+    'SQL DB Contributor manages databases on the server. Scope it to the server resource, because that is the object they were given.',
+    [['SQL DB Contributor', 0, ''],
+     ['Contributor', 1, 'Everything in scope, of every type. They were given the database server.'],
+     ['Owner', 1, 'Plus handing out access. No.'],
+     ['Reader', -1, 'They manage the databases. Read-only cannot create one.']],
+    100, 'Service-shaped Contributor roles exist for SQL, storage, networking, VMs and more. Use them.'),
+
+  T('f15', 'Lena (support)',
+    'The contractor’s engagement ended on Friday. She has Contributor on rg-dev-app. What do we do?',
+    SC.dev, 'rg', 'scope',
+    'Remove the role assignment. Access nobody needs is still access, and it is exactly what gets found in an audit eighteen months later.',
+    [['Remove the role assignment', 0, ''],
+     ['Downgrade it to Reader and leave it there', -1, 'She has no reason to see it either. “Downgrade instead of remove” is how tenants accumulate hundreds of assignments nobody can justify.'],
+     ['Delete her user account and leave the assignment behind', 2, 'You are left with an orphaned assignment that shows as “Identity not found” and tells the next auditor nothing.'],
+     ['Leave it in case she comes back', 1, 'Standing access for a person who does not work here. This is the single most common finding in an access review.']],
+    100, 'Access is a lifecycle, not a grant. Somebody has to take it away again.'),
+
+  T('f16', 'Ben (platform)',
+    'The payments API needs to READ one secret out of kv-prod-01. The vault uses the Azure RBAC permission model.',
+    SC.kv, 'res', 'kv',
+    'Key Vault Secrets User: get and list secret values on that vault. Assign it to the API’s identity on the vault itself.',
+    [['Key Vault Secrets User', 0, ''],
+     ['Owner', 1, 'Full control of the vault plus handing out access, so an API can read one string.'],
+     ['Contributor', 1, 'Manages the vault as a resource — and still is not the thing that reads a secret value.'],
+     ['Reader', -1, 'Reader lets you see that the vault exists in the portal. It does not show you what is inside it.']],
+    100, 'Key Vault has roles named after what is inside it: secrets, keys, certificates. Pick the noun, then pick read or write.'),
+
+  T('f17', 'Ines (containers)',
+    'The developers just need to SEE aks-prod in the portal — its Kubernetes version, its node count, the fact that it exists.',
+    SC.aks, 'res', 'scope',
+    'Reader on the cluster resource. Seeing an Azure resource is a control-plane read, and Reader is the role for it.',
+    [['Reader', 0, ''],
+     ['Azure Kubernetes Service Cluster Admin Role', 1, 'That downloads the cluster-admin credential. It is the largest thing you can hand somebody on an AKS cluster.'],
+     ['Contributor', 1, 'They can now resize node pools and delete the cluster. They wanted to look at it.'],
+     ['Virtual Machine User Login', 2, 'Signs you in to a VM’s operating system. Not related.']],
+    100, '“See it in the portal” is almost always Reader at the scope of the thing.'),
+
+  T('f18', 'Chen (SecOps)',
+    'Our on-call engineer has permanent Owner on the Prod subscription because “it saves time during an incident”. Is that fine?',
+    SC.all, 'sub', 'scope',
+    'No. Least privilege means the smallest role, at the smallest scope, for the shortest time. Standing Owner fails all three at once.',
+    [['No — reduce it to the smallest role that covers the actual job', 0, ''],
+     ['Yes — on-call needs to move fast', 1, 'Every account with standing Owner is a full-subscription compromise waiting for one phished password.'],
+     ['Yes, as long as we tell them only to use it in an incident', 1, 'A policy in a document is not an access control. The permission is live at 3am whether or not anyone is on call.'],
+     ['No — remove all their access instead', -1, 'Now nobody can respond to the incident. Least privilege is the smallest access that works, not zero access.']],
+    100, 'Least privilege has three dials: how much, over what, for how long.'),
+
+  T('f19', 'Nadia (CTO)',
+    'Explain the difference between the Prod subscription and rg-prod-app to me, and tell me which one we put an app team’s access on.',
+    SC.core, 'rg', 'scope',
+    'A subscription is a billing and quota boundary that holds many resource groups. A resource group is a LIFECYCLE boundary: the things you create, update and delete together. One app team, one resource group.',
+    [['The resource group — it is the lifecycle boundary for that one app', 0, ''],
+     ['The subscription — it is simpler and covers everything', 1, 'It also covers every other team’s resource group in that subscription.'],
+     ['The management group — even simpler', 1, 'Simpler still, and now they have that access in twelve subscriptions.'],
+     ['Neither — assign it on each resource by hand', -1, 'That is the same access, permanently out of date, with nobody able to describe it in one sentence.']],
+    100, 'A resource group is not a folder. It is the set of things that live and die together.'),
+
+  T('f20', 'Marco (app team)',
+    'I switched on a system-assigned managed identity for the app. It still cannot read from stprodlogs. Did I do it wrong?',
+    SC.stor, 'res', 'ident',
+    'You did the first half. Turning on the identity CREATES a principal; it grants nothing. You still have to assign that principal a role at a scope.',
+    [['Nothing is wrong — now assign that identity a role on the storage account', 0, ''],
+     ['Turning the identity on should be enough — it inherits the app’s access', 2, 'An identity is not born with permissions. Azure has no implicit trust between a resource and the data it happens to sit near.'],
+     ['Give the identity Owner so you never have to think about it again', 1, 'You will think about it again — during the incident review.'],
+     ['Managed identities cannot hold roles; go back to an account key', 2, 'They can, and that is the entire point of them. Going back to a key reintroduces the secret you just removed.']],
+    100, 'Create the identity, then assign it a role. Two steps, always.'),
+
+  /* ---------------------------------------------------------------------
+     TIER 200 · PRACTITIONER
+     The happy path. The role you would really pick, at the scope you would
+     really pick, for a request whose design is already agreed.
+     ------------------------------------------------------------------ */
+
+  T('g01', 'Priya (ops)',
+    'Standard onboarding. The app team owns rg-prod-app end to end — they build, they run, they clean up. They do not hand out access; I do that.',
+    SC.core, 'rg', 'scope',
+    'Contributor on the resource group, via Access control (IAM) on the RG blade. This is the default landing-zone pattern: teams get Contributor on their own RG, the platform team keeps Owner.',
+    [['Contributor', 0, ''],
+     ['Owner', 1, 'They explicitly do not grant access. Owner is Contributor plus that one thing.'],
+     ['Virtual Machine Contributor', -1, 'Covers the machines and not the storage accounts, app services or networking sitting in the same resource group.'],
+     ['User Access Administrator', 2, 'Hands out access and builds nothing. Precisely backwards.']],
+    200, 'Portal path: the resource group → Access control (IAM) → Add role assignment.'),
+
+  T('g02', 'Sofia (support)',
+    'The ops team starts, stops, restarts and occasionally resizes the VMs in rg-prod-app. That is their agreed job.',
+    SC.core, 'rg', 'lookal',
+    'Virtual Machine Contributor at the resource group: full management of the VM objects — power state, size, disks, NICs — with no rights over the rest of the resource group.',
+    [['Virtual Machine Contributor', 0, ''],
+     ['Contributor', 1, 'Also gives them the storage accounts and networking in that resource group. The ticket describes machine work.'],
+     ['Virtual Machine User Login', 2, 'That signs them in to the guest OS. It cannot restart a VM from Azure’s side.'],
+     ['Reader', -1, 'Read-only cannot restart anything.']],
+    200, 'CLI: az role assignment create --assignee <id> --role "Virtual Machine Contributor" --scope <rg resource id>'),
+
+  T('g03', 'Nia (data)',
+    'New analyst starting. She will download blobs from stprodlogs in the portal using her own Entra ID account. Standard setup, nothing exotic.',
+    SC.stor, 'res', 'plane',
+    'Storage Blob Data Reader on the storage account. Blob access through Entra ID is a data-plane operation and needs a data-plane role.',
+    [['Storage Blob Data Reader', 0, ''],
+     ['Reader', -1, 'Reader shows the account in the portal and then returns 403 on every blob listing. Control-plane read is not data-plane read.'],
+     ['Storage Blob Data Contributor', 1, 'Adds write and delete on every blob in the account. She downloads.'],
+     ['Storage Account Contributor', 1, 'Manages the account itself — SKU, networking, keys — and still does not read a blob via Entra ID.']],
+    200, 'Roles with “Data” in the name act on what is inside the resource. Roles without it act on the resource.'),
+
+  T('g04', 'Ben (platform)',
+    'Quarterly secret rotation. The ops runbook has to create and update secrets in kv-prod-01, which is on the Azure RBAC model.',
+    SC.kv, 'res', 'kv',
+    'Key Vault Secrets Officer: full data-plane control of secrets — get, list, set, delete, recover. Scope it to the vault the runbook actually touches.',
+    [['Key Vault Secrets Officer', 0, ''],
+     ['Key Vault Secrets User', -1, 'Read-only on secret values. The runbook has to write new ones.'],
+     ['Key Vault Administrator', 1, 'Adds keys and certificates on top of secrets. The runbook rotates secrets.'],
+     ['Contributor', 2, 'Manages the vault resource. On the RBAC model it grants zero access to the secrets inside it.']],
+    200, 'Key Vault data roles come in User (read) and Officer (write) pairs, per object type.'),
+
+  T('g05', 'Grace (backup)',
+    'We are standing up rsv-prod. The backup admin configures the policies, enables protection on new items and owns the vault’s configuration.',
+    SC.bkp, 'res', 'ops',
+    'Backup Contributor: create and edit policies, enable and stop protection, manage the vault — everything except deleting the vault itself and granting access.',
+    [['Backup Contributor', 0, ''],
+     ['Backup Operator', -1, 'Operator runs backups and restores but cannot create or change a policy, which is the job described.'],
+     ['Backup Reader', -1, 'Read-only. Cannot configure anything.'],
+     ['Owner', 1, 'Correct capability, and it also hands out access across the whole scope.']],
+    200, 'Reader → Operator → Contributor is the usual ladder inside a service.'),
+
+  T('g06', 'Marco (app team)',
+    'The developers deploy code to app-dev-01 and restart it when a deployment goes sideways. Nothing else in rg-dev-app.',
+    SC.dev, 'res', 'lookal',
+    'Website Contributor on the web app resource: manage the app, deployments, settings and restarts, without touching the App Service plan or the rest of the RG.',
+    [['Website Contributor', 0, ''],
+     ['Contributor', 1, 'Every resource in scope, of every type. They deploy one app.'],
+     ['Web Plan Contributor', 2, 'Manages the App Service PLAN — the compute the app runs on, its SKU and scale — not the app itself.'],
+     ['Reader', -1, 'Cannot deploy or restart.']],
+    200, 'App Service splits the app and the plan into two roles because they are usually owned by two different teams.'),
+
+  T('g07', 'Ines (containers)',
+    'Our build pipeline pushes container images into acrprod at the end of every merge to main. Standard CI setup.',
+    SC.acr, 'res', 'ident',
+    'AcrPush on the registry. It is the data-plane push role, assigned to the pipeline’s identity on the registry resource.',
+    [['AcrPush', 0, ''],
+     ['AcrPull', -1, 'Pull only. The pipeline is the thing producing the images.'],
+     ['Contributor', 1, 'Lets the pipeline delete the registry, change its SKU and rewire its networking.'],
+     ['AcrDelete', 2, 'Deletes image artifacts. Nothing to do with pushing them.']],
+    200, 'ACR ships AcrPull, AcrPush, AcrDelete and AcrImageSigner. Pick the verb.'),
+
+  T('g08', 'Yusuf (network)',
+    'The network team owns everything network-shaped across the whole Connectivity subscription — that is the agreed operating model.',
+    SC.net, 'sub', 'net',
+    'Network Contributor at the subscription: every VNet, NSG, route table, load balancer and peering in it, and nothing else.',
+    [['Network Contributor', 0, ''],
+     ['Contributor', 1, 'Everything in the subscription including resources other teams own.'],
+     ['DNS Zone Contributor', -1, 'Public DNS zones only. It does not manage VNets, NSGs or route tables.'],
+     ['Reader', -1, 'They own it. Read-only cannot own anything.']],
+    200, 'Resource-type roles are what let you assign at a wide scope without granting everything at that scope.'),
+
+  T('g09', 'Fatima (finance)',
+    'Finance needs to create the FY budgets and cost alerts for the Prod subscription and export cost data monthly.',
+    SC.cost, 'sub', 'cost',
+    'Cost Management Contributor at the subscription: create and manage budgets, alerts, views and exports, with no access to the resources.',
+    [['Cost Management Contributor', 0, ''],
+     ['Cost Management Reader', -1, 'Reads cost data. It cannot create a budget or an export.'],
+     ['Contributor', 1, 'Full control of production resources for a finance reporting job.'],
+     ['Owner', 1, 'As above, plus handing that out to other people.']],
+    200, 'Cost roles pair the same way as everything else: Reader looks, Contributor configures.'),
+
+  T('g10', 'Chen (SecOps)',
+    'An engineer holds an ELIGIBLE Contributor assignment on Prod through PIM. An incident just started. What does he actually do right now?',
+    SC.all, 'sub', 'pim',
+    'He activates the eligible assignment in PIM — justification, optional approval, time-boxed. Eligible means “allowed to become”, not “is”.',
+    [['Activate the eligible assignment in PIM with a justification', 0, ''],
+     ['Nothing — eligible means he already has it', 2, 'That is the whole distinction. Eligible is a standing invitation; active is the role actually in force.'],
+     ['Ask an admin for a permanent Contributor assignment', 1, 'That defeats the reason PIM was configured, and it outlives the incident by years.'],
+     ['Sign out and back in — eligible roles apply on next login', 2, 'There is no implicit activation. Activation is a deliberate, logged action.']],
+    200, 'Eligible = you may activate. Active = it is in force right now.'),
+
+  T('g11', 'Ravi (identity)',
+    'Onboarding the 40-person dev team to the Dev subscription. What do we attach the role assignment to?',
+    SC.dev, 'sub', 'scope',
+    'An Entra security group. One assignment, membership managed by the joiner-mover-leaver process that already exists.',
+    [['An Entra security group containing the team', 0, ''],
+     ['All 40 users, individually', 2, 'Forty assignments to maintain, and access changes become access-control changes forever.'],
+     ['Owner on the group instead of Contributor', 1, 'Right target, wrong role — forty people who can now grant access to anyone.'],
+     ['One shared service principal the whole team signs in as', 2, 'No individual attribution in the activity log, and a credential forty people know.']],
+    200, 'Group-based assignment is also how you stay under the role-assignment limits at scale.'),
+
+  T('g12', 'Ola (governance)',
+    'Our tagging script runs as a service principal and writes costCenter and owner tags on resources across the Prod subscription.',
+    SC.all, 'sub', 'scope',
+    'Tag Contributor at the subscription: manage tags on resources without any other read or write against them.',
+    [['Tag Contributor', 0, ''],
+     ['Contributor', 1, 'Full control of production for a script that writes two strings.'],
+     ['Reader', -1, 'Reading a tag is not writing one.'],
+     ['Resource Policy Contributor', 2, 'Authors and assigns Azure Policy. It does not write tags on resources directly.']],
+    200, 'Tag Contributor is one of several single-purpose roles worth knowing by name.'),
+
+  T('g13', 'Sam (files)',
+    'The platform team creates storage accounts in rg-prod-data and manages their configuration — SKUs, networking, lifecycle rules.',
+    SC.stor, 'rg', 'plane',
+    'Storage Account Contributor at the resource group: create and manage storage accounts as resources, including keys and configuration.',
+    [['Storage Account Contributor', 0, ''],
+     ['Contributor', 1, 'Also hands them every other resource type in that resource group.'],
+     ['Storage Blob Data Contributor', 2, 'Works on the blobs INSIDE an account. It cannot create an account.'],
+     ['Reader', -1, 'Cannot create or configure anything.']],
+    200, 'Account-shaped work is control plane. Blob-shaped work is data plane. Two different role families.'),
+
+  T('g14', 'Sofia (support)',
+    'Agreed design: ops sign in to the Linux VMs in rg-prod-app with their Entra credentials and they DO need sudo for patching.',
+    SC.core, 'rg', 'lookal',
+    'Virtual Machine Administrator Login: Entra-based sign-in with local administrator / root. The design explicitly calls for it.',
+    [['Virtual Machine Administrator Login', 0, ''],
+     ['Virtual Machine User Login', -1, 'Signs in as a standard user with no sudo, which does not cover patching.'],
+     ['Virtual Machine Contributor', 2, 'Manages the VM from Azure. It grants no sign-in inside the operating system at all.'],
+     ['Owner', 1, 'Owner over the resource group does not grant OS login either — and grants everything else.']],
+    200, 'The two Login roles are OS sign-in. The Contributor roles are the Azure object. They never substitute for each other.'),
+
+  T('g15', 'Ana (new hire)',
+    'I am doing this from the CLI for the first time. Grant Reader over the whole rg-prod-app resource group. What goes in --scope?',
+    SC.core, 'rg', 'scope',
+    'az role assignment create --assignee <objectId> --role "Reader" --scope /subscriptions/<subId>/resourceGroups/rg-prod-app — the scope is a full resource ID, and it is the only thing deciding the blast radius.',
+    [['Reader, with --scope set to the resource group’s resource ID', 0, ''],
+     ['Reader, with --scope left off entirely', 1, 'Omitting --scope defaults to the current subscription. One missing flag turns an RG grant into a subscription grant.'],
+     ['Contributor at the resource group', 1, 'Right scope, wrong verb — the ticket says read.'],
+     ['Owner at the resource group', 1, 'Right scope, much wrong verb.']],
+    200, 'Scope in the CLI is always a full resource ID string. /subscriptions/… /resourceGroups/… /providers/…'),
+
+  T('g16', 'Ravi (identity)',
+    'I made the assignment in the portal. Where do I go to confirm it actually landed, and to see what else that person already had here?',
+    SC.core, 'rg', 'scope',
+    'Access control (IAM) → Role assignments on that scope. Tick “inherited” to see assignments coming down from the subscription and management group above it.',
+    [['Access control (IAM) → Role assignments on that scope', 0, ''],
+     ['Entra ID → Roles and administrators', 2, 'That lists Entra directory roles, which are a separate system from Azure RBAC.'],
+     ['The resource group’s Overview blade', 2, 'Shows what is in the resource group, not who can reach it.'],
+     ['Subscriptions → Access keys', 2, 'Not a thing, and keys are not RBAC.']],
+    200, 'The IAM blade shows direct AND inherited assignments. Most surprises are in the inherited list.'),
+
+  T('g17', 'Dana (audit)',
+    'Security wants standing read access across all twelve subscriptions under Contoso for continuous review. Agreed and approved.',
+    SC.all, 'mg', 'scope',
+    'Reader assigned once at the Contoso management group. It is inherited by every child subscription today and every one created later.',
+    [['Reader', 0, ''],
+     ['Reader assigned separately in each of the twelve subscriptions', -1, 'Same access today, twelve things to maintain, and it silently misses subscription thirteen.'],
+     ['Contributor', 1, 'Read access was approved. Contributor was not.'],
+     ['Security Reader', 2, 'That reads Defender for Cloud posture. It is not a general resource read.']],
+    200, 'Assign at the management group when the ask genuinely spans subscriptions — and only then.'),
+
+  T('g18', 'Marco (app team)',
+    'The order-processing worker reads messages off the sb-orders queue. It never sends and never manages the namespace.',
+    SC.sb, 'res', 'ident',
+    'Azure Service Bus Data Receiver, scoped to the queue itself. Data plane, one verb, smallest possible object.',
+    [['Azure Service Bus Data Receiver', 0, ''],
+     ['Azure Service Bus Data Sender', 2, 'The opposite verb. Sender puts messages on; this worker takes them off.'],
+     ['Azure Service Bus Data Owner', 1, 'Send, receive and manage entities across the scope. Far past “reads one queue”.'],
+     ['Contributor', 1, 'Manages the namespace resource and is not the thing that receives a message.']],
+    200, 'Service Bus, Event Hubs and Storage all follow the same Sender / Receiver / Owner data-role shape.'),
+
+  T('g19', 'Yusuf (network)',
+    'The app team adds and updates records in our public DNS zone contoso.com. Agreed: they own the records for their services.',
+    SC.dns, 'res', 'net',
+    'DNS Zone Contributor on the zone: manage record sets within it. Scope it to the zone the team owns.',
+    [['DNS Zone Contributor', 0, ''],
+     ['Network Contributor', 1, 'Covers VNets, NSGs and load balancers too — an entirely different surface than a DNS zone.'],
+     ['Contributor', 1, 'Everything in scope of every type.'],
+     ['Reader', -1, 'Cannot create a record.']],
+    200, 'Public DNS zones and private DNS zones have separate Contributor roles. Read which one the ticket means.'),
+
+  T('g20', 'Chen (SecOps)',
+    'New SecOps starter needs to review Defender for Cloud recommendations, secure score and alerts for Prod. Read only.',
+    SC.all, 'sub', 'lookal',
+    'Security Reader: view security posture, recommendations, alerts and policies at the scope. It is the read half of the Defender for Cloud pair.',
+    [['Security Reader', 0, ''],
+     ['Reader', -1, 'Shows resources. The security blades want the security roles.'],
+     ['Security Admin', 1, 'Adds dismissing alerts and editing security policy. The ticket says read only.'],
+     ['Owner', 1, 'Full control of the subscription for a read-only review.']],
+    200, 'Security Reader and Security Admin are the Defender for Cloud pair. They are not general resource roles.'),
+
+
+  /* ---------------------------------------------------------------------
+     TIER 300 · PROFESSIONAL
+     Production reality: limits, propagation, licensing cost, lifecycle,
+     the 403 you are actually looking at, and when RBAC is the wrong tool.
+     ------------------------------------------------------------------ */
+
+  T('h01', 'Marco (app team)',
+    'The release pipeline assigns Contributor to a freshly created identity and then immediately deploys with it. It fails with 403 about one run in four, and passes on retry.',
+    SC.dev, 'rg', 'scope',
+    'Role assignments are eventually consistent — allow up to about five minutes for propagation. Pipelines that assign then immediately act need a retry-with-backoff, not a bigger role.',
+    [['Keep the role and add retry-with-backoff around the first call', 0, ''],
+     ['Assign Owner instead — it takes effect immediately', 1, 'Owner propagates on exactly the same path. You would have bought nothing but a permanent over-grant.'],
+     ['Assign the role a second time in the same run', 2, 'A duplicate assignment does not shorten propagation. It just leaves you two assignments to clean up.'],
+     ['Move the assignment up to the subscription so it lands sooner', 1, 'Scope does not change propagation time. It changes blast radius.']],
+    300),
+
+  T('h02', 'Ola (governance)',
+    'We are writing custom roles per app team. Fifty teams, and each wants their own. Before I approve this, what am I signing us up for?',
+    SC.all, 'sub', 'custom',
+    'Custom roles are capped per tenant (5,000 in Azure commercial, 2,000 in some sovereign clouds), assignableScopes must be right at creation, and every definition becomes a thing to review forever. Prefer built-ins plus scope discipline.',
+    [['Use built-in roles at tighter scopes; write a custom role only when no built-in fits', 0, ''],
+     ['Approve it — custom roles are unlimited', 2, 'They are not. There is a hard per-tenant ceiling, and a much lower practical ceiling set by whoever has to review them.'],
+     ['Give every team Owner on their own RG instead — fewer definitions to manage', 1, 'Fifty teams who can grant access. You traded a maintenance problem for a security one.'],
+     ['Write one custom role and assign it everywhere', -1, 'A role definition that fits fifty different jobs is either enormous or useless.']],
+    300),
+
+  T('h03', 'Dana (audit)',
+    'The access review export is full of assignments showing “Identity not found”. Someone deleted the groups months ago. How bad is this and what do we do?',
+    SC.all, 'sub', 'scope',
+    'Orphaned assignments — the principal is gone but the assignment object remains. They grant nothing today, but they pollute every review and an object ID can in principle be reused. Clean them out and add it to the leaver process.',
+    [['Delete the orphaned assignments and add cleanup to the leaver process', 0, ''],
+     ['Ignore them — a deleted identity cannot sign in', -1, 'Correct that nothing is exposed today, and wrong that nothing needs doing. They make every future review unreadable.'],
+     ['Recreate the groups so the assignments resolve again', 2, 'That restores access nobody asked for, to a group nobody is managing.'],
+     ['Replace them all with Owner on the subscription so the list is consistent', 1, 'Consistently catastrophic.']],
+    300),
+
+  T('h04', 'Nadia (CTO)',
+    'Security wants zero standing access: every engineer eligible, nothing active. We have 400 engineers. Tell me what this costs before I say yes.',
+    SC.all, 'sub', 'pim',
+    'PIM is a Microsoft Entra ID P2 (or Entra ID Governance) feature and it is licensed per user who is eligible or activating. Four hundred engineers means four hundred P2 licences, plus the operational cost of approvals at 3am.',
+    [['Budget Entra ID P2 for every eligible user, then scope PIM to the roles that need it', 0, ''],
+     ['Roll it out to all 400 — PIM is included with any Azure subscription', 2, 'It is not an Azure resource feature. It is an Entra ID premium feature with per-user licensing.'],
+     ['Skip PIM and give everyone standing Contributor instead', 1, 'That is precisely the risk the request exists to remove.'],
+     ['Make only the two break-glass accounts eligible', -1, 'Break-glass accounts are the one thing that should NOT depend on PIM. This inverts the design.']],
+    300),
+
+  T('h05', 'Nia (data)',
+    'We are up to 900 role assignments on stprodlogs because every project gets read on its own container. It is unmanageable and we are nearing the limit.',
+    SC.stor, 'res', 'scope',
+    'Attribute-based access control (ABAC) conditions: one assignment of Storage Blob Data Reader with a condition on the container name or a blob index tag replaces hundreds of container-scoped assignments.',
+    [['One Storage Blob Data Reader assignment with an ABAC condition', 0, ''],
+     ['Storage Blob Data Reader on the whole account for everyone', 1, 'Every project can now read every other project’s data. That is what the 900 assignments were preventing.'],
+     ['Keep going and raise a support ticket to lift the limit', -1, 'The limit is there because assignment evaluation is not free. The design is the problem, not the ceiling.'],
+     ['Switch everyone to account keys', 2, 'Shared keys have no identity, no scope and no audit trail. That is a hard step backwards.']],
+    300),
+
+  T('h06', 'Sam (files)',
+    'A partner needs to download one specific blob from stprodlogs for the next six hours. They have no account in our tenant and legal will not create one.',
+    SC.stor, 'res', 'plane',
+    'This is the case where RBAC is the wrong instrument. Issue a user-delegation SAS: signed with Entra credentials, scoped to one blob, with a hard expiry — and revocable by rotating the user delegation key.',
+    [['Issue a short-lived user-delegation SAS for that blob', 0, ''],
+     ['Create a guest account and assign Storage Blob Data Reader', 1, 'A permanent identity in your directory for a six-hour download, which somebody then has to remember to remove.'],
+     ['Send them an account key', 2, 'An account key is full control of every container in the account, with no expiry and no attribution.'],
+     ['Make the container public for the afternoon', 2, 'Anonymous public read of production data. There is no scenario where this is the answer.']],
+    300),
+
+  T('h07', 'Ravi (identity)',
+    'A partner engineer is a B2B guest in our tenant with Contributor on rg-dev-app. Their own employer has just let them go. What actually happens to our access?',
+    SC.dev, 'rg', 'entra',
+    'Nothing happens automatically. The guest object lives in YOUR tenant; disabling the account in the home tenant stops them authenticating there, but your assignment and their guest object persist. Guest lifecycle has to be run by you — access reviews, expiry, or a sponsor process.',
+    [['Run access reviews on guests and remove the assignment and the guest object yourself', 0, ''],
+     ['Nothing to do — disabling them at home revokes our access too', 2, 'Home-tenant sign-in is what breaks. Your guest object and your role assignment are separate things you own.'],
+     ['Add a conditional access policy for guests', -1, 'Useful hardening, and it does not remove permission they still hold.'],
+     ['Convert them to a member account so we control it', 1, 'Now an ex-partner has a full member identity in your directory. Worse, not better.']],
+    300),
+
+  T('h08', 'Ben (platform)',
+    'We have forty key vaults still on the legacy access-policy model. Security wants them all migrated to Azure RBAC. What is the risk I have to plan around?',
+    SC.kv, 'res', 'kv',
+    'Access policies are per-vault and grant nothing by inheritance. RBAC does inherit — a Contributor at the subscription who was harmless before can suddenly hold vault data roles from above. Audit the inherited assignments at every scope before you flip a vault.',
+    [['Audit inherited assignments above each vault first, then migrate vault by vault', 0, ''],
+     ['Flip all forty at once — the permission model is a single switch', 1, 'It is a single switch and forty simultaneous, silent permission changes. Anything with inherited data roles gains access the moment you flip.'],
+     ['Leave them on access policies — the models are equivalent', -1, 'They are not. Access policies have no inheritance, no PIM, no deny assignments and no unified audit with the rest of RBAC.'],
+     ['Grant Key Vault Administrator at the subscription so nothing breaks during migration', 1, 'Full data-plane control over every vault in the subscription, granted to smooth a migration. This is the mistake the migration exists to find.']],
+    300),
+
+  T('h09', 'Chen (SecOps)',
+    'The tenant is fourteen years old. The access review turns up “Co-Administrator” entries that do not appear in the IAM role assignments list.',
+    SC.all, 'sub', 'scope',
+    'Classic subscription administrators — Account Administrator, Service Administrator, Co-Administrator — are a pre-ARM model that still confers Owner-equivalent rights. Remove the Co-Administrators and replace them with real RBAC assignments.',
+    [['Remove the Co-Administrators and re-grant with Azure RBAC', 0, ''],
+     ['Ignore them — classic administrators are read-only legacy records', 2, 'They are live. Co-Administrator is effectively Owner on the whole subscription.'],
+     ['Assign Owner to those people so at least it is visible in IAM', 1, 'Now they hold Owner twice. Remove, do not duplicate.'],
+     ['Add Reader alongside so the list looks complete', -1, 'Additive. It changes nothing about what they can already do.']],
+    300),
+
+  T('h10', 'Nadia (CTO)',
+    'Our managed service provider needs to operate the Prod subscription. Security refuses to create guest accounts for twenty of their engineers.',
+    SC.all, 'sub', 'entra',
+    'Azure Lighthouse delegated resource management: their engineers stay in their own tenant, you delegate specific built-in roles at subscription or resource-group scope, and you can revoke the delegation in one action.',
+    [['Delegate the subscription via Azure Lighthouse', 0, ''],
+     ['Create twenty guest accounts and assign Contributor', 1, 'Twenty identities in your directory to onboard, review and offboard, which is exactly what was refused.'],
+     ['Give them one shared service principal', 2, 'No per-engineer attribution and a credential twenty people share.'],
+     ['Delegate at the management group so it covers future subscriptions too', 1, 'Lighthouse delegation targets subscriptions and resource groups, and “future subscriptions too” is a much larger commitment than the ask.']],
+    300),
+
+  T('h11', 'Ben (platform)',
+    'Thirty VMs in Prod all need to read the same config container. Should each get a system-assigned identity, or do we share one user-assigned identity?',
+    SC.stor, 'res', 'ident',
+    'A user-assigned identity: one identity, one role assignment, survives VM recreation. The trade-off you accept is a shared blast radius — compromise any one of the thirty and you have the identity all thirty use.',
+    [['One user-assigned identity, assigned Storage Blob Data Reader on the account', 0, ''],
+     ['Thirty system-assigned identities and thirty assignments', -1, 'Tightest isolation, and thirty assignments that must be recreated every time a VM is rebuilt. Defensible, but it is the operationally expensive answer.'],
+     ['One user-assigned identity with Storage Blob Data Contributor', 1, 'Write and delete on production data for thirty machines that only read.'],
+     ['Share one service principal secret across all thirty VMs', 2, 'A secret on thirty machines, rotated by nobody. Managed identity exists to delete this option.']],
+    300),
+
+  T('h12', 'Marco (app team)',
+    'The deployment fails with RequestDisallowedByPolicy. The team’s first instinct is to ask for a bigger role. What is actually happening?',
+    SC.core, 'rg', 'scope',
+    'That error is Azure Policy, not RBAC. RBAC failures come back as AuthorizationFailed / 403. More permission will not help — the request’s SHAPE is being refused, not the caller.',
+    [['Read the policy assignment named in the error and fix the resource definition', 0, ''],
+     ['Assign Contributor at the subscription instead', 1, 'A wider role against a control that does not look at roles. The deployment fails identically, with more standing access.'],
+     ['Assign Owner — Owner is exempt from policy', 2, 'Owner is not exempt from policy. Nothing in RBAC is. Only an exemption or an exclusion changes policy evaluation.'],
+     ['Retry the deployment later', -1, 'Policy is evaluated at request time, every time. It will fail identically at midnight.']],
+    300),
+
+  T('h13', 'Sam (files)',
+    'We moved stprodfiles from rg-prod-data to rg-prod-app last night. This morning the analytics service principal gets 403 and nobody changed its permissions.',
+    SC.stor, 'res', 'scope',
+    'Role assignments live at a scope, not on the resource. The assignment was made at rg-prod-data; the resource left that scope, so it left the assignment behind. Re-assign at the new scope — or assign at the resource itself, which does travel with it.',
+    [['Re-create the assignment at the new resource group (or on the resource itself)', 0, ''],
+     ['Assign Contributor at the subscription so this cannot happen again', 1, 'It cannot happen again because everything is now permitted everywhere. That is not a fix.'],
+     ['Restore the resource to the old resource group', -1, 'Undoes a legitimate change to avoid re-issuing one assignment.'],
+     ['Rotate the service principal secret', 2, 'A 403 is authorisation, not authentication. The credential is working fine.']],
+    300),
+
+  T('h14', 'Yusuf (network)',
+    'We are peering vnet-hub with a VNet that lives in a subscription in a DIFFERENT Entra tenant after the acquisition. What does that change?',
+    SC.net, 'res', 'net',
+    'Cross-tenant peering cannot be done by one person holding rights on both sides through ordinary RBAC — each side is authorised in its own tenant. You need a guest/service principal with Network Contributor in the other tenant, or the peering initiated from each side by its own owner.',
+    [['Have each tenant’s network owner create their half of the peering', 0, ''],
+     ['Assign yourself Network Contributor on the other VNet from your own tenant', 2, 'You cannot assign a role to a principal in your tenant on a resource in a tenant that does not know you. RBAC does not cross a tenant boundary by itself.'],
+     ['Assign Owner at your management group so it reaches further', 1, 'A management group reaches down its own tenant only. It has no reach into another directory.'],
+     ['Reader on both sides', -1, 'Peering is a write on both VNets.']],
+    300),
+
+  T('h15', 'Dana (audit)',
+    'The auditor wants proof of who granted Owner on Prod fourteen months ago. Where does that live, and will it be there?',
+    SC.all, 'sub', 'scope',
+    'Role assignment writes are Activity Log events — and the Activity Log only retains 90 days. If you did not export it to a Log Analytics workspace or a storage account, the fourteen-month-old evidence does not exist.',
+    [['Query the exported Activity Log in Log Analytics — and if it was never exported, say so', 0, ''],
+     ['Open the Activity Log blade and filter to that date', -1, 'The blade stops at 90 days. Fourteen months ago is simply not there.'],
+     ['Look at the current role assignments list', 2, 'That shows what exists now, not who created it or when.'],
+     ['Ask Microsoft Support to retrieve it', 2, 'Retention is a customer configuration. Support cannot produce data your tenant never kept.']],
+    300),
+
+  T('h16', 'Chen (SecOps)',
+    'We added a conditional access policy requiring MFA and a compliant device for the Azure management app. Leadership now believes standing Owner is acceptable. Are they right?',
+    SC.all, 'sub', 'pim',
+    'No. Conditional access governs HOW someone authenticates. It does not reduce what they hold once they are in — and it does nothing about a token already issued, a service principal, or an insider. It is a complement to least privilege, never a substitute.',
+    [['Keep the CA policy and still reduce the standing assignment', 0, ''],
+     ['Accept standing Owner now that CA is in place', 1, 'The permission is still live for anyone who satisfies the CA policy, including the legitimate user on a bad day.'],
+     ['Remove all their access since CA protects sign-in anyway', -1, 'Now nobody can do the job. Least privilege is not zero privilege.'],
+     ['Replace CA with a deny assignment', 2, 'You cannot author deny assignments by hand, and they answer a different question than sign-in conditions.']],
+    300),
+
+  T('h17', 'Amara (SRE)',
+    'PIM is on. During last night’s Sev-1 the on-call waited 22 minutes for an approver to wake up before he could touch anything. Fix it without going back to standing access.',
+    SC.all, 'sub', 'pim',
+    'Tune the PIM policy for the incident path: no-approval activation for the break-fix role with a short maximum duration, MFA and justification required, and alerting on every activation. Approval is a control you spend where it pays, not everywhere.',
+    [['Configure the incident role for self-activation with MFA, justification and alerting', 0, ''],
+     ['Give the on-call rota standing Contributor', 1, 'That is the exact posture the PIM rollout removed, reintroduced by an operational complaint.'],
+     ['Add more approvers and leave the policy as it is', -1, 'It shortens the wait on a good night and changes nothing structurally on a bad one.'],
+     ['Extend the maximum activation duration to 24 hours', 1, 'Makes each activation broader in time without making the first one faster.']],
+    300),
+
+  T('h18', 'Ben (platform)',
+    'Our deployment pipeline died at 02:00 on a Sunday. The service principal’s client secret expired. It has happened twice this year.',
+    SC.dev, 'rg', 'ident',
+    'Stop using a secret. Workload identity federation lets the pipeline exchange its own OIDC token for an Azure token — no secret to expire, rotate, or leak. Keep the same role at the same scope.',
+    [['Move the pipeline to workload identity federation and keep the same role assignment', 0, ''],
+     ['Set the secret to expire in 24 months instead of 12', -1, 'You have moved the outage, not removed it, and doubled the window in which a leaked secret is useful.'],
+     ['Grant the pipeline Owner so it can rotate its own secret', 1, 'A pipeline that can grant access, to solve a credential-lifetime problem.'],
+     ['Store the secret in Key Vault and read it at run time', -1, 'Better hygiene, same expiry. Whatever reads the vault still needs a credential.']],
+    300),
+
+  T('h19', 'Ravi (identity)',
+    'The Berlin service desk resets passwords for Berlin staff. Today they hold User Administrator across the whole tenant, which means they could reset the CFO’s password.',
+    SC.dir, 'mg', 'entra',
+    'Scope the Entra role to an administrative unit containing the Berlin users. Entra directory roles are tenant-wide by default; administrative units are how you make them regional or departmental.',
+    [['Assign User Administrator scoped to a Berlin administrative unit', 0, ''],
+     ['Keep tenant-wide User Administrator and write a policy document', 1, 'The capability is what an attacker gets. A document is not a control.'],
+     ['Use Azure RBAC at the Contoso management group to scope it', 2, 'Azure RBAC does not scope directory roles. Different system, different scoping mechanism.'],
+     ['Assign Helpdesk Administrator tenant-wide instead', -1, 'Smaller role, still tenant-wide — it can still reset a privileged user’s password unless the role protections stop it.']],
+    300),
+
+  T('h20', 'Ola (governance)',
+    'Access grows and never shrinks. Leadership wants a repeatable way to prove that every assignment still has a reason to exist.',
+    SC.all, 'sub', 'scope',
+    'Entra ID access reviews on the groups that carry the assignments (and on the PIM-eligible roles), on a recurring schedule, with auto-remove on no-response. It is a governance loop, not a one-off cleanup.',
+    [['Recurring access reviews on the assignment-bearing groups, with auto-remove', 0, ''],
+     ['Export the assignments to a spreadsheet each quarter and email it around', -1, 'Produces a document. Nothing is removed unless somebody acts, and nobody does.'],
+     ['Delete all assignments annually and let people re-request', 2, 'A scheduled outage of everything, and the re-requests will be approved in bulk without review.'],
+     ['Give the governance team Owner everywhere so they can clean up', 1, 'A new standing over-grant introduced to reduce standing over-grants.']],
+    300),
+
+  /* ---------------------------------------------------------------------
+     TIER 500 · ARCHITECT
+     Cross-service consequence, SLA and cost composition, failure modes,
+     and the arguments that actually happen in a design review.
+     ------------------------------------------------------------------ */
+
+  T('k01', 'Nadia (CTO)',
+    'We just acquired a company with its own Entra tenant and 30 subscriptions. Do we merge tenants or not? Argue it from access control.',
+    SC.all, 'mg', 'entra',
+    'Tenant is the hard boundary for identity, PIM, conditional access, deny assignments and management-group hierarchy — none of it crosses. Merging buys one governance plane at the cost of a long, risky identity migration. Lighthouse buys operational access on day one and leaves two of everything to govern.',
+    [['Operate cross-tenant with Lighthouse now, plan a tenant migration as a separate programme', 0, ''],
+     ['Assign our management group roles over their subscriptions', 2, 'A management group hierarchy exists inside exactly one tenant. There is no assignment that reaches across the boundary.'],
+     ['Move their subscriptions into our tenant this quarter', 1, 'Transferring a subscription to another tenant drops every role assignment, every managed identity and every key vault access policy on it. That is not a quarter, and it is not free.'],
+     ['Create guest accounts for all of their staff and leave both tenants as they are', -1, 'A permanent two-directory operating model chosen by accident rather than designed.']],
+    500),
+
+  T('k02', 'Ola (governance)',
+    'The proposed management group tree is six levels deep, one level per business unit, per environment, per region. Defend or demolish it.',
+    SC.all, 'mg', 'scope',
+    'The hierarchy supports six levels below the root group, so it fits — and that is not the argument. Every level is a place an assignment can hide, and effective permission becomes an archaeology exercise. Design rule: management groups carry GOVERNANCE (policy, guardrails), subscriptions carry OWNERSHIP. Region and business unit belong in tags and subscription naming, not in the tree.',
+    [['Flatten to a shallow tree: governance in MGs, ownership in subscriptions', 0, ''],
+     ['Approve it — six levels is within the supported limit', -1, 'Supported is not the same as operable. The limit is not the constraint; human review is.'],
+     ['Go deeper and add one level per application', 1, 'Past the supported depth, and every additional level multiplies the inherited assignments nobody can see from below.'],
+     ['Abolish management groups and assign everything per subscription', 2, 'Then nothing applies to subscriptions created later, which is the one thing the MG layer guarantees.']],
+    500),
+
+  T('k03', 'Chen (SecOps)',
+    'Design review: who is allowed to grant access in a landing zone, and who approves them? Give me the control, not the intention.',
+    SC.all, 'mg', 'grant',
+    'Split the two capabilities: landing-zone owners get Contributor (which cannot write role assignments at all), and a separate, small group holds Role Based Access Control Administrator as a PIM-eligible role with approval. The person who deploys is structurally not the person who grants — and the granting path is time-boxed and logged.',
+    [['Contributor for builders; RBAC Administrator PIM-eligible with approval for granting', 0, ''],
+     ['Owner for landing-zone owners, with an approval process in the wiki', 1, 'Owner IS the granting capability. A process document does not remove it.'],
+     ['One central team holds Owner and does every grant by ticket', -1, 'Safe and it becomes the bottleneck that teams route around — usually by getting Owner “temporarily”.'],
+     ['Deny assignments to stop landing-zone owners granting access', 2, 'You cannot author deny assignments. They are created by Azure for managed apps and deployment stacks.']],
+    500),
+
+  T('k04', 'Amara (SRE)',
+    'We are committing to a 15-minute response objective for Sev-1. Every production role is PIM-eligible with approval. Reconcile those two statements.',
+    SC.all, 'sub', 'pim',
+    'Zero standing access adds an activation step to the critical path — approval latency, MFA, and a dependency on Entra ID being healthy. Either the incident role activates without approval (MFA + justification + alert), or your response objective silently includes an unbounded human wait, and Entra becomes a dependency of your recovery path.',
+    [['Give the break-fix role self-activation with MFA and alerting; keep approval for everything else', 0, ''],
+     ['Keep approval on everything and accept the response objective as written', 1, 'The objective is then unachievable by design, and the first Sev-1 will produce a standing-access exception that never gets reversed.'],
+     ['Give the on-call standing Owner and rely on detection', 1, 'You traded a latency problem for a permanent blast-radius problem.'],
+     ['Remove the response objective', 2, 'The objective is the business requirement. The access design has to serve it, not the reverse.']],
+    500),
+
+  T('k05', 'Nadia (CTO)',
+    'Our two break-glass accounts are excluded from every conditional access policy. Security says that is a hole. What is the actual design consequence?',
+    SC.dir, 'mg', 'entra',
+    'It is a deliberate hole, and it is the reason the account exists: if CA, federation or PIM is what is broken, anything that depends on them cannot rescue you. The consequence you must accept is compensating detection — alert on any sign-in by those accounts, keep the credentials split and offline, and exercise them on a schedule.',
+    [['Keep the exclusion and alert on every sign-in by those accounts', 0, ''],
+     ['Bring them under conditional access like every other account', 2, 'Then a broken CA policy locks you out of your own tenant with no path back in. That is the failure this design exists to survive.'],
+     ['Make them PIM-eligible instead of permanent', 2, 'PIM may be the thing that is down. Break-glass must not depend on the systems it recovers.'],
+     ['Reduce them to Contributor to shrink the risk', -1, 'A recovery account that cannot restore access to the tenant is not a recovery account.']],
+    500),
+
+  T('k06', 'Ben (platform)',
+    'The platform team proposes one user-assigned managed identity, used by every workload in Prod, with the roles it needs collected on it. Review it.',
+    SC.all, 'sub', 'ident',
+    'One identity means one blast radius: the union of every permission any workload needed, reachable from any workload that can obtain a token for it. Compromise the least important service and you hold the most important service’s access. Partition identities by trust boundary, not by convenience.',
+    [['Partition into one identity per workload or trust boundary', 0, ''],
+     ['Approve it — one identity is far fewer assignments to manage', 1, 'Fewer assignments, and each one is now granted to everything. Manageability bought with permission union is the classic bad trade.'],
+     ['Approve it but scope every assignment to resource level', -1, 'Tighter scopes, still one identity holding all of them. The union problem is unchanged.'],
+     ['Use system-assigned identities and no roles at all', 2, 'An identity with no role assignment cannot do its job. The question is how to partition, not whether to grant.']],
+    500),
+
+  T('k07', 'Chen (SecOps)',
+    'The platform team wants to publish landing zones as deployment stacks with deny settings, so app teams cannot delete platform resources — not even the subscription Owner.',
+    SC.all, 'sub', 'deny',
+    'That creates real deny assignments, and deny beats every allow including Owner. It is the strongest control you can put in an app team’s way, which is exactly the risk: the app team can no longer self-serve a fix at 3am, and the only escape is the platform team. Decide, in advance and in writing, who can remove the stack and how fast.',
+    [['Adopt it, and define an owned, tested break-glass path to remove or update the stack', 0, ''],
+     ['Adopt it — deny assignments cannot cause an operational problem because they only block deletes', 1, 'They block what the deny settings say they block, for everyone, permanently, until the stack is changed. That is an availability decision, not just a security one.'],
+     ['Use a CanNotDelete lock instead and call it equivalent', -1, 'A lock is close and it is per-scope and removable by anyone with the lock-delete permission — including the app team you are constraining.'],
+     ['Rely on RBAC alone — just do not give app teams delete', 2, 'The subscription Owner can re-grant themselves delete in ten seconds. That is the specific gap deny assignments close.']],
+    500),
+
+  T('k08', 'Nadia (CTO)',
+    'Multi-tenant SaaS. One thousand customers. Do we isolate each customer in a resource group or a subscription? Answer from access control and quota.',
+    SC.all, 'sub', 'scope',
+    'The subscription is the real boundary: quotas, policy assignment, cost reporting, deny assignments and the RBAC ceiling all live there. A resource group per customer shares one quota pool and one assignment budget, and a single mis-scoped assignment reaches every customer. A thousand subscriptions is a management-group and automation problem — which is a problem you can automate.',
+    [['Subscription per customer, grouped under management groups and provisioned by automation', 0, ''],
+     ['Resource group per customer in one subscription', 1, 'One noisy customer exhausts a shared quota, and every customer sits inside one blast radius that one subscription-scope assignment can cross.'],
+     ['One resource group for everything, separated by tags', 2, 'Tags are metadata. They enforce nothing.'],
+     ['A separate tenant per customer', 1, 'Maximum isolation, and you have signed up to operate a thousand directories, a thousand PIM configurations and a thousand break-glass pairs.']],
+    500),
+
+  T('k09', 'Ola (governance)',
+    'Landing-zone owners want to author their own custom roles. Platform wants one definition reused everywhere. What does assignableScopes actually commit us to?',
+    SC.all, 'mg', 'custom',
+    'A custom role definition with the management group in assignableScopes is one object governing many subscriptions: change it once and every assignment of it changes everywhere, instantly, with no per-team review. That is the benefit and the entire risk. Definitions belong to the platform team; assignment belongs to the landing zone. (And a definition containing DataActions cannot be assigned at management-group scope at all.)',
+    [['Platform owns the definitions at the MG; landing zones own the assignments below', 0, ''],
+     ['Let each landing zone author and assign its own custom roles', -1, 'Fifty divergent definitions of “developer”, none of which can be reasoned about tenant-wide.'],
+     ['One definition, and let landing-zone owners edit it', 1, 'Any one team can silently widen permissions in every other team’s subscription.'],
+     ['Skip custom roles and give landing-zone owners Owner', 1, 'The over-grant this entire conversation exists to avoid.']],
+    500),
+
+  T('k10', 'Dana (audit)',
+    'Elevate access at root gives a Global Administrator User Access Administrator over every subscription. What must be true about how we use it?',
+    SC.dir, 'mg', 'entra',
+    'It is a recovery mechanism, not an operating mode. The design consequence: elevation must be alerted on in near-real time, the elevation must be turned back off in the same change window, and the assignments it was used to create must be reviewed — because a single elevation can create standing Owner anywhere in the tenant, invisible from any subscription blade.',
+    [['Alert on every elevation, revert it in the same window, and review what it created', 0, ''],
+     ['Leave elevation on so platform admins never get blocked', 1, 'Permanent tenant-wide User Access Administrator held by every Global Administrator. This is the largest standing permission the platform can express.'],
+     ['Elevate quarterly as part of routine operations', 1, 'Routine use of a break-glass control turns it into ordinary standing access with extra steps.'],
+     ['Ban elevation entirely', -1, 'Then a tenant that has lost every Owner has no recovery path at all.']],
+    500),
+
+  T('k11', 'Fatima (finance)',
+    'Security proposes PIM for all 4,000 employees. Finance wants the cheaper option. Give me the actual comparison.',
+    SC.all, 'sub', 'pim',
+    'You are not buying licences, you are buying the removal of standing privilege — so only the population that HOLDS privilege needs it. Four thousand P2 licences for a tenant where three hundred people hold anything privileged is buying a control for people it does not apply to. Scope PIM to privileged roles, keep everyone else on group-based least privilege, and compare against the expected cost of one standing-Owner compromise.',
+    [['Licence the privileged population for PIM; group-based least privilege for the rest', 0, ''],
+     ['Buy P2 for all 4,000 so the policy is simple', 1, 'Simple and largely spent on users who hold no privileged role to make eligible.'],
+     ['Skip PIM entirely and rely on conditional access', 1, 'CA governs how they sign in. It leaves every standing permission exactly where it is.'],
+     ['Give the 300 privileged users standing access and monitor closely', -1, 'Monitoring detects. It does not prevent, and the window is however long detection takes.']],
+    500),
+
+  T('k12', 'Ravi (identity)',
+    'A partner’s guest account holds Owner on one of our subscriptions. Their tenant gets compromised overnight. Walk me through our exposure.',
+    SC.all, 'sub', 'entra',
+    'Authentication happens in THEIR tenant; authorisation happens in yours. A compromise of their identity plane produces a valid token for a principal you have granted Owner. Cross-tenant access settings, guest access reviews, PIM for guests and never granting guests Owner are the controls — because you do not control their MFA, their CA, or their offboarding.',
+    [['Cap guest permissions well below Owner and put them behind PIM and access reviews', 0, ''],
+     ['Nothing to do — their tenant is their problem', 2, 'Their tenant is the authentication authority for a principal that holds Owner in yours. It is very much your problem.'],
+     ['Require MFA for guests and keep Owner', -1, 'Their tenant satisfies the MFA claim. You are trusting a control you do not operate.'],
+     ['Convert them to members in our tenant', 1, 'You now own their credential lifecycle and their offboarding, for an external company’s staff.']],
+    500),
+
+  T('k13', 'Amara (SRE)',
+    'If Entra ID is degraded in our region, what can our platform team still do in Azure? Design the answer, do not guess it.',
+    SC.all, 'sub', 'pim',
+    'Every control-plane call is authorised against tokens Entra issues, so an Entra outage degrades everything — but the failure modes differ: already-issued tokens keep working until expiry, PIM ACTIVATION needs Entra to be healthy, and break-glass sign-in needs it too. The design consequence: your recovery runbook cannot depend on activating a role during the outage, and that is precisely why a small, permanent, heavily-alerted standing assignment exists.',
+    [['Keep a small permanent break-fix assignment, alerted and reviewed, outside the PIM path', 0, ''],
+     ['Rely on PIM activation during the outage', 2, 'Activation is an Entra operation. If Entra is what is down, the activation is what fails.'],
+     ['Assume existing tokens will carry us through', -1, 'They will, until they expire — typically about an hour, which is shorter than most regional incidents.'],
+     ['Give everyone standing Owner so nothing can block us', 1, 'A permanent tenant-wide risk taken to hedge an occasional one.']],
+    500)
+  ];
+
+  /* =========================================================================
+     ENGINE
+     ====================================================================== */
+  var SCOPE_KEYS = ['mg', 'sub', 'rg', 'res'];
+  var SCOPE_LABEL = { mg: 'Management group', sub: 'Subscription', rg: 'Resource group', res: 'Resource' };
+  var SCOPE_KEYCAP = { mg: 'A', sub: 'S', rg: 'D', res: 'F' };
+  var RANK = { res: 0, rg: 1, sub: 2, mg: 3 };
+  var GAME_ID = 'rbac-roulette';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* =========================================================================
+     TIER SCALING
+     A beginner and an expert must not play under identical pressure. Every
+     dial the game actually has is scaled here and nowhere else.
+       opts       how many role buttons are offered (correct + decoys)
+       pat0/Drop/Min   patience per ticket, and how fast waves squeeze it
+       spawn0/Drop/Min how fast tickets arrive
+       sec        starting security score · pen*  what each mistake costs
+       cap        pending-ticket limit before the queue overflows
+       mult       score multiplier — an expert run outscores a foundation run
+       hints      whether the ticket's hint line is shown
+       min        fewest tickets in the pool before a round is worth starting
+     The 400 row reproduces the original numbers exactly: the default tier
+     plays byte-for-byte the game that shipped before tiers existed.
+     ====================================================================== */
+  var TIER_CFG = {
+    100: { opts: 2, pat0: 30000, patDrop:  900, patMin: 18000, spawn0: 9000, spawnDrop: 400, spawnMin: 5200,
+           sec: 150, penOver: 10, penOverBoth: 14, penWrong: 4,  penExpire: 6,  cap: 7, mult: 0.6, hints: true,  min: 8 },
+    200: { opts: 3, pat0: 24000, patDrop: 1100, patMin: 14000, spawn0: 7400, spawnDrop: 450, spawnMin: 4200,
+           sec: 130, penOver: 12, penOverBoth: 18, penWrong: 6,  penExpire: 8,  cap: 6, mult: 0.8, hints: true,  min: 8 },
+    300: { opts: 4, pat0: 19500, patDrop: 1200, patMin:  9500, spawn0: 6000, spawnDrop: 520, spawnMin: 2800,
+           sec: 110, penOver: 16, penOverBoth: 22, penWrong: 8,  penExpire: 10, cap: 5, mult: 1.0, hints: false, min: 8 },
+    400: { opts: 4, pat0: 16500, patDrop: 1250, patMin:  7000, spawn0: 5200, spawnDrop: 560, spawnMin: 2200,
+           sec: 100, penOver: 16, penOverBoth: 24, penWrong: 8,  penExpire: 12, cap: 5, mult: 1.0, hints: false, min: 8 },
+    500: { opts: 4, pat0: 14000, patDrop: 1400, patMin:  6000, spawn0: 4400, spawnDrop: 600, spawnMin: 1900,
+           sec:  85, penOver: 20, penOverBoth: 28, penWrong: 10, penExpire: 14, cap: 4, mult: 1.6, hints: false, min: 6 }
+  };
+
+  function tierNow()  { return Station.tier.get(); }
+  function cfg()      { return TIER_CFG[tierNow()] || TIER_CFG[400]; }
+  function scoreKey() { return GAME_ID + '@' + tierNow(); }
+  /** Tickets that survive the current tier selection (respects "show lower too"). */
+  function pool()     { return Station.tier.filter(BANK); }
+
+  /** How many tickets tier t would give us, honouring the "below" toggle. */
+  function poolSizeAt(t) {
+    var counts = Station.tier.counts(BANK), n = 0;
+    Station.tier.all().forEach(function (x) {
+      if (x === t || (Station.tier.below() && x < t)) n += counts[x];
+    });
+    return n;
+  }
+  /** Nearest tier that has enough tickets to run, or null. */
+  function nearestPlayableTier() {
+    var here = tierNow(), best = null, bestD = Infinity;
+    Station.tier.all().forEach(function (t) {
+      if (t === here) return;
+      var need = (TIER_CFG[t] || TIER_CFG[400]).min;
+      if (poolSizeAt(t) < need) return;
+      var d = Math.abs(t - here);
+      if (d < bestD) { bestD = d; best = t; }
+    });
+    return best;
+  }
+
+  var S = {
+    running: false, score: 0, combo: 0, wave: 1, sec: 100, solved: 0,
+    queue: [], deck: [], deckAt: 0, pool: [], spawnIn: 0, lastTs: 0,
+    pickedRole: -1, pickedScope: null, locked: false,
+    attempts: 0, cleanFirst: 0, misses: {}, seenIds: {}
+  };
+
+  var AV_COLORS = ['var(--mk-blue)', 'var(--mk-purple)', 'var(--mk-teal)', 'var(--mk-pink)',
+                   'var(--mk-orange)', 'var(--mk-green)', 'var(--mk-red)'];
+
+  function spawnInterval() { var c = cfg(); return Math.max(c.spawnMin, c.spawn0 - (S.wave - 1) * c.spawnDrop); }
+  /* Never leave the desk empty — dead air kills the pressure. */
+  function keepQueueWarm() { if (!S.queue.length) S.spawnIn = Math.min(S.spawnIn, 750); }
+  function patienceFor()   { var c = cfg(); return Math.max(c.patMin, c.pat0 - (S.wave - 1) * c.patDrop); }
+  function multiplier()    { return Math.min(4, 1 + Math.floor(S.combo / 3) * 0.5); }
+
+  /**
+   * Which role buttons to offer. Always the correct one plus (n-1) decoys
+   * drawn at random from the item's own wrong answers, then shuffled — so a
+   * foundation player sees two options and an expert sees the full four.
+   */
+  function buildOrder(t, n) {
+    var correct = 0, others = [], i;
+    for (i = 0; i < t.roles.length; i++) if (t.roles[i][1] === 0) correct = i;
+    for (i = 0; i < t.roles.length; i++) if (i !== correct) others.push(i);
+    others = Station.shuffle(others).slice(0, Math.max(1, Math.min(n, t.roles.length) - 1));
+    return Station.shuffle([correct].concat(others));
+  }
+
+  function drawTicket() {
+    if (S.deckAt >= S.deck.length) { S.deck = Station.shuffle(S.pool); S.deckAt = 0; }
+    var t = S.deck[S.deckAt++];
+    var p = patienceFor();
+    return {
+      t: t,
+      order: buildOrder(t, cfg().opts),
+      pat: p, max: p,
+      bounced: false,
+      hue: AV_COLORS[Math.abs(t.who.charCodeAt(0) + t.id.charCodeAt(2)) % AV_COLORS.length]
+    };
+  }
+
+  /* --------------------------------------------------------------- render */
+  /* Full rebuild — only on structural change (spawn, resolve, expiry). */
+  function renderQueue() {
+    var html = '';
+    for (var i = 0; i < cfg().cap; i++) {
+      var q = S.queue[i];
+      if (!q) { html += '<div class="rr-qslot"></div>'; continue; }
+      html += '<div class="rr-qpill' + (i === 0 ? ' is-active' : '') + '">' +
+                '<b>' + q.t.who.split(' ')[0] + '</b>' +
+                (q.bounced ? '<span style="color:var(--mk-orange)">bounced</span>' : '<span>#' + q.t.id.toUpperCase() + '</span>') +
+                '<div class="rr-qbar"><i></i></div>' +
+              '</div>';
+    }
+    $('rr-queue').innerHTML = html;
+    paintQueueBars();
+  }
+
+  /* Cheap per-frame update — just the bar widths, no innerHTML churn. */
+  function paintQueueBars() {
+    var pills = $('rr-queue').querySelectorAll('.rr-qpill');
+    for (var i = 0; i < pills.length && i < S.queue.length; i++) {
+      var q = S.queue[i];
+      var pct = Math.max(0, q.pat / q.max * 100);
+      var bar = pills[i].querySelector('.rr-qbar i');
+      if (!bar) continue;
+      bar.style.width = pct.toFixed(1) + '%';
+      bar.style.background = pct < 30 ? 'var(--mk-red)' : 'var(--mk-orange)';
+    }
+  }
+
+  function renderTicket() {
+    var q = S.queue[0];
+    var rolesHost = $('rr-roles'), scopeHost = $('rr-scopes');
+
+    if (!q) {
+      $('rr-who').textContent = '—';
+      $('rr-av').textContent = '·';
+      $('rr-tag').textContent = 'idle';
+      $('rr-ask').textContent = 'Queue empty. Enjoy it — it lasts about four seconds.';
+      $('rr-pat').style.width = '100%';
+      $('rr-hint').classList.add('is-hidden');
+      rolesHost.innerHTML = '';
+      scopeHost.innerHTML = '';
+      return;
+    }
+
+    var t = q.t;
+    $('rr-who').textContent = t.who;
+    $('rr-av').textContent = t.who.charAt(0).toUpperCase();
+    $('rr-av').style.setProperty('--av', q.hue);
+    $('rr-tag').textContent = TAGS[t.tag] ? TAGS[t.tag][0] : t.tag;
+    $('rr-ask').textContent = '“' + t.ask + '”';
+
+    if (cfg().hints && t.hint) {
+      $('rr-hint').innerHTML = '<b>Hint ·</b> ' + t.hint;
+      $('rr-hint').classList.remove('is-hidden');
+    } else {
+      $('rr-hint').classList.add('is-hidden');
+    }
+
+    var rh = '';
+    for (var i = 0; i < q.order.length; i++) {
+      var idx = q.order[i];
+      rh += '<button class="rr-opt" type="button" data-role="' + idx + '">' +
+              '<span class="k">' + (i + 1) + '</span><span>' + t.roles[idx][0] + '</span>' +
+            '</button>';
+    }
+    rolesHost.innerHTML = rh;
+
+    var sh = '';
+    for (var j = 0; j < 4; j++) {
+      var k = SCOPE_KEYS[j];
+      sh += '<button class="rr-scope" type="button" data-scope="' + k + '">' +
+              '<u>' + SCOPE_LABEL[k] + ' <span class="k">' + SCOPE_KEYCAP[k] + '</span></u>' +
+              t.sc[j] +
+            '</button>';
+    }
+    scopeHost.innerHTML = sh;
+  }
+
+  function renderStats() {
+    $('rr-score').textContent = S.score;
+    $('rr-combo').textContent = multiplier().toFixed(multiplier() % 1 ? 1 : 0) + '×';
+    $('rr-wave').textContent = S.wave;
+    $('rr-solved').textContent = S.solved;
+    $('rr-sec').textContent = Math.max(0, Math.round(S.sec));
+    /* The starting security score changes with tier, so the meter is drawn as
+       a fraction of THIS tier's starting value rather than a fixed 100. */
+    var full = cfg().sec, frac = Math.max(0, Math.min(1, S.sec / full));
+    var bar = $('rr-secbar');
+    bar.style.width = (frac * 100).toFixed(1) + '%';
+    bar.style.background = frac > 0.6 ? 'var(--mk-green)' : (frac > 0.3 ? 'var(--mk-orange)' : 'var(--mk-red)');
+    $('rr-sec').parentNode.classList.toggle('is-hot', frac <= 0.3);
+  }
+
+  function verdict(kind, title, body) {
+    var v = $('rr-verdict');
+    v.className = 'rr-verdict v-' + kind;
+    $('rr-vtitle').textContent = title;
+    $('rr-vbody').innerHTML = body;
+  }
+
+  function blast(scopeKey, mode) {
+    var ids = ['bl-res', 'bl-rg', 'bl-sub', 'bl-mg'];
+    ids.forEach(function (id) { $(id).setAttribute('class', ''); });
+    if (!scopeKey) return;
+    var r = RANK[scopeKey];
+    for (var i = 0; i <= r; i++) {
+      $(ids[i]).setAttribute('class', 'lit-' + mode);
+    }
+    var n = r + 1;
+    $('rr-blastcap').textContent = mode === 'bad'
+      ? 'Assignment at ' + SCOPE_LABEL[scopeKey].toLowerCase() + ' → ' + n + ' tier' + (n > 1 ? 's' : '') + ' of blast radius. Everything inside inherits it.'
+      : (mode === 'warn'
+        ? 'Too narrow — the request needed more than this tier covers.'
+        : 'Tight. ' + n + ' tier' + (n > 1 ? 's' : '') + ' touched, exactly what the ticket asked for.');
+  }
+
+  function alarm() {
+    var a = $('rr-alarm');
+    a.classList.remove('is-on');
+    void a.offsetWidth;
+    a.classList.add('is-on');
+    $('rr-ticket').classList.remove('fx-shake');
+    void $('rr-ticket').offsetWidth;
+    $('rr-ticket').classList.add('fx-shake');
+  }
+
+  /* --------------------------------------------------------------- answer */
+  function selectRole(i) {
+    if (S.locked || !S.queue[0]) return;
+    S.pickedRole = i;
+    Array.prototype.forEach.call($('rr-roles').children, function (b) {
+      b.classList.toggle('is-picked', Number(b.getAttribute('data-role')) === i);
+    });
+    Station.sfx.tick();
+    maybeSubmit();
+  }
+
+  function selectScope(k) {
+    if (S.locked || !S.queue[0]) return;
+    S.pickedScope = k;
+    Array.prototype.forEach.call($('rr-scopes').children, function (b) {
+      b.classList.toggle('is-picked', b.getAttribute('data-scope') === k);
+    });
+    Station.sfx.tick();
+    maybeSubmit();
+  }
+
+  function maybeSubmit() {
+    if (S.pickedRole < 0 || !S.pickedScope) return;
+    submit();
+  }
+
+  function noteMiss(t, line) {
+    if (!S.misses[t.tag]) S.misses[t.tag] = [];
+    if (S.misses[t.tag].length < 6) S.misses[t.tag].push({ id: t.id, who: t.who, line: line });
+  }
+
+  function submit() {
+    var q = S.queue[0];
+    if (!q) return;
+    S.locked = true;
+    S.attempts++;
+
+    var t = q.t;
+    var role = t.roles[S.pickedRole];
+    var rv = role[1];                                   // 0 ok · 1 over · -1 under · 2 wrong
+    var sv = RANK[S.pickedScope] - RANK[t.ans];         // >0 broader · <0 narrower
+    var correctRoleIdx = -1;
+    for (var i = 0; i < 4; i++) if (t.roles[i][1] === 0) correctRoleIdx = i;
+
+    // paint the option buttons
+    Array.prototype.forEach.call($('rr-roles').children, function (b) {
+      var idx = Number(b.getAttribute('data-role'));
+      b.disabled = true;
+      if (idx === correctRoleIdx) b.classList.add('is-right');
+      else if (idx === S.pickedRole) b.classList.add('is-wrong');
+    });
+    Array.prototype.forEach.call($('rr-scopes').children, function (b) {
+      var k = b.getAttribute('data-scope');
+      b.disabled = true;
+      if (k === t.ans) b.classList.add('is-right');
+      else if (k === S.pickedScope) b.classList.add('is-wrong');
+    });
+
+    var perfect = (rv === 0 && sv === 0);
+    var over    = (rv === 1) || (sv > 0);
+    var wrongT  = (rv === 2);
+
+    var explain = '<p><strong>Answer:</strong> ' + t.roles[correctRoleIdx][0] + ' at ' +
+                  SCOPE_LABEL[t.ans].toLowerCase() + ' (' + t.sc[SCOPE_KEYS.indexOf(t.ans)] + ').<br>' + t.why + '</p>';
+
+    if (perfect) {
+      S.combo++;
+      var pts = Math.round((100 + Math.floor(q.pat / 90)) * multiplier() * cfg().mult);
+      S.score += pts;
+      S.solved++;
+      if (!q.bounced) S.cleanFirst++;
+      Station.sfx.correct();
+      blast(t.ans, 'good');
+      verdict('good', '+' + pts + ' · clean grant', explain);
+      if (S.combo > 0 && S.combo % 5 === 0) { Station.confetti({ count: 60 }); Station.toast(S.combo + ' in a row — least privilege, maximum smugness', 'good'); }
+      resolveTicket(true);
+      return;
+    }
+
+    S.combo = 0;
+
+    if (over) {
+      var pen = (rv === 1 && sv > 0) ? cfg().penOverBoth : cfg().penOver;
+      S.sec -= pen;
+      alarm();
+      Station.sfx.wrong();
+      blast(S.pickedScope, 'bad');
+      var head = (rv === 1)
+        ? role[2]
+        : 'The role was right. The scope was not: ' + SCOPE_LABEL[S.pickedScope].toLowerCase() +
+          ' inherits down to everything inside it, so you just granted this across far more than ' + t.sc[SCOPE_KEYS.indexOf(t.ans)] + '.';
+      verdict('over', 'OVER-PERMISSIONED · security −' + pen, '<p>' + head + '</p>' + explain);
+      noteMiss(t, 'over-granted — ' + (rv === 1 ? role[0] : 'scope too broad'));
+      S.score = Math.max(0, S.score - 40);
+      resolveTicket(false);
+      return;
+    }
+
+    if (wrongT) {
+      S.sec -= cfg().penWrong;
+      Station.sfx.wrong();
+      blast(S.pickedScope, 'warn');
+      verdict('wrong', 'WRONG INSTRUMENT · security −' + cfg().penWrong, '<p>' + role[2] + '</p>' + explain);
+      noteMiss(t, 'wrong tool — ' + role[0]);
+      bounce(q);
+      return;
+    }
+
+    // under-permission
+    Station.sfx.wrong();
+    blast(S.pickedScope, 'warn');
+    var under = (rv === -1) ? role[2]
+      : 'The role was right, but ' + SCOPE_LABEL[S.pickedScope].toLowerCase() +
+        ' does not reach everything the ticket needs. RBAC inherits downward only — it never reaches sideways or up.';
+    verdict('under', 'BOUNCED · not enough access', '<p>' + under + '</p>' + explain);
+    noteMiss(t, 'under-granted — ' + role[0]);
+    bounce(q);
+  }
+
+  function bounce(q) {
+    q.bounced = true;
+    q.pat = Math.max(3000, q.pat * 0.55);
+    setTimeout(function () {
+      if (!S.running) return;
+      S.queue.shift();
+      S.queue.push(q);
+      afterResolve();
+    }, 2200);
+  }
+
+  function resolveTicket() {
+    setTimeout(function () {
+      if (!S.running) return;
+      S.queue.shift();
+      afterResolve();
+    }, 1700);
+  }
+
+  function afterResolve() {
+    S.pickedRole = -1; S.pickedScope = null; S.locked = false;
+    if (S.solved > 0 && S.solved % 5 === 0 && S.wave === Math.floor(S.solved / 5)) {
+      S.wave++;
+      Station.toast('WAVE ' + S.wave + ' — tickets arrive faster now', 'info');
+      Station.sfx.levelup();
+    }
+    if (S.sec <= 0) { gameOver('breach'); return; }
+    keepQueueWarm();
+    renderStats();
+    renderTicket();
+    renderQueue();
+  }
+
+  /* ----------------------------------------------------------------- loop */
+  function tick(ts) {
+    if (!S.running) return;
+    var dt = S.lastTs ? (ts - S.lastTs) : 16;
+    S.lastTs = ts;
+
+    S.spawnIn -= dt;
+    if (S.spawnIn <= 0) {
+      S.spawnIn = spawnInterval();
+      if (S.queue.length >= cfg().cap) { gameOver('overflow'); return; }
+      S.queue.push(drawTicket());
+      if (S.queue.length === 1) { renderTicket(); }
+      Station.sfx.tick();
+      renderQueue();
+    }
+
+    var expired = false;
+    for (var i = S.queue.length - 1; i >= 0; i--) {
+      if (S.locked && i === 0) continue;
+      S.queue[i].pat -= dt;
+      if (S.queue[i].pat <= 0) {
+        var q = S.queue[i];
+        S.sec -= cfg().penExpire;
+        S.combo = 0;
+        noteMiss(q.t, 'SLA breach — never answered');
+        S.queue.splice(i, 1);
+        expired = true;
+        if (i === 0) { S.locked = false; S.pickedRole = -1; S.pickedScope = null; }
+      }
+    }
+    if (expired) {
+      Station.sfx.wrong();
+      Station.toast('Ticket timed out. Security −' + cfg().penExpire + '.', 'bad', 1600);
+      keepQueueWarm();
+      renderTicket();
+      renderQueue();
+      if (S.sec <= 0) { gameOver('breach'); return; }
+    }
+
+    if (S.queue[0]) {
+      var a = S.queue[0];
+      $('rr-pat').style.width = Math.max(0, a.pat / a.max * 100).toFixed(1) + '%';
+    }
+    renderStats();
+    paintQueueBars();
+    requestAnimationFrame(tick);
+  }
+
+  /* ------------------------------------------------------------ lifecycle */
+  function start() {
+    S.pool = pool();
+    if (S.pool.length < cfg().min) { syncStart(); return; }
+    S.running = true; S.score = 0; S.combo = 0; S.wave = 1; S.sec = cfg().sec; S.solved = 0;
+    S.queue = []; S.deck = Station.shuffle(S.pool); S.deckAt = 0;
+    S.spawnIn = 400; S.lastTs = 0; S.pickedRole = -1; S.pickedScope = null; S.locked = false;
+    S.attempts = 0; S.cleanFirst = 0; S.misses = {};
+
+    $('rr-start').classList.add('is-hidden');
+    $('rr-over').classList.add('is-hidden');
+    $('rr-game').classList.remove('is-hidden');
+    verdict('idle', 'Queue open', 'Pick a role with <span class="kbd">1</span>–<span class="kbd">4</span>, then a scope with <span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span><span class="kbd">F</span>. Or just tap.');
+    blast(null);
+    $('rr-blastcap').textContent = 'An assignment at a tier hits that tier and everything inside it.';
+    renderStats(); renderTicket(); renderQueue();
+    requestAnimationFrame(tick);
+  }
+
+  function gameOver(reason) {
+    if (!S.running) return;
+    S.running = false;
+
+    var best = Station.score.best(scoreKey());
+    var isPB = Station.score.save(scoreKey(), S.score);
+    var handled = S.solved + countMisses();
+    var acc = handled > 0 ? Math.round(S.cleanFirst / handled * 100) : 0;
+
+    $('rr-fscore').textContent = S.score;
+    $('rr-fwave').textContent = S.wave;
+    $('rr-facc').textContent = acc + '%';
+
+    var titles = {
+      overflow: 'Queue overflowed — ' + (cfg().cap + 1) + ' tickets pending and nobody home',
+      breach: 'Security score hit zero — the CISO has questions',
+      quit: 'Run ended'
+    };
+    $('rr-overtitle').textContent = titles[reason] || 'Run over';
+    paintTierPill($('rr-otierpill'), $('rr-otiername'));
+
+    var dm;
+    var tn = ' at tier ' + tierNow();
+    if (isPB) {
+      dm = '🏆 <span style="color:var(--mk-green)">NEW PERSONAL BEST</span>' + tn + ' — you beat ' + best + ' by ' + (S.score - best) + '.';
+      Station.confetti();
+      Station.sfx.levelup();
+    } else if (best === 0) {
+      dm = 'No score on the board' + tn + ' yet. Anything above zero is progress — go again.';
+    } else if (best - S.score <= 250) {
+      dm = 'You were <span style="color:var(--mk-orange)">' + (best - S.score) + ' points</span> off your best of ' + best + tn + '. That is one clean combo run.';
+    } else {
+      dm = 'Personal best' + tn + ': <strong>' + best + '</strong>. Delta: <span style="color:var(--mk-red)">−' + (best - S.score) + '</span>.';
+    }
+    $('rr-deltamsg').innerHTML = dm;
+
+    var gained = Math.floor(S.score / 120);
+    if (gained > 0) Station.xp.add(gained, 'RBAC Roulette — wave ' + S.wave);
+    if (S.wave >= 4) Station.progress.complete(GAME_ID);
+    Station.streak.touch();
+
+    renderMisses();
+    $('rr-game').classList.add('is-hidden');
+    $('rr-over').classList.remove('is-hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function countMisses() {
+    var n = 0;
+    for (var k in S.misses) if (S.misses.hasOwnProperty(k)) n += S.misses[k].length;
+    return n;
+  }
+
+  function renderMisses() {
+    var host = $('rr-missed');
+    var keys = Object.keys(S.misses);
+    if (!keys.length) {
+      $('rr-missh').textContent = 'Nothing bit you';
+      host.innerHTML = '<div class="keyfact"><p>A clean run. Every ticket answered at the right role and the right scope. ' +
+        'Go raise the wave count — or go break something in <a href="blast-radius.html">Blast Radius</a>.</p></div>';
+      return;
+    }
+    $('rr-missh').textContent = 'What bit you — ' + countMisses() + ' miss' + (countMisses() > 1 ? 'es' : '') + ' across ' + keys.length + ' concept' + (keys.length > 1 ? 's' : '');
+    keys.sort(function (a, b) { return S.misses[b].length - S.misses[a].length; });
+    var html = '';
+    keys.forEach(function (k) {
+      var tag = TAGS[k] || [k, '../index.html', 'the hub'];
+      html += '<div class="rr-missgroup">' +
+                '<h4>' + tag[0] + ' <span class="muted small">(' + S.misses[k].length + ')</span></h4><ul>';
+      S.misses[k].forEach(function (m) {
+        html += '<li><strong>' + m.who + '</strong> — ' + m.line + '</li>';
+      });
+      html += '</ul><a href="' + tag[1] + '">▸ Read the whiteboard: ' + tag[2] + '</a></div>';
+    });
+    host.innerHTML = html;
+  }
+
+  /* ---------------------------------------------------------------- input */
+  document.addEventListener('click', function (e) {
+    var r = e.target.closest ? e.target.closest('[data-role]') : null;
+    if (r) { selectRole(Number(r.getAttribute('data-role'))); return; }
+    var s = e.target.closest ? e.target.closest('[data-scope]') : null;
+    if (s) { selectScope(s.getAttribute('data-scope')); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (!S.running) {
+      if ((e.key === ' ' || e.key === 'Enter') && !$('rr-start').classList.contains('is-hidden')) {
+        e.preventDefault(); start();
+      }
+      return;
+    }
+    var q = S.queue[0];
+    if (!q) return;
+    var k = e.key.toLowerCase();
+    if (k >= '1' && k <= '9' && Number(k) <= q.order.length) {
+      e.preventDefault();
+      var pos = Number(k) - 1;
+      selectRole(q.order[pos]);
+    } else if (k === 'a' || k === 's' || k === 'd' || k === 'f') {
+      e.preventDefault();
+      selectScope({ a: 'mg', s: 'sub', d: 'rg', f: 'res' }[k]);
+    }
+  });
+
+  /* This inline script parses BEFORE the deferred station.js executes, so every
+     Station call has to wait for DOMContentLoaded (deferred scripts run first). */
+  /* ----------------------------------------------------------------- tier */
+  function paintTierPill(pill, name) {
+    var t = tierNow();
+    if (pill) { pill.setAttribute('data-tier', String(t)); pill.textContent = ''; }
+    if (name) {
+      name.textContent = Station.tier.label(t) +
+        (Station.tier.below() ? ' (and everything below it)' : '');
+    }
+  }
+
+  /**
+   * Repaint the start screen for the tier now in force: the deck size, the
+   * per-tier personal best, the mechanics this tier plays under, and the
+   * "there is nothing here" escape hatch.
+   */
+  function syncStart() {
+    var t = tierNow(), c = cfg(), n = pool().length;
+    var b = Station.score.best(scoreKey());
+    paintTierPill($('rr-stierpill'), $('rr-stiername'));
+
+    $('rr-best').textContent = b
+      ? 'personal best at tier ' + t + ': ' + b
+      : 'no score yet at tier ' + t + ' — the bar is on the floor';
+
+    $('rr-tierline').innerHTML = n
+      ? '<strong>' + n + ' ticket' + (n === 1 ? '' : 's') + '</strong> in the deck at this setting · ' +
+        c.opts + ' role option' + (c.opts === 1 ? '' : 's') + ' per ticket · ' +
+        Math.round(c.pat0 / 1000) + 's of patience to start · security starts at ' + c.sec + ' · ' +
+        'score ×' + c.mult + (c.hints ? ' · hints on' : ' · no hints')
+      : 'Nothing in the deck at this setting.';
+
+    var host = $('rr-tierempty');
+    var ok = n >= c.min;
+    $('rr-begin').disabled = !ok;
+    if (ok) { host.innerHTML = ''; return; }
+
+    var near = nearestPlayableTier();
+    host.innerHTML =
+      '<div class="tier-empty">' +
+        '<b>Tier ' + t + ' · ' + Station.tier.label(t) + ' has only ' + n + ' ticket' + (n === 1 ? '' : 's') + '</b>' +
+        '<p>A round needs at least ' + c.min + ' to be worth playing — you would see the same ticket three times ' +
+        'before the second wave. Pick another tier, or switch on “show lower tiers too”.</p>' +
+        (near ? '<p><button class="btn btn--sm btn--primary" type="button" data-gotier="' + near + '">' +
+                'Switch to tier ' + near + ' · ' + Station.tier.label(near) + '</button></p>' : '') +
+      '</div>';
+  }
+
+  document.addEventListener('click', function (e) {
+    var g = e.target.closest ? e.target.closest('[data-gotier]') : null;
+    if (g) { Station.tier.set(Number(g.getAttribute('data-gotier'))); }
+  });
+
+  /* Changing tier mid-run would mean scoring a foundation deck against an
+     expert leaderboard. Abandon the run cleanly and hand the player back the
+     start screen instead. */
+  document.addEventListener('station:tier', function () {
+    if (S.running) {
+      S.running = false;
+      S.queue = [];
+      $('rr-game').classList.add('is-hidden');
+      $('rr-over').classList.add('is-hidden');
+      $('rr-start').classList.remove('is-hidden');
+      Station.toast('Tier changed — run reset. Scores are kept per tier.', 'info', 2400);
+    }
+    syncStart();
+  });
+
+  function boot() {
+    Station.mountHud({ title: 'RBAC Roulette', cert: 'az104', back: '../index.html' });
+    Station.tier.mountPicker('#rr-tierhost', {
+      compact: true,
+      heading: 'Skill tier — this changes the deck AND the pressure',
+      label: 'Skill tier for RBAC Roulette'
+    });
+    syncStart();
+    $('rr-begin').addEventListener('click', start);
+    $('rr-again').addEventListener('click', start);
+    $('rr-quit').addEventListener('click', function () { gameOver('quit'); });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else { boot(); }
+
+}());
+</script>
+
+<style>
+  a.locked{
+    opacity:.72; text-decoration:none; cursor:pointer;
+    border-bottom:1px dashed currentColor;
+  }
+  a.locked::after{ content:" 🔒"; font-size:.85em; }
+  .demo-strip{
+    max-width:980px; margin:0 auto 1rem; padding:.65rem .9rem; border-radius:10px;
+    font-size:.85rem; line-height:1.45; display:flex; gap:.7rem; align-items:center;
+    flex-wrap:wrap;
+    border:1px solid var(--mk-green);
+    background:color-mix(in srgb, var(--mk-green) 9%, transparent);
+    color:var(--ink-soft);
+  }
+  .demo-strip b{color:var(--ink)}
+  .demo-strip a{color:var(--mk-blue); font-weight:600}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(!document.querySelector('meta[name="viewport"]')){
+    var mv=document.createElement('meta');
+    mv.name='viewport'; mv.content='width=device-width, initial-scale=1';
+    (document.head||document.documentElement).appendChild(mv);
+  }
+  // Study material is not published here. Any link into it becomes an upgrade prompt.
+  var GATED=/\/(whiteboards|drills|labs|tracks)\//;
+  function sweep(root){
+    var as=(root||document).querySelectorAll?(root||document).querySelectorAll('a[href]'):[];
+    for(var i=0;i<as.length;i++){
+      var a=as[i], h=a.getAttribute('href')||'';
+      if(a.dataset.gateDone) continue;
+      a.dataset.gateDone='1';
+      if(!GATED.test(h)) continue;
+      a.setAttribute('href','../index.html#unlock');
+      a.classList.add('locked');
+      a.setAttribute('title','Part of the full study library — see what is included');
+    }
+  }
+  function boot(){
+    sweep(document);
+    new MutationObserver(function(m){for(var i=0;i<m.length;i++)sweep(m[i].target);})
+      .observe(document.body,{childList:true,subtree:true});
+    var host=document.querySelector('.page')||document.body;
+    var s=document.createElement('div');
+    s.className='demo-strip no-print';
+    s.innerHTML='<span><b>Free forever.</b> Every game, every skill level, no account. '+
+      'The whiteboards, flashcards and exam simulator are part of the full library.</span>'+
+      '<a href="../index.html">← All games</a>';
+    host.insertBefore(s,host.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1260 @@
+/* ============================================================================
+   CERTIFICATION STATION — station.css
+   The Whiteboard design system. Offline-first, file:// safe, zero externals.
+   Sections:
+     00  Reset
+     01  Tokens (:root) + theming
+     02  Board surface & page
+     03  Typography
+     04  Marker boxes
+     05  Sticky notes
+     06  Highlighter, chips, kbd
+     07  Callouts (trap / gotcha / keyfact / pizza)
+     08  CLI block
+     09  Buttons
+     10  Grids & tiles
+     11  Tables & scroll-x
+     12  HUD
+     13  Progress rings, meters, bars
+     14  FX utilities + keyframes
+     15  Tiers (visibility matrix, .tier-block/.tier-pill/.tier-picker, HUD)
+     16  Reduced motion
+     17  Print
+   ========================================================================= */
+
+/* ---------------------------------------------------------------- 00 Reset */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, ul, ol, pre {
+  margin: 0;
+}
+ul[class], ol[class] { list-style: none; padding: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: smooth; }
+body { min-height: 100vh; line-height: 1.6; text-rendering: optimizeLegibility; }
+img, svg, video, canvas { max-width: 100%; height: auto; display: block; }
+input, button, textarea, select { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+a { color: inherit; }
+table { border-collapse: collapse; border-spacing: 0; }
+hr { border: 0; border-top: 2px dashed var(--board-grid); margin: 1.75rem 0; }
+:focus-visible {
+  outline: 3px solid var(--mk-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------- 01 Tokens */
+:root {
+  /* --- board / ink (light: real whiteboard) --- */
+  --board:      #FBFBF7;
+  --board-2:    #FFFFFF;
+  --board-grid: rgba(33, 37, 43, 0.075);
+  --board-edge: rgba(33, 37, 43, 0.14);
+  --ink:        #21252B;
+  --ink-soft:   #5B6472;
+
+  /* --- marker palette (identical in both themes: markers don't change color) --- */
+  --mk-red:    #E5484D;
+  --mk-blue:   #1F6FEB;
+  --mk-green:  #1A9E5F;
+  --mk-orange: #F2820A;
+  --mk-purple: #8A5CF6;
+  --mk-teal:   #0E9AA7;
+  --mk-pink:   #DB2777;
+  --mk-ink:    #21252B;
+
+  /* --- cert colors --- */
+  --az104: #4C8C2B;
+  --az305: #F2820A;
+  --az400: #1F6FEB;
+  --ghas:  #8A5CF6;
+  --azure: #0078D4;
+
+  /* --- skill tiers (Microsoft's 100-500 convention) --- */
+  --t100: #0E9AA7;   /* Foundation   */
+  --t200: #1A9E5F;   /* Practitioner */
+  --t300: #1F6FEB;   /* Professional */
+  --t400: #F2820A;   /* Expert       */
+  --t500: #8A5CF6;   /* Architect    */
+
+  /* --- fonts --- */
+  --font-hand: 'Ink Free','Segoe Print','Bradley Hand','Comic Sans MS',cursive;
+  --font-ui:   'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
+  --font-mono: 'Cascadia Code','Consolas',ui-monospace,monospace;
+
+  /* --- derived surfaces --- */
+  --wash:       0.09;                 /* tint strength for marker-box washes */
+  --wash-soft:  0.055;
+  --shadow-1:   0 2px 0 var(--board-edge);
+  --shadow-2:   3px 4px 0 rgba(33,37,43,0.13);
+  --shadow-3:   0 10px 26px rgba(33,37,43,0.14);
+  --sticky-shadow: 3px 5px 10px rgba(33,37,43,0.20);
+  --term-bg:    #14171C;
+  --term-ink:   #E6EDF3;
+  --hud-bg:     rgba(251,251,247,0.92);
+  --radius:     10px;
+  --hud-h:      54px;
+  --maxw:       1180px;
+}
+
+/* dark defaults via system preference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --board:      #14181D;
+    --board-2:    #1B2027;
+    --board-grid: rgba(230, 237, 243, 0.062);
+    --board-edge: rgba(230, 237, 243, 0.16);
+    --ink:        #E8EDF2;   /* chalk */
+    --ink-soft:   #9AA6B4;
+
+    --mk-red:    #FF6B70;
+    --mk-blue:   #62A0FF;
+    --mk-green:  #43D08B;
+    --mk-orange: #FFA845;
+    --mk-purple: #B594FF;
+    --mk-teal:   #35C7D4;
+    --mk-pink:   #FF6BAE;
+    --mk-ink:    #E8EDF2;
+
+    --az104: #7ED04B;
+    --az305: #FFA845;
+    --az400: #62A0FF;
+    --ghas:  #B594FF;
+    --azure: #4CA9F0;
+
+    --t100: #35C7D4;  --t200: #43D08B;  --t300: #62A0FF;
+    --t400: #FFA845;  --t500: #B594FF;
+
+    --wash:       0.15;
+    --wash-soft:  0.09;
+    --shadow-1:   0 2px 0 var(--board-edge);
+    --shadow-2:   3px 4px 0 rgba(0,0,0,0.45);
+    --shadow-3:   0 10px 26px rgba(0,0,0,0.55);
+    --sticky-shadow: 3px 5px 12px rgba(0,0,0,0.55);
+    --term-bg:    #0C0F13;
+    --hud-bg:     rgba(20,24,29,0.93);
+  }
+}
+
+/* explicit manual overrides — these must win in BOTH directions */
+:root[data-theme="light"] {
+  --board:      #FBFBF7;
+  --board-2:    #FFFFFF;
+  --board-grid: rgba(33, 37, 43, 0.075);
+  --board-edge: rgba(33, 37, 43, 0.14);
+  --ink:        #21252B;
+  --ink-soft:   #5B6472;
+  --mk-red:    #E5484D;  --mk-blue:  #1F6FEB;  --mk-green: #1A9E5F;
+  --mk-orange: #F2820A;  --mk-purple:#8A5CF6;  --mk-teal:  #0E9AA7;
+  --mk-pink:   #DB2777;  --mk-ink:   #21252B;
+  --az104: #4C8C2B;  --az305: #F2820A;  --az400: #1F6FEB;  --ghas: #8A5CF6;
+  --azure: #0078D4;
+  --t100: #0E9AA7;  --t200: #1A9E5F;  --t300: #1F6FEB;
+  --t400: #F2820A;  --t500: #8A5CF6;
+  --wash: 0.09; --wash-soft: 0.055;
+  --shadow-2: 3px 4px 0 rgba(33,37,43,0.13);
+  --shadow-3: 0 10px 26px rgba(33,37,43,0.14);
+  --sticky-shadow: 3px 5px 10px rgba(33,37,43,0.20);
+  --term-bg: #14171C;
+  --hud-bg: rgba(251,251,247,0.92);
+}
+:root[data-theme="dark"] {
+  --board:      #14181D;
+  --board-2:    #1B2027;
+  --board-grid: rgba(230, 237, 243, 0.062);
+  --board-edge: rgba(230, 237, 243, 0.16);
+  --ink:        #E8EDF2;
+  --ink-soft:   #9AA6B4;
+  --mk-red:    #FF6B70;  --mk-blue:  #62A0FF;  --mk-green: #43D08B;
+  --mk-orange: #FFA845;  --mk-purple:#B594FF;  --mk-teal:  #35C7D4;
+  --mk-pink:   #FF6BAE;  --mk-ink:   #E8EDF2;
+  --az104: #7ED04B;  --az305: #FFA845;  --az400: #62A0FF;  --ghas: #B594FF;
+  --azure: #4CA9F0;
+  --t100: #35C7D4;  --t200: #43D08B;  --t300: #62A0FF;
+  --t400: #FFA845;  --t500: #B594FF;
+  --wash: 0.15; --wash-soft: 0.09;
+  --shadow-2: 3px 4px 0 rgba(0,0,0,0.45);
+  --shadow-3: 0 10px 26px rgba(0,0,0,0.55);
+  --sticky-shadow: 3px 5px 12px rgba(0,0,0,0.55);
+  --term-bg: #0C0F13;
+  --hud-bg: rgba(20,24,29,0.93);
+}
+
+/* ------------------------------------------------- 02 Board surface & page */
+body {
+  font-family: var(--font-ui);
+  color: var(--ink);
+  background-color: var(--board);
+  /* faint engineering grid + a whisper of paper grain */
+  background-image:
+    repeating-linear-gradient(0deg,
+      var(--board-grid) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg,
+      var(--board-grid) 0 1px, transparent 1px 28px),
+    radial-gradient(circle at 18% 22%, rgba(31,111,235,0.045), transparent 42%),
+    radial-gradient(circle at 82% 78%, rgba(138,92,246,0.045), transparent 45%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+.board {
+  position: relative;
+  background-color: var(--board-2);
+  background-image:
+    repeating-linear-gradient(0deg,  var(--board-grid) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(90deg, var(--board-grid) 0 1px, transparent 1px 24px);
+  border: 2px solid var(--board-edge);
+  border-radius: 14px;
+  padding: clamp(0.9rem, 2.5vw, 1.75rem);
+  box-shadow: var(--shadow-3);
+}
+/* aluminium tray / chalk ledge along the bottom of a board */
+.board::after {
+  content: "";
+  position: absolute;
+  left: 6%; right: 6%; bottom: -7px; height: 7px;
+  border-radius: 0 0 6px 6px;
+  background: linear-gradient(180deg, var(--board-edge), transparent);
+  opacity: .8;
+  pointer-events: none;
+}
+
+.page {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: calc(var(--hud-h) + 1.1rem) clamp(0.75rem, 3vw, 1.75rem) 5rem;
+}
+.page--wide { max-width: 1500px; }
+body:not(.has-hud) .page { padding-top: 1.5rem; }
+
+section { margin: 2.25rem 0; }
+
+/* --------------------------------------------------------- 03 Typography */
+h1, h2, h3 { font-family: var(--font-hand); line-height: 1.14; letter-spacing: .2px; }
+h1 { font-size: clamp(2rem, 6vw, 3.4rem); margin-bottom: .5rem; }
+h2 { font-size: clamp(1.5rem, 3.6vw, 2.25rem); margin: 2rem 0 .85rem; }
+h3 { font-size: clamp(1.15rem, 2.4vw, 1.5rem); margin: 1.4rem 0 .55rem; }
+h4 { font-size: 1.05rem; margin: 1.1rem 0 .4rem; font-weight: 700; }
+p  { margin-bottom: .9rem; max-width: 78ch; }
+p + p { margin-top: -.15rem; }
+small, .small { font-size: .82rem; color: var(--ink-soft); }
+strong { font-weight: 700; }
+em { font-style: italic; }
+.lede { font-size: 1.1rem; color: var(--ink-soft); max-width: 72ch; }
+.hand { font-family: var(--font-hand); }
+.muted { color: var(--ink-soft); }
+.center { text-align: center; }
+code:not(.cli code) {
+  font-family: var(--font-mono);
+  font-size: .88em;
+  padding: .1em .38em;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--mk-blue) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mk-blue) 22%, transparent);
+  /* Long unbreakable tokens (YAML expressions, ARM ids, SAS URLs) otherwise blow
+     out the min-content width of their parent and get clipped by the
+     body overflow-x:hidden at 375px. Let them wrap. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+ul:not([class]), ol:not([class]) { padding-left: 1.35rem; margin-bottom: 1rem; max-width: 78ch; }
+ul:not([class]) li, ol:not([class]) li { margin-bottom: .35rem; }
+blockquote {
+  border-left: 4px solid var(--mk-purple);
+  padding: .35rem 0 .35rem 1rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+/* underline squiggle helper for headings that carry an inline SVG */
+.title-squiggle { display: block; width: min(100%, 560px); height: 18px; color: var(--mk-red); }
+.title-squiggle path { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; }
+
+/* ------------------------------------------------------- 04 Marker boxes */
+.marker-box {
+  position: relative;
+  border: 3px solid var(--mk-ink);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  padding: 1rem 1.15rem;
+  margin: 1rem 0;
+  background: var(--board-2);
+  box-shadow: var(--shadow-2);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.marker-box:hover { transform: rotate(-.35deg) translateY(-2px); box-shadow: 5px 7px 0 rgba(0,0,0,.14); }
+/* alternate the hand-drawn corner pattern so repeated boxes don't look cloned */
+.marker-box:nth-of-type(even) {
+  border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
+}
+.marker-box:nth-of-type(even):hover { transform: rotate(.35deg) translateY(-2px); }
+.marker-box > :last-child { margin-bottom: 0; }
+.marker-box > h3, .marker-box > h4 { margin-top: 0; }
+
+.marker-box.mk-red    { border-color: var(--mk-red);    background: color-mix(in srgb, var(--mk-red)    calc(var(--wash) * 100%), var(--board-2)); }
+.marker-box.mk-blue   { border-color: var(--mk-blue);   background: color-mix(in srgb, var(--mk-blue)   calc(var(--wash) * 100%), var(--board-2)); }
+.marker-box.mk-green  { border-color: var(--mk-green);  background: color-mix(in srgb, var(--mk-green)  calc(var(--wash) * 100%), var(--board-2)); }
+.marker-box.mk-orange { border-color: var(--mk-orange); background: color-mix(in srgb, var(--mk-orange) calc(var(--wash) * 100%), var(--board-2)); }
+.marker-box.mk-purple { border-color: var(--mk-purple); background: color-mix(in srgb, var(--mk-purple) calc(var(--wash) * 100%), var(--board-2)); }
+.marker-box.mk-teal   { border-color: var(--mk-teal);   background: color-mix(in srgb, var(--mk-teal)   calc(var(--wash) * 100%), var(--board-2)); }
+.marker-box.mk-pink   { border-color: var(--mk-pink);   background: color-mix(in srgb, var(--mk-pink)   calc(var(--wash) * 100%), var(--board-2)); }
+
+/* optional headline chip that sits on the border of a marker-box */
+.marker-box > .box-title {
+  display: inline-block;
+  font-family: var(--font-hand);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: -.25rem 0 .5rem;
+  padding-bottom: 2px;
+  border-bottom: 3px solid currentColor;
+}
+
+/* -------------------------------------------------------- 05 Sticky notes */
+.sticky {
+  --sticky-bg: #FFF3A8;
+  display: block;
+  font-family: var(--font-hand);
+  font-size: 1rem;
+  line-height: 1.42;
+  color: #21252B;
+  background: var(--sticky-bg);
+  background-image: linear-gradient(160deg, rgba(255,255,255,.55), rgba(0,0,0,.06));
+  padding: .95rem 1rem 1.15rem;
+  min-height: 118px;
+  box-shadow: var(--sticky-shadow);
+  transform: rotate(-1.5deg);
+  transition: transform .2s ease, box-shadow .2s ease;
+  border-radius: 2px 2px 12px 2px;
+}
+.sticky:nth-child(even) { transform: rotate(1.2deg); }
+.sticky:nth-child(3n)   { transform: rotate(-.6deg); }
+.sticky:hover { transform: rotate(0deg) scale(1.025); box-shadow: 5px 8px 16px rgba(0,0,0,.28); z-index: 2; }
+.sticky > :last-child { margin-bottom: 0; }
+.sticky strong { font-weight: 700; }
+.sticky--yellow { --sticky-bg: #FFF3A8; }
+.sticky--pink   { --sticky-bg: #FFC7DE; }
+.sticky--blue   { --sticky-bg: #BFE0FF; }
+.sticky--green  { --sticky-bg: #C3F2CE; }
+/* peeled corner */
+.sticky { position: relative; overflow: hidden; }
+.sticky::after {
+  content: "";
+  position: absolute; right: 0; bottom: 0;
+  border-width: 0 0 18px 18px;
+  border-style: solid;
+  border-color: transparent transparent rgba(0,0,0,.10) transparent;
+}
+
+/* ----------------------------------------- 06 Highlighter / chips / kbd */
+.hl {
+  background-image: linear-gradient(to top,
+    color-mix(in srgb, var(--mk-orange) 55%, transparent) 0%,
+    color-mix(in srgb, var(--mk-orange) 55%, transparent) 45%,
+    transparent 45%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  padding: 0 .12em;
+  font-weight: 600;
+}
+.hl.mk-blue   { background-image: linear-gradient(to top, color-mix(in srgb, var(--mk-blue)   50%, transparent) 0 45%, transparent 45%); }
+.hl.mk-green  { background-image: linear-gradient(to top, color-mix(in srgb, var(--mk-green)  50%, transparent) 0 45%, transparent 45%); }
+.hl.mk-pink   { background-image: linear-gradient(to top, color-mix(in srgb, var(--mk-pink)   50%, transparent) 0 45%, transparent 45%); }
+.hl.mk-purple { background-image: linear-gradient(to top, color-mix(in srgb, var(--mk-purple) 50%, transparent) 0 45%, transparent 45%); }
+.hl.mk-red    { background-image: linear-gradient(to top, color-mix(in srgb, var(--mk-red)    50%, transparent) 0 45%, transparent 45%); }
+.hl.mk-teal   { background-image: linear-gradient(to top, color-mix(in srgb, var(--mk-teal)   50%, transparent) 0 45%, transparent 45%); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35em;
+  font-family: var(--font-ui);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: .22em .62em;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  white-space: nowrap;
+  line-height: 1.5;
+  /* A chip carrying a full sentence would otherwise blow past 375px and get
+     clipped. Cap it to the container and let those long ones wrap. */
+  max-width: 100%;
+}
+@media (max-width: 560px) {
+  .chip { white-space: normal; }
+}
+.chip--az104 { color: var(--az104); }
+.chip--az305 { color: var(--az305); }
+.chip--az400 { color: var(--az400); }
+.chip--ghas  { color: var(--ghas); }
+.chip--red { color: var(--mk-red); }  .chip--blue { color: var(--mk-blue); }
+.chip--green { color: var(--mk-green); } .chip--orange { color: var(--mk-orange); }
+.chip--purple { color: var(--mk-purple); } .chip--teal { color: var(--mk-teal); }
+.chip--pink { color: var(--mk-pink); } .chip--ink { color: var(--ink-soft); }
+
+.kbd {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: .8em;
+  padding: .1em .45em .18em;
+  border: 1px solid var(--board-edge);
+  border-bottom-width: 3px;
+  border-radius: 6px;
+  background: var(--board-2);
+  box-shadow: 0 1px 0 rgba(0,0,0,.08);
+  /* Short keystrokes ("Ctrl+C") never wrap, because they always fit. Long
+     portal breadcrumbs ("Pipelines > New pipeline > ...") must be allowed to
+     wrap: with nowrap they pushed the whole page wide at 375px, which breaks
+     the no-horizontal-scroll rule. Wrapping only happens when it must. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+/* ------------------------------------------------------------ 07 Callouts */
+.trap, .gotcha, .keyfact, .pizza {
+  position: relative;
+  margin: 1.15rem 0;
+  padding: 2.15rem 1.1rem 1rem;
+  border-left: 7px solid var(--co-color);
+  border-radius: 4px 12px 12px 4px;
+  background: color-mix(in srgb, var(--co-color) calc(var(--wash) * 100%), var(--board-2));
+  box-shadow: var(--shadow-1);
+}
+.trap > :last-child, .gotcha > :last-child,
+.keyfact > :last-child, .pizza > :last-child { margin-bottom: 0; }
+.trap::before, .gotcha::before, .keyfact::before, .pizza::before {
+  content: attr(data-label);
+  position: absolute;
+  top: .55rem; left: 1.1rem;
+  font-family: var(--font-ui);
+  font-size: .70rem;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--co-color);
+}
+.trap    { --co-color: var(--mk-red); }
+.gotcha  { --co-color: var(--mk-orange); }
+.keyfact { --co-color: var(--mk-green); }
+.pizza   { --co-color: #E4572E; }
+@media (prefers-color-scheme: dark) { .pizza { --co-color: #FF7F52; } }
+:root[data-theme="dark"] .pizza { --co-color: #FF7F52; }
+:root[data-theme="light"] .pizza { --co-color: #E4572E; }
+
+.trap::before    { content: "⚠ EXAM TRAP"; }
+.gotcha::before  { content: "◆ GOTCHA"; }
+.keyfact::before { content: "★ KEY FACT"; }
+.pizza::before   { content: "🍕 AT THE PIZZA PARLOR"; }
+/* allow an author override with data-label */
+.trap[data-label]::before, .gotcha[data-label]::before,
+.keyfact[data-label]::before, .pizza[data-label]::before { content: attr(data-label); }
+
+.pizza { font-family: var(--font-ui); }
+.pizza em { color: var(--co-color); font-style: italic; font-weight: 600; }
+
+/* --------------------------------------------------------- 08 CLI / code */
+.cli, pre.cli {
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: .84rem;
+  line-height: 1.6;
+  color: var(--term-ink);
+  background: var(--term-bg);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  padding: 2.35rem 1rem 1rem;
+  margin: 1.15rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: pre;
+  tab-size: 2;
+  box-shadow: var(--shadow-3);
+}
+.cli::before {
+  content: "";
+  position: absolute; top: .72rem; left: .9rem;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #FF5F57;
+  box-shadow: 15px 0 0 #FEBC2E, 30px 0 0 #28C840;
+}
+.cli::after {
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0; height: 2.05rem;
+  background: rgba(255,255,255,.045);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px 10px 0 0;
+  pointer-events: none;
+}
+.cli .c-cmd  { color: #7EE787; }
+.cli .c-flag { color: #79C0FF; }
+.cli .c-str  { color: #FFA657; }
+.cli .c-dim  { color: #8B949E; }
+.cli .c-bad  { color: #FF7B72; }
+.cli code { background: none; border: 0; padding: 0; font-size: inherit; color: inherit; }
+
+/* ------------------------------------------------------------- 09 Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45em;
+  font-family: var(--font-ui);
+  font-size: .92rem;
+  font-weight: 700;
+  text-decoration: none;
+  padding: .55em 1.1em;
+  border-radius: 255px 12px 225px 12px / 12px 225px 12px 255px;
+  border: 2.5px solid var(--ink);
+  color: var(--ink);
+  background: var(--board-2);
+  box-shadow: 3px 3px 0 var(--board-edge);
+  transition: transform .12s ease, box-shadow .12s ease, background .15s ease;
+  user-select: none;
+}
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 5px 0 var(--board-edge); }
+.btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--board-edge); }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; transform: none; }
+.btn--primary {
+  color: #fff;
+  background: var(--mk-blue);
+  border-color: var(--mk-blue);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--mk-blue) 45%, var(--board));
+}
+.btn--primary:hover { background: color-mix(in srgb, var(--mk-blue) 88%, #000); }
+.btn--ghost {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+  box-shadow: none;
+}
+.btn--ghost:hover { color: var(--ink); border-color: var(--ink); box-shadow: none; }
+.btn--sm { font-size: .8rem; padding: .35em .8em; border-width: 2px; }
+.btn--lg { font-size: 1.05rem; padding: .7em 1.5em; }
+.btn--danger { color: #fff; background: var(--mk-red); border-color: var(--mk-red); }
+
+/* ------------------------------------------------------ 10 Grids & tiles */
+.grid { display: grid; gap: 1rem; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px)  { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
+}
+
+.card-tile {
+  display: block;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  background: var(--board-2);
+  border: 2.5px solid var(--board-edge);
+  border-radius: 14px;
+  padding: 1rem 1.05rem;
+  box-shadow: var(--shadow-2);
+  transition: transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .18s ease, border-color .18s ease;
+  overflow: hidden;
+}
+.card-tile::before {
+  content: "";
+  position: absolute; inset: 0 auto 0 0; width: 6px;
+  background: var(--tile-accent, var(--ink-soft));
+}
+.card-tile:hover {
+  transform: translateY(-4px) rotate(-.5deg);
+  box-shadow: 6px 10px 0 rgba(0,0,0,.12), var(--shadow-3);
+  border-color: var(--tile-accent, var(--ink));
+}
+.card-tile:nth-child(even):hover { transform: translateY(-4px) rotate(.5deg); }
+.card-tile:active { transform: translateY(-1px); }
+.card-tile h3, .card-tile h4 { margin-top: 0; }
+.card-tile p { margin-bottom: .5rem; }
+.card-tile--az104 { --tile-accent: var(--az104); }
+.card-tile--az305 { --tile-accent: var(--az305); }
+.card-tile--az400 { --tile-accent: var(--az400); }
+.card-tile--ghas  { --tile-accent: var(--ghas); }
+.card-tile.is-done::after {
+  content: "✓ DONE";
+  position: absolute; top: .55rem; right: .6rem;
+  font-size: .62rem; font-weight: 800; letter-spacing: .1em;
+  color: var(--mk-green);
+  border: 2px solid var(--mk-green);
+  border-radius: 999px;
+  padding: .1em .5em;
+}
+
+/* row of small meta items inside a tile */
+.tile-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .45rem;
+  margin-top: .6rem; font-size: .78rem; color: var(--ink-soft);
+}
+
+/* Grid/flex items default to min-width:auto, so a single long unbreakable
+   token makes the TRACK wider than its container and the content gets clipped
+   by the body overflow-x:hidden at 375px. Let every grid/flex child shrink. */
+.grid > *, .qa > * { min-width: 0; }
+.qa { grid-template-columns: minmax(0, 1fr); }
+
+/* ---------------------------------------------------- 11 Tables & scrollx */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  margin: 1rem 0;
+  padding-bottom: .25rem;
+  /* fade hint on the right edge, only while scrollable content overflows */
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 26px), rgba(0,0,0,.25) 100%);
+          mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 26px), rgba(0,0,0,.25) 100%);
+  scrollbar-width: thin;
+}
+.scroll-x::-webkit-scrollbar { height: 9px; }
+.scroll-x::-webkit-scrollbar-thumb { background: var(--board-edge); border-radius: 999px; }
+.scroll-x > table { min-width: 560px; }
+
+table.cs, .board table, .marker-box table {
+  width: 100%;
+  font-size: .9rem;
+  background: var(--board-2);
+  border: 2px solid var(--board-edge);
+  border-radius: 10px;
+  overflow: hidden;
+}
+table th, table td {
+  padding: .55rem .7rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--board-grid);
+  border-right: 1px solid var(--board-grid);
+}
+table th {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: .74rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--mk-blue) 10%, var(--board-2));
+  position: sticky; top: 0;
+}
+table tr:last-child td { border-bottom: 0; }
+table th:last-child, table td:last-child { border-right: 0; }
+table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+table tbody tr:hover { background: color-mix(in srgb, var(--mk-orange) 9%, transparent); }
+caption {
+  caption-side: top;
+  font-family: var(--font-hand);
+  font-size: 1.05rem;
+  text-align: left;
+  padding-bottom: .4rem;
+}
+/* the cue-card table every module ends with */
+table.cue td:first-child { font-weight: 700; color: var(--mk-red); width: 46%; }
+table.cue td:last-child  { color: var(--ink); }
+
+/* ----------------------------------------------------------------- 12 HUD */
+.hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--hud-h);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: 0 clamp(.6rem, 2vw, 1.1rem);
+  background: var(--hud-bg);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+  border-bottom: 2px solid var(--board-edge);
+  font-family: var(--font-ui);
+  font-size: .84rem;
+}
+.hud__stripe {
+  position: absolute; left: 0; right: 0; bottom: -2px; height: 4px;
+  background: var(--hud-accent, var(--ink-soft));
+}
+.hud__back {
+  display: inline-flex; align-items: center; gap: .3em;
+  text-decoration: none; font-weight: 700; color: var(--ink);
+  padding: .3em .55em; border-radius: 8px; flex: 0 0 auto;
+}
+.hud__back:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.hud__title {
+  font-family: var(--font-hand);
+  font-size: 1.12rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.hud__spacer { flex: 1 1 auto; }
+.hud__stats { display: flex; align-items: center; gap: .55rem; flex: 0 0 auto; }
+.hud__level {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.35rem; height: 1.7rem; padding: 0 .4rem;
+  font-size: .74rem; font-weight: 800; letter-spacing: .03em;
+  color: #fff; background: var(--hud-accent, var(--mk-blue));
+  border-radius: 999px;
+}
+.hud__xpwrap { display: flex; flex-direction: column; gap: 2px; width: clamp(70px, 14vw, 150px); }
+.hud__xplabel { font-size: .62rem; color: var(--ink-soft); line-height: 1; letter-spacing: .04em; }
+.hud__xpbar {
+  height: 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 13%, transparent);
+  overflow: hidden;
+  border: 1px solid var(--board-edge);
+}
+.hud__xpfill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--mk-green), var(--mk-teal));
+  transition: width .5s cubic-bezier(.2,.8,.3,1);
+}
+.hud__streak {
+  display: inline-flex; align-items: center; gap: .18em;
+  font-weight: 800; color: var(--mk-orange);
+  white-space: nowrap;
+}
+.hud__mute {
+  font-size: 1rem; line-height: 1;
+  padding: .3em .45em; border-radius: 8px;
+  border: 2px solid var(--board-edge);
+  background: var(--board-2);
+}
+.hud__mute:hover { border-color: var(--ink); }
+@media (max-width: 640px) {
+  .hud__xpwrap { display: none; }
+  .hud__title { font-size: 1rem; }
+}
+@media (max-width: 400px) {
+  .hud__back span { display: none; }
+}
+
+/* ------------------------------------------- 13 Rings, meters, stat strip */
+.ring { display: block; }
+.ring__track { stroke: color-mix(in srgb, var(--ink) 14%, transparent); fill: none; }
+.ring__fill {
+  fill: none;
+  stroke: var(--ring-color, var(--mk-green));
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset .8s cubic-bezier(.2,.8,.3,1);
+}
+.ring__label {
+  font-family: var(--font-ui);
+  font-size: 11px; font-weight: 800;
+  fill: var(--ink);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* stacked domain-weighting bar */
+.wbar {
+  display: flex; width: 100%; height: 12px;
+  border-radius: 999px; overflow: hidden;
+  border: 1.5px solid var(--board-edge);
+  background: var(--board-2);
+}
+.wbar span { display: block; height: 100%; }
+.wbar-legend {
+  display: flex; flex-wrap: wrap; gap: .3rem .7rem;
+  margin-top: .4rem; font-size: .68rem; color: var(--ink-soft);
+}
+.wbar-legend i {
+  display: inline-block; width: .6em; height: .6em; border-radius: 2px;
+  margin-right: .3em; background: currentColor; font-style: normal;
+}
+
+/* stat strip on the hub */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: .7rem;
+  margin: 1.25rem 0 2rem;
+}
+.stat {
+  text-align: center;
+  padding: .75rem .5rem;
+  background: var(--board-2);
+  border: 2.5px solid var(--board-edge);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  box-shadow: var(--shadow-2);
+}
+.stat b {
+  display: block;
+  font-family: var(--font-hand);
+  font-size: 1.85rem;
+  line-height: 1.05;
+  color: var(--stat-color, var(--ink));
+}
+.stat span { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* toasts (rendered by station.js) */
+#cs-toast-host {
+  position: fixed;
+  left: 50%; bottom: 1.4rem;
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex; flex-direction: column; align-items: center; gap: .45rem;
+  pointer-events: none;
+  width: min(92vw, 460px);
+}
+.cs-toast {
+  font-family: var(--font-ui);
+  font-size: .88rem; font-weight: 600;
+  padding: .55rem 1rem;
+  border-radius: 999px;
+  border: 2.5px solid var(--ink);
+  background: var(--board-2);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
+  animation: cs-toast-in .28s cubic-bezier(.2,1.4,.4,1) both;
+  max-width: 100%;
+}
+.cs-toast.is-out { animation: cs-toast-out .3s ease forwards; }
+.cs-toast--good { border-color: var(--mk-green); color: var(--mk-green); }
+.cs-toast--bad  { border-color: var(--mk-red);   color: var(--mk-red); }
+.cs-toast--info { border-color: var(--mk-blue);  color: var(--mk-blue); }
+.cs-xpfloat {
+  position: fixed;
+  z-index: 1201;
+  font-family: var(--font-hand);
+  font-size: 1.5rem; font-weight: 700;
+  color: var(--mk-green);
+  pointer-events: none;
+  text-shadow: 0 2px 6px rgba(0,0,0,.25);
+  animation: cs-float-up 1.15s ease-out forwards;
+}
+
+/* ------------------------------------------------------- 14 FX utilities */
+@keyframes cs-wobble {
+  0%,100% { transform: rotate(-1deg); }
+  50%     { transform: rotate(1.4deg); }
+}
+@keyframes cs-pop {
+  0%   { transform: scale(.82); opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes cs-shake {
+  0%,100% { transform: translateX(0); }
+  15% { transform: translateX(-8px) rotate(-1deg); }
+  30% { transform: translateX(7px)  rotate(1deg); }
+  45% { transform: translateX(-6px); }
+  60% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+@keyframes cs-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cs-toast-in  { from { opacity: 0; transform: translateY(16px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes cs-toast-out { to   { opacity: 0; transform: translateY(-10px) scale(.96); } }
+@keyframes cs-float-up  { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-70px) scale(1.25); } }
+@keyframes cs-pulse     { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+.fx-wobble  { animation: cs-wobble 2.6s ease-in-out infinite; transform-origin: center; }
+.fx-pop     { animation: cs-pop .32s cubic-bezier(.2,1.5,.4,1) both; }
+.fx-shake   { animation: cs-shake .5s ease-in-out both; }
+.fx-fade-in { animation: cs-fade-in .5s ease both; }
+.fx-pulse   { animation: cs-pulse 1.6s ease-in-out infinite; }
+.fx-delay-1 { animation-delay: .08s; }
+.fx-delay-2 { animation-delay: .16s; }
+.fx-delay-3 { animation-delay: .24s; }
+.fx-delay-4 { animation-delay: .32s; }
+
+.is-hidden { display: none !important; }
+
+/* Available to assistive tech, invisible on screen. Used where the visible
+   page title is a hand-drawn SVG logo but the document still needs an <h1>. */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.nowrap { white-space: nowrap; }
+.stack > * + * { margin-top: .75rem; }
+.row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.row--between { justify-content: space-between; }
+
+/* ============================================================ 15 TIERS ===
+   Skill tiers, 100-500. Driven entirely by two attributes that station.js
+   writes onto <html>:
+
+     <html data-tier-active="100|200|300|400|500" data-tier-below="0|1">
+
+   Rules of the road:
+     · An element WITHOUT data-tier is always visible. Untagged = always shown.
+     · An element WITH data-tier shows only when it matches the selection.
+     · data-tier-below="1" also reveals every tier BELOW the active one.
+       Tiers ABOVE the active one never show. Ever.
+     · .tier-any is the escape hatch — never hidden, whatever its data-tier.
+     · Printing ignores tiers completely (the hide rules live in @media screen).
+   ========================================================================= */
+
+/* every tiered element carries its own colour, so components can just use it */
+[data-tier="100"] { --tier-color: var(--t100); }
+[data-tier="200"] { --tier-color: var(--t200); }
+[data-tier="300"] { --tier-color: var(--t300); }
+[data-tier="400"] { --tier-color: var(--t400); }
+[data-tier="500"] { --tier-color: var(--t500); }
+
+/* ------------------------------------------------- 15a Visibility matrix */
+@media screen {
+
+  /* ---- ACTIVE 100, below OFF — only Foundation ---- */
+  :root[data-tier-active="100"][data-tier-below="0"] [data-tier="200"]:not(.tier-any),
+  :root[data-tier-active="100"][data-tier-below="0"] [data-tier="300"]:not(.tier-any),
+  :root[data-tier-active="100"][data-tier-below="0"] [data-tier="400"]:not(.tier-any),
+  :root[data-tier-active="100"][data-tier-below="0"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 200, below OFF — only Practitioner ---- */
+  :root[data-tier-active="200"][data-tier-below="0"] [data-tier="100"]:not(.tier-any),
+  :root[data-tier-active="200"][data-tier-below="0"] [data-tier="300"]:not(.tier-any),
+  :root[data-tier-active="200"][data-tier-below="0"] [data-tier="400"]:not(.tier-any),
+  :root[data-tier-active="200"][data-tier-below="0"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 300, below OFF — only Professional ---- */
+  :root[data-tier-active="300"][data-tier-below="0"] [data-tier="100"]:not(.tier-any),
+  :root[data-tier-active="300"][data-tier-below="0"] [data-tier="200"]:not(.tier-any),
+  :root[data-tier-active="300"][data-tier-below="0"] [data-tier="400"]:not(.tier-any),
+  :root[data-tier-active="300"][data-tier-below="0"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 400, below OFF — only Expert (the shipped default) ---- */
+  :root[data-tier-active="400"][data-tier-below="0"] [data-tier="100"]:not(.tier-any),
+  :root[data-tier-active="400"][data-tier-below="0"] [data-tier="200"]:not(.tier-any),
+  :root[data-tier-active="400"][data-tier-below="0"] [data-tier="300"]:not(.tier-any),
+  :root[data-tier-active="400"][data-tier-below="0"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 500, below OFF — only Architect ---- */
+  :root[data-tier-active="500"][data-tier-below="0"] [data-tier="100"]:not(.tier-any),
+  :root[data-tier-active="500"][data-tier-below="0"] [data-tier="200"]:not(.tier-any),
+  :root[data-tier-active="500"][data-tier-below="0"] [data-tier="300"]:not(.tier-any),
+  :root[data-tier-active="500"][data-tier-below="0"] [data-tier="400"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 100, below ON — 100 is the floor, nothing below it ---- */
+  :root[data-tier-active="100"][data-tier-below="1"] [data-tier="200"]:not(.tier-any),
+  :root[data-tier-active="100"][data-tier-below="1"] [data-tier="300"]:not(.tier-any),
+  :root[data-tier-active="100"][data-tier-below="1"] [data-tier="400"]:not(.tier-any),
+  :root[data-tier-active="100"][data-tier-below="1"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 200, below ON — 100 + 200 ---- */
+  :root[data-tier-active="200"][data-tier-below="1"] [data-tier="300"]:not(.tier-any),
+  :root[data-tier-active="200"][data-tier-below="1"] [data-tier="400"]:not(.tier-any),
+  :root[data-tier-active="200"][data-tier-below="1"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 300, below ON — 100 + 200 + 300 ---- */
+  :root[data-tier-active="300"][data-tier-below="1"] [data-tier="400"]:not(.tier-any),
+  :root[data-tier-active="300"][data-tier-below="1"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 400, below ON — everything except Architect ---- */
+  :root[data-tier-active="400"][data-tier-below="1"] [data-tier="500"]:not(.tier-any) { display: none; }
+
+  /* ---- ACTIVE 500, below ON — everything shows. No hide rule exists. ---- */
+
+}
+
+/* --------------------------------------------------- 15b Tiered content */
+.tier-block {
+  position: relative;
+  margin: 1.15rem 0;
+  padding: .95rem 3.3rem 1rem 1.1rem;
+  border-left: 6px solid var(--tier-color, var(--ink-soft));
+  border-radius: 4px 12px 12px 4px;
+  background: color-mix(in srgb, var(--tier-color, var(--ink-soft)) calc(var(--wash-soft) * 100%), var(--board-2));
+  box-shadow: var(--shadow-1);
+}
+.tier-block > :last-child { margin-bottom: 0; }
+.tier-block > h2, .tier-block > h3, .tier-block > h4 { margin-top: 0; }
+/* corner badge: the tier number, straight out of the attribute */
+.tier-block[data-tier]::before {
+  content: attr(data-tier);
+  position: absolute;
+  top: .5rem; right: .55rem;
+  font-family: var(--font-ui);
+  font-size: .64rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  line-height: 1.6;
+  color: #fff;
+  background: var(--tier-color, var(--ink-soft));
+  border-radius: 999px;
+  padding: 0 .6em;
+  pointer-events: none;
+}
+
+/* inline badge for lists and tables.
+   NOTE: a pill that is a LEGEND (a key explaining the colours, a per-tier
+   count) should carry .tier-any so the filter never eats it. A pill that
+   labels a row is fine as-is: it hides exactly when its row hides. */
+.tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .3em;
+  font-family: var(--font-ui);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  line-height: 1.55;
+  padding: .05em .55em;
+  border-radius: 999px;
+  color: var(--tier-color, var(--ink-soft));
+  border: 2px solid currentColor;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.tier-pill:empty::before { content: attr(data-tier); }
+.tier-pill--solid { color: #fff; background: var(--tier-color, var(--ink-soft)); border-color: transparent; }
+
+/* the "you selected a tier nobody has written yet" placeholder */
+.tier-empty {
+  border: 3px dashed var(--board-edge);
+  border-radius: 16px;
+  padding: 1.6rem 1.15rem;
+  margin: 1.15rem 0;
+  text-align: center;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.tier-empty b {
+  display: block;
+  font-family: var(--font-hand);
+  font-size: 1.4rem;
+  line-height: 1.15;
+  color: var(--ink);
+  margin-bottom: .3rem;
+}
+.tier-empty p { margin: 0 auto; max-width: 46ch; font-size: .85rem; }
+
+/* ---------------------------------------------------- 15c Tier picker */
+.tier-picker {
+  display: grid;
+  gap: .55rem;
+  font-family: var(--font-ui);
+  min-width: 0;
+}
+.tier-picker__heading {
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.tier-picker__group {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 2.5px solid var(--board-edge);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--board-2);
+  box-shadow: var(--shadow-2);
+}
+.tier-picker__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .05rem;
+  min-width: 0;
+  padding: .45rem .25rem .5rem;
+  border-right: 2px solid var(--board-edge);
+  color: var(--ink-soft);
+  transition: background .15s ease, color .15s ease;
+}
+.tier-picker__btn:last-child { border-right: 0; }
+.tier-picker__btn[data-t="100"] { --t-btn: var(--t100); }
+.tier-picker__btn[data-t="200"] { --t-btn: var(--t200); }
+.tier-picker__btn[data-t="300"] { --t-btn: var(--t300); }
+.tier-picker__btn[data-t="400"] { --t-btn: var(--t400); }
+.tier-picker__btn[data-t="500"] { --t-btn: var(--t500); }
+.tier-picker__num {
+  font-family: var(--font-hand);
+  font-size: 1.3rem;
+  line-height: 1.05;
+  color: var(--t-btn, var(--ink));
+}
+.tier-picker__name {
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tier-picker__btn:hover { background: color-mix(in srgb, var(--t-btn) 16%, transparent); color: var(--ink); }
+.tier-picker__btn.is-active {
+  background: var(--t-btn);
+  color: #fff;
+}
+.tier-picker__btn.is-active .tier-picker__num { color: #fff; }
+.tier-picker__btn:focus-visible { outline-offset: -3px; }
+
+.tier-picker__below {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  user-select: none;
+  width: fit-content;
+}
+.tier-picker__cb { width: 1.05rem; height: 1.05rem; accent-color: var(--tier-color, var(--mk-blue)); cursor: pointer; }
+.tier-picker__below:hover { color: var(--ink); }
+
+.tier-picker__desc {
+  margin: 0;
+  font-size: .82rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  max-width: 78ch;
+  min-height: 2.4em;     /* stops the layout hopping as the text changes */
+}
+
+/* compact variant — numbers only, for the HUD popover */
+.tier-picker--compact .tier-picker__name { display: none; }
+.tier-picker--compact .tier-picker__btn { padding: .32rem .2rem .36rem; }
+.tier-picker--compact .tier-picker__num { font-size: 1.05rem; }
+.tier-picker--compact .tier-picker__desc { font-size: .74rem; min-height: 0; }
+
+/* names never fit five-across on a phone; the buttons keep their aria-label */
+@media (max-width: 480px) {
+  .tier-picker__name { display: none; }
+  .tier-picker__num  { font-size: 1.15rem; }
+}
+
+/* ------------------------------------------------ 15d HUD tier indicator */
+.hud-tier-wrap { position: relative; flex: 0 0 auto; }
+.hud-tier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.9rem;
+  height: 1.7rem;
+  padding: 0 .45rem;
+  font-family: var(--font-ui);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: #fff;
+  background: var(--tier-color, var(--t400));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.hud-tier:hover { border-color: var(--ink); }
+.hud-tier[aria-expanded="true"] { border-color: var(--ink); }
+
+.hud-tier-pop {
+  position: absolute;
+  top: calc(100% + .55rem);
+  right: 0;
+  z-index: 960;
+  width: min(84vw, 380px);
+  padding: .8rem .85rem .85rem;
+  background: var(--board-2);
+  border: 2.5px solid var(--board-edge);
+  border-radius: 14px;
+  box-shadow: var(--shadow-3);
+}
+.hud-tier-pop[hidden] { display: none; }
+@media (max-width: 560px) {
+  /* anchor to the viewport instead, so it can never poke past an edge */
+  .hud-tier-pop {
+    position: fixed;
+    top: calc(var(--hud-h) + .4rem);
+    left: .6rem;
+    right: .6rem;
+    width: auto;
+  }
+}
+
+/* --------------------------------------------------- 16 Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .marker-box:hover, .card-tile:hover, .sticky:hover, .btn:hover { transform: none; }
+}
+
+/* ------------------------------------------------------------- 17 Print */
+@media print {
+  :root {
+    --board: #fff; --board-2: #fff; --ink: #000; --ink-soft: #333;
+    --board-grid: rgba(0,0,0,.06); --board-edge: rgba(0,0,0,.35);
+    --wash: 0.06;
+  }
+  body {
+    background: #fff !important;
+    color: #000;
+    font-size: 11pt;
+  }
+  .hud, #cs-toast-host, .no-print, .btn, canvas { display: none !important; }
+  .page { padding-top: 0; max-width: none; }
+  .board { box-shadow: none; border: 1px solid #999; background: #fff; }
+  .board::after { display: none; }
+  .marker-box, .card-tile, .stat {
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-width: 2px;
+  }
+  .sticky { box-shadow: none; transform: none !important; border: 1px solid #999; }
+  .trap, .gotcha, .keyfact, .pizza { break-inside: avoid; page-break-inside: avoid; }
+  .cli { background: #f4f4f4 !important; color: #000 !important; border: 1px solid #999; }
+  .cli::before, .cli::after { display: none; }
+  .cli { padding-top: 1rem; }
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+  table { break-inside: auto; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  a[href]::after { content: ""; }
+  .scroll-x { overflow: visible; -webkit-mask-image: none; mask-image: none; }
+  .scroll-x > table { min-width: 0; }
+  /* leave room for hand annotation */
+  section { margin-bottom: 1.2rem; }
+
+  /* --- tiers: a printout is the whole book, not one chapter ---------------
+     The visibility matrix lives inside @media screen, so on paper EVERY tier
+     is already visible. All that is left is to keep the badges legible
+     without relying on background colours, and to drop the controls. */
+  .tier-picker, .hud-tier-wrap, .hud-tier-pop { display: none !important; }
+  .tier-block {
+    box-shadow: none;
+    background: #fff;
+    border-left: 3px solid #000;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .tier-block[data-tier]::before {
+    content: "TIER " attr(data-tier);
+    color: #000;
+    background: transparent;
+    border: 1px solid #000;
+  }
+  .tier-pill {
+    color: #000;
+    background: transparent;
+    border: 1px solid #000;
+  }
+  .tier-pill:empty::before { content: attr(data-tier); }
+  .tier-empty { display: none !important; }
+}

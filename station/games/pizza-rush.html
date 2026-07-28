@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pizza Rush — AZ-400 · Certification Station</title>
+<link rel="stylesheet" href="../assets/css/station.css">
+<script src="../assets/js/station.js" defer></script>
+<style>
+  /* ---------------------------------------------------------- Pizza Rush */
+  .pr-hero { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
+  .pr-hero svg { flex:0 0 auto; }
+
+  /* top strip: health / wave / score / combo */
+  .pr-strip {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(104px,1fr));
+    gap:.55rem; margin:.4rem 0 .8rem;
+  }
+  .pr-cell {
+    text-align:center; padding:.45rem .35rem;
+    background:var(--board-2); border:2.5px solid var(--board-edge);
+    border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;
+    box-shadow:var(--shadow-2);
+  }
+  .pr-cell b {
+    display:block; font-family:var(--font-hand); font-size:1.45rem; line-height:1.1;
+    color:var(--pr-c,var(--ink));
+  }
+  .pr-cell span { font-size:.6rem; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-soft); }
+  .pr-stars { letter-spacing:.05em; }
+
+  /* timer */
+  .pr-timer { height:14px; border-radius:999px; border:2px solid var(--board-edge);
+              background:color-mix(in srgb,var(--ink) 10%,transparent); overflow:hidden; }
+  .pr-timer i { display:block; height:100%; width:100%;
+                background:linear-gradient(90deg,var(--mk-green),var(--mk-orange));
+                transition:width .1s linear; }
+  .pr-timer.is-panic i { background:linear-gradient(90deg,var(--mk-orange),var(--mk-red)); }
+  .pr-timer.is-panic { animation:cs-pulse .55s ease-in-out infinite; }
+
+  /* the order ticket */
+  .pr-ticket { position:relative; }
+  .pr-ticket .pr-tno {
+    font-family:var(--font-mono); font-size:.68rem; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-soft);
+  }
+  .pr-ticket h3 { margin:.1rem 0 .35rem; }
+  .pr-ticket p  { margin-bottom:.35rem; font-size:1.02rem; }
+
+  /* the kitchen line preview */
+  .pr-line {
+    display:flex; align-items:center; gap:.3rem; flex-wrap:wrap;
+    min-height:44px; padding:.45rem .55rem;
+    border:2.5px dashed var(--board-edge); border-radius:12px;
+    background:color-mix(in srgb,var(--mk-blue) 5%,var(--board-2));
+  }
+  .pr-line .pr-arrow { color:var(--ink-soft); font-weight:800; }
+  .pr-line .pr-empty { color:var(--ink-soft); font-family:var(--font-hand); font-size:1rem; }
+  .pr-node {
+    display:inline-flex; align-items:center; gap:.28em;
+    font-size:.74rem; font-weight:700; white-space:nowrap;
+    padding:.2em .55em; border-radius:8px;
+    border:2px solid var(--n-c,var(--ink)); color:var(--n-c,var(--ink));
+    background:color-mix(in srgb,var(--n-c,var(--ink)) 13%,var(--board-2));
+  }
+  .pr-setup { display:flex; gap:.3rem; flex-wrap:wrap; margin-bottom:.4rem; }
+
+  /* the palette */
+  .pr-groups { display:grid; gap:.7rem; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
+  .pr-group { border:2.5px solid var(--g-c); border-radius:12px; padding:.45rem .5rem .55rem;
+              background:color-mix(in srgb,var(--g-c) 5%,var(--board-2)); }
+  .pr-group > h4 { margin:.05rem 0 .4rem; font-size:.68rem; letter-spacing:.14em;
+                   text-transform:uppercase; color:var(--g-c); }
+  .pr-tiles { display:grid; gap:.35rem; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); }
+  .pr-tile {
+    position:relative; text-align:left; font-family:var(--font-ui);
+    font-size:.72rem; font-weight:700; line-height:1.15;
+    padding:.42rem .4rem .42rem .42rem; min-height:52px;
+    border:2px solid var(--board-edge); border-radius:9px;
+    background:var(--board-2); color:var(--ink);
+    transition:transform .1s ease, border-color .12s ease, background .12s ease;
+  }
+  .pr-tile em { display:block; font-style:normal; font-size:.95em; }
+  .pr-tile .pr-k {
+    position:absolute; top:2px; right:3px;
+    font-family:var(--font-mono); font-size:.58rem; font-weight:800;
+    color:var(--ink-soft); opacity:.75;
+  }
+  .pr-tile:hover { border-color:var(--g-c); transform:translateY(-2px); }
+  .pr-tile.is-on {
+    border-color:var(--g-c); color:var(--g-c);
+    background:color-mix(in srgb,var(--g-c) 20%,var(--board-2));
+    box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--g-c) 35%,transparent);
+  }
+  .pr-tile.is-on .pr-k { color:var(--g-c); opacity:1; }
+  .pr-tile:disabled { opacity:.5; cursor:not-allowed; }
+
+  /* verdict overlay */
+  .pr-veil {
+    position:fixed; inset:0; z-index:1100;
+    display:flex; align-items:center; justify-content:center;
+    padding:1rem; background:color-mix(in srgb,var(--board) 78%,transparent);
+    backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px);
+    overflow-y:auto;
+  }
+  .pr-veil > div {
+    width:min(680px,100%); max-height:100%; overflow-y:auto;
+    background:var(--board-2); border:3px solid var(--v-c,var(--ink));
+    border-radius:255px 18px 225px 18px / 18px 225px 18px 255px;
+    box-shadow:var(--shadow-3); padding:1.1rem 1.15rem 1.25rem;
+  }
+  .pr-veil h2 { margin-top:0; color:var(--v-c,var(--ink)); }
+  .pr-scene { display:block; margin:0 auto .5rem; width:min(300px,72%); height:auto; }
+
+  .pr-diff { display:flex; gap:.4rem; flex-wrap:wrap; margin:.5rem 0; }
+  .pr-diff span { font-size:.74rem; font-weight:700; padding:.18em .55em; border-radius:7px; border:2px solid currentColor; }
+  .pr-miss { color:var(--mk-red); }
+  .pr-bad  { color:var(--mk-red); text-decoration:line-through; }
+  .pr-extra{ color:var(--mk-orange); }
+  .pr-hit  { color:var(--mk-green); }
+
+  .pr-scorecard td:first-child { font-weight:700; }
+  .pr-recap { display:grid; gap:.5rem; margin:.6rem 0; }
+  .pr-recap a {
+    display:block; text-decoration:none; padding:.5rem .65rem;
+    border:2px solid var(--board-edge); border-left:6px solid var(--mk-red);
+    border-radius:4px 10px 10px 4px; background:var(--board-2);
+  }
+  .pr-recap a:hover { border-color:var(--mk-red); }
+  .pr-recap b { display:block; font-size:.92rem; }
+  .pr-recap span { font-size:.82rem; color:var(--ink-soft); }
+
+  .pr-keys { font-size:.76rem; color:var(--ink-soft); }
+  details.pr-drills summary {
+    cursor:pointer; font-family:var(--font-hand); font-size:1.25rem;
+    padding:.3rem 0; list-style:none;
+  }
+  details.pr-drills summary::-webkit-details-marker { display:none; }
+  details.pr-drills summary::before { content:"▸ "; color:var(--mk-orange); }
+  details.pr-drills[open] summary::before { content:"▾ "; }
+
+  @media (max-width:520px) {
+    .pr-tiles { grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); }
+    .pr-tile .pr-k { display:none; }
+  }
+</style>
+</head>
+<body>
+<main class="page page--wide">
+
+  <!-- ============================================================ TITLE -->
+  <section id="pr-title">
+    <div class="pr-hero">
+      <svg viewBox="0 0 120 120" width="104" height="104" role="img" aria-label="A pizza slice on a conveyor">
+        <defs>
+          <clipPath id="prSlice"><path d="M60 12 L104 96 Q60 112 16 96 Z"/></clipPath>
+        </defs>
+        <path d="M60 12 L104 96 Q60 112 16 96 Z" fill="#F2C14E" stroke="var(--mk-ink)" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M60 26 L96 94 Q60 106 24 94 Z" fill="#E4572E" clip-path="url(#prSlice)" opacity=".85"/>
+        <circle cx="52" cy="66" r="7" fill="#B3261E" stroke="var(--mk-ink)" stroke-width="2.5"/>
+        <circle cx="76" cy="82" r="6" fill="#B3261E" stroke="var(--mk-ink)" stroke-width="2.5"/>
+        <circle cx="62" cy="90" r="5" fill="#B3261E" stroke="var(--mk-ink)" stroke-width="2.5"/>
+        <path d="M8 104 H112" stroke="var(--ink-soft)" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="24" cy="112" r="6" fill="none" stroke="var(--ink-soft)" stroke-width="3.5"/>
+        <circle cx="60" cy="112" r="6" fill="none" stroke="var(--ink-soft)" stroke-width="3.5"/>
+        <circle cx="96" cy="112" r="6" fill="none" stroke="var(--ink-soft)" stroke-width="3.5"/>
+      </svg>
+      <div>
+        <h1 class="hand" style="margin-bottom:.1rem">Pizza Rush</h1>
+        <p class="lede" style="margin-bottom:.4rem">
+          Il Pipelino, Friday night. Orders land on the conveyor. You build the kitchen line
+          that serves them. Get it wrong and the health inspector, the fire, or the local paper
+          finds out first.
+        </p>
+        <div class="row">
+          <span class="chip chip--az400">AZ-400</span>
+          <span class="chip chip--orange" id="pr-count">— orders</span>
+          <span class="chip chip--ink">arcade · ~7 min</span>
+          <span class="chip chip--green" id="pr-best">★ best —</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-top:1.1rem">
+      <div class="marker-box mk-blue">
+        <span class="box-title">The loop</span>
+        <p style="font-size:.95rem;margin:0">
+          Read the order. Tap the stages the order <em>requires</em> — nothing more.
+          Hit <span class="kbd">Enter</span> to serve. Ten seconds, tops.
+        </p>
+      </div>
+      <div class="marker-box mk-orange">
+        <span class="box-title">The rules of the line</span>
+        <p style="font-size:.95rem;margin:0">
+          Miss a required stage or add a <em>forbidden</em> one → disaster, −1 health star.
+          Extra stages you weren't asked for cost <strong id="pr-rule-extra">40 pts</strong> each.
+          <span id="pr-rule-jam">Three</span> or more extras jam the line and the order goes cold.
+        </p>
+      </div>
+      <div class="marker-box mk-green">
+        <span class="box-title">Combo</span>
+        <p style="font-size:.95rem;margin:0">
+          Clean serves stack a multiplier up to <strong>×3</strong>. Speed pays: every second left
+          on the clock is points. <span id="pr-rule-stars">Five stars</span> is your health rating.
+          Lose them all and you're closed.
+        </p>
+      </div>
+    </div>
+
+    <!-- the tier control: chooses BOTH the order bank and the difficulty -->
+    <div class="marker-box mk-purple" id="pr-tierbox" style="margin-top:1.1rem">
+      <span class="box-title">Tonight's service level</span>
+      <div id="pr-tier-host"></div>
+      <p class="small" id="pr-tierline" style="margin:.55rem 0 0"></p>
+    </div>
+    <div id="pr-tier-empty"></div>
+
+    <div class="row" style="margin-top:1.1rem" id="pr-startrow">
+      <button class="btn btn--primary btn--lg" id="pr-start">🍕 Open the kitchen</button>
+      <a class="btn btn--ghost" href="../index.html#unlock" class="locked">AZ-400 track</a>
+      <a class="btn btn--ghost" href="../index.html">← Hub</a>
+    </div>
+    <p class="pr-keys" style="margin-top:.5rem">
+      Keyboard: <span class="kbd">1</span>–<span class="kbd">0</span> and
+      <span class="kbd">Q</span>…<span class="kbd">S</span> toggle stages ·
+      <span class="kbd">Enter</span> serve · <span class="kbd">Backspace</span> clear the line ·
+      <span class="kbd">Esc</span> quit. Touch: just tap.
+    </p>
+
+    <details class="pr-drills" id="pr-drills-title" style="margin-top:1.4rem"></details>
+  </section>
+
+  <!-- ============================================================= PLAY -->
+  <section id="pr-play" class="is-hidden" style="margin-top:.2rem">
+    <div class="pr-strip" id="pr-strip"></div>
+    <div class="pr-timer" id="pr-timerwrap"><i id="pr-timerbar"></i></div>
+
+    <div class="marker-box mk-orange pr-ticket" id="pr-ticket" style="margin-top:.85rem"></div>
+
+    <h4 style="margin:.9rem 0 .3rem;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)">
+      Tonight's line
+    </h4>
+    <div class="pr-setup" id="pr-setup"></div>
+    <div class="pr-line" id="pr-lineview"></div>
+
+    <div class="row row--between" style="margin:.8rem 0 .7rem">
+      <button class="btn btn--primary btn--lg" id="pr-serve">Serve it ⏎</button>
+      <button class="btn btn--ghost btn--sm" id="pr-clear">Clear line ⌫</button>
+    </div>
+
+    <div class="pr-groups" id="pr-palette"></div>
+
+    <p class="pr-keys" style="margin-top:.8rem">
+      <button class="btn btn--ghost btn--sm" id="pr-quit">Esc — close the kitchen</button>
+    </p>
+  </section>
+
+  <!-- ============================================================= OVER -->
+  <section id="pr-over" class="is-hidden"></section>
+
+  <div id="pr-veil-host"></div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  'use strict';
+  var S = window.Station;
+  S.mountHud({ title: 'Pizza Rush', cert: 'az400', back: '../index.html' });
+
+  var GAME_ID = 'pizza-rush';
+  var WB = '../whiteboards/';
+
+  /* =====================================================================
+   * TIER MECHANICS — a beginner and an expert do not play under the same
+   * pressure. Everything here keys off Station.tier.get() (the SELECTED
+   * tier), never off Station.level() which is the learner's XP level.
+   *   time  : multiplier on the ticket clock
+   *   press : multiplier on the per-wave speed-up
+   *   health: starting health stars
+   *   mult  : score multiplier, so the per-tier leaderboards mean something
+   *   jam   : how many unasked-for stages jam the line
+   *   extra : points lost per unasked-for stage
+   *   keep  : do extras keep your combo alive?
+   *   hint  : show the "look in these groups" nudge under the ticket
+   *   pal   : which stage tiles are even on the board (fewer decoys low down)
+   * ================================================================== */
+  var PAL_100 = ['mshosted','selfhosted','clean','kv','vg','secvar','src','cache',
+                 'build','test','scan','art','env','gate','smoke','rollback','flag'];
+  var PAL_200 = PAL_100.concat(['template','canary','bluegreen','rolling']);
+  var PAL_ALL = null; /* null = every tile */
+
+  var TIER_CFG = {
+    100: { time:2.00, press:0.30, health:7, mult:0.60, jam:5, extra:15, keep:true,  hint:true,  pal:PAL_100 },
+    200: { time:1.55, press:0.60, health:6, mult:0.80, jam:4, extra:25, keep:true,  hint:true,  pal:PAL_200 },
+    300: { time:1.20, press:1.00, health:5, mult:1.00, jam:3, extra:40, keep:false, hint:false, pal:PAL_ALL },
+    400: { time:1.00, press:1.00, health:5, mult:1.25, jam:3, extra:40, keep:false, hint:false, pal:PAL_ALL },
+    500: { time:0.85, press:1.30, health:4, mult:1.60, jam:3, extra:55, keep:false, hint:false, pal:PAL_ALL }
+  };
+
+  /** The smallest bank that still makes a run worth playing. */
+  var MIN_ORDERS = 6;
+
+  function cfg()      { return TIER_CFG[S.tier.get()] || TIER_CFG[400]; }
+  function scoreKey() { return GAME_ID + '@' + S.tier.get(); }
+  function deckFor()  { return S.tier.filter(ORDERS); }
+
+  /* =====================================================================
+   * STAGE CATALOG — 22 tiles, the whole kitchen
+   * ================================================================== */
+  var STAGES = {
+    /* --- the crew: agents & reuse --- */
+    mshosted:   { n:'MS-hosted agent',   e:'👨‍🍳', d:'temp cook, rented kitchen, apron binned after every shift' },
+    selfhosted: { n:'Self-hosted agent', e:'🧑‍🍳', d:'your cook, your kitchen, remembers where the knives are' },
+    clean:      { n:'Clean workspace',   e:'🧽', d:'scrub the station before service' },
+    template:   { n:'Shared template',   e:'📋', d:'one recipe card every station extends' },
+    /* --- the pantry: secrets & config --- */
+    kv:         { n:'Key Vault link',    e:'🔐', d:'variable group linked to the safe' },
+    vg:         { n:'Variable group',    e:'🗂️', d:'laminated settings card taped inside the pass' },
+    secvar:     { n:'Secret variable',   e:'🤫', d:'masked value stored in the pipeline UI' },
+    ident:      { n:'Workload identity', e:'🪪', d:'OIDC federation — no stored secret at all' },
+    /* --- the line: build --- */
+    src:        { n:'Checkout',          e:'📖', d:'pull the recipe book' },
+    cache:      { n:'Cache',             e:'🧊', d:'yesterday’s prepped ingredients, still good' },
+    build:      { n:'Build',             e:'🥖', d:'make and proof the dough' },
+    test:       { n:'Automated tests',   e:'👅', d:'the taste test before it leaves the kitchen' },
+    scan:       { n:'Security scan',     e:'🔎', d:'inspector reads the recipes for cross-contamination' },
+    art:        { n:'Publish artifact',  e:'📦', d:'box it, seal it, label it, stock the pantry' },
+    /* --- the dining room: release --- */
+    env:        { n:'Environment job',   e:'🍽️', d:'a deployment job that targets a named dining room' },
+    gate:       { n:'Approval gate',     e:'🚧', d:'health inspector at the kitchen door' },
+    canary:     { n:'Canary',            e:'🐤', d:'five tables get the new recipe first' },
+    bluegreen:  { n:'Blue / green',      e:'🔵', d:'two identical kitchens, flip which one serves' },
+    rolling:    { n:'Rolling',           e:'🔁', d:'swap the recipe one oven at a time' },
+    flag:       { n:'Feature flag',      e:'🎚️', d:'86 a menu item without closing the restaurant' },
+    smoke:      { n:'Smoke test',        e:'💨', d:'walk the dining room after service starts' },
+    rollback:   { n:'Auto-rollback',     e:'↩️', d:'put last night’s menu back, automatically' }
+  };
+
+  var GROUPS = [
+    { name:'The crew',        c:'var(--mk-teal)',   ids:['mshosted','selfhosted','clean','template'] },
+    { name:'The pantry',      c:'var(--mk-purple)', ids:['kv','vg','secvar','ident'] },
+    { name:'The line',        c:'var(--mk-blue)',   ids:['src','cache','build','test','scan','art'] },
+    { name:'The dining room', c:'var(--mk-orange)', ids:['env','gate','canary','bluegreen','rolling','flag','smoke','rollback'] }
+  ];
+
+  var KEYS = '1234567890QWERTYUIOPAS';
+  var KEY_OF = {}, ID_OF_KEY = {}, COLOR_OF = {};
+  (function () {
+    var i = 0;
+    GROUPS.forEach(function (g) {
+      g.ids.forEach(function (id) {
+        KEY_OF[id] = KEYS[i]; ID_OF_KEY[KEYS[i]] = id; COLOR_OF[id] = g.c; i++;
+      });
+    });
+  }());
+
+  /* canonical left-to-right order of the kitchen line */
+  var LINE_ORDER = ['src','cache','build','test','scan','art','env','gate','canary','bluegreen','rolling','flag','smoke','rollback'];
+  var SETUP_IDS  = ['mshosted','selfhosted','clean','template','kv','vg','secvar','ident'];
+
+  /* which disaster a given stage causes when it is missing / wrongly used */
+  var DISASTER_OF = {
+    env:'inspector', gate:'inspector',
+    test:'poison', smoke:'poison',
+    kv:'leak', vg:'leak', secvar:'leak', ident:'leak', scan:'leak',
+    src:'burnt', cache:'burnt', build:'burnt', art:'burnt',
+    canary:'fire', bluegreen:'fire', rolling:'fire', flag:'fire', rollback:'fire',
+    mshosted:'dirty', selfhosted:'dirty', clean:'dirty', template:'dirty'
+  };
+
+  var DISASTERS = {
+    inspector:{ t:'THE HEALTH INSPECTOR SHUTS YOU DOWN', c:'var(--mk-red)' },
+    poison:   { t:'FOOD POISONING IN THE DINING ROOM',   c:'var(--mk-red)' },
+    leak:     { t:'THE SECRET SAUCE IS ON THE TAKEOUT MENU', c:'var(--mk-pink)' },
+    burnt:    { t:'BURNT PIZZA. THE OVEN NEVER RAN.',     c:'var(--mk-orange)' },
+    fire:     { t:'EVERY TABLE GOT THE BAD RECIPE AT ONCE', c:'var(--mk-red)' },
+    dirty:    { t:'LAST NIGHT’S MESS ENDED UP IN THE BOX', c:'var(--mk-orange)' },
+    cold:     { t:'THE LINE JAMMED. THE ORDER WENT COLD.', c:'var(--mk-orange)' },
+    timeout:  { t:'TICKET EXPIRED. THE TABLE WALKED OUT.', c:'var(--mk-orange)' }
+  };
+
+  /* ---- hand-authored disaster scenes (inline SVG, no assets) ---------- */
+  function scene(kind) {
+    var ink = 'var(--mk-ink)', sw = 'stroke="' + ink + '" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"';
+    var head = '<svg class="pr-scene" viewBox="0 0 240 150" role="img" aria-label="kitchen disaster">';
+    var floor = '<path d="M10 130 H230" stroke="var(--ink-soft)" stroke-width="4" stroke-linecap="round"/>';
+    if (kind === 'burnt') {
+      return head + floor +
+        '<rect x="46" y="52" width="148" height="76" rx="8" fill="var(--board-2)" ' + sw + '/>' +
+        '<rect x="60" y="66" width="120" height="48" rx="5" fill="#2A2320" ' + sw + '/>' +
+        '<circle cx="120" cy="90" r="17" fill="#151210" stroke="#6b6b6b" stroke-width="3"/>' +
+        '<path d="M96 46 q6-16 -4-28 M120 42 q8-20 -3-32 M144 46 q6-16 -4-26" fill="none" stroke="var(--ink-soft)" stroke-width="4" stroke-linecap="round" opacity=".8"/>' +
+        '<path d="M64 122 h112" stroke="#6b6b6b" stroke-width="4" stroke-linecap="round"/></svg>';
+    }
+    if (kind === 'poison') {
+      return head + floor +
+        '<ellipse cx="120" cy="112" rx="72" ry="14" fill="var(--board-2)" ' + sw + '/>' +
+        '<circle cx="120" cy="96" r="42" fill="#8FBF6B" ' + sw + '/>' +
+        '<circle cx="105" cy="88" r="5" fill="' + ink + '"/><circle cx="136" cy="88" r="5" fill="' + ink + '"/>' +
+        '<path d="M102 112 q18-14 36 0" fill="none" ' + sw + '/>' +
+        '<path d="M78 40 l10 12 l10-12 l10 12 M142 40 l10 12 l10-12 l10 12" fill="none" stroke="var(--mk-green)" stroke-width="4" stroke-linecap="round"/>' +
+        '<path d="M120 20 v14 M110 26 h20" stroke="var(--mk-red)" stroke-width="5" stroke-linecap="round"/></svg>';
+    }
+    if (kind === 'inspector') {
+      return head + floor +
+        '<rect x="34" y="36" width="94" height="92" rx="6" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M44 52 h74 M44 68 h74 M44 84 h52" stroke="var(--ink-soft)" stroke-width="4" stroke-linecap="round"/>' +
+        '<path d="M22 118 l128-72" stroke="var(--mk-red)" stroke-width="9" stroke-linecap="round"/>' +
+        '<path d="M22 46 l128 72" stroke="var(--mk-red)" stroke-width="9" stroke-linecap="round"/>' +
+        '<circle cx="192" cy="62" r="19" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M192 81 v30 M176 92 h32 M180 128 l12-17 l12 17" fill="none" ' + sw + '/>' +
+        '<rect x="164" y="86" width="24" height="18" rx="3" fill="var(--mk-red)" stroke="' + ink + '" stroke-width="3"/></svg>';
+    }
+    if (kind === 'leak') {
+      return head + floor +
+        '<path d="M52 34 h136 v92 H52 Z" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M64 50 h64 M64 64 h94 M64 78 h48" stroke="var(--ink-soft)" stroke-width="4" stroke-linecap="round"/>' +
+        '<rect x="60" y="92" width="122" height="24" rx="4" fill="color-mix(in srgb,var(--mk-pink) 30%,var(--board-2))" stroke="var(--mk-pink)" stroke-width="3.5"/>' +
+        '<text x="121" y="109" text-anchor="middle" font-family="monospace" font-size="13" font-weight="700" fill="var(--mk-pink)">SECRET_SAUCE=hunter2</text>' +
+        '<path d="M186 24 l18 12 l-18 12" fill="none" stroke="var(--mk-pink)" stroke-width="4" stroke-linecap="round"/>' +
+        '<path d="M120 24 h72" stroke="var(--mk-pink)" stroke-width="4" stroke-linecap="round" stroke-dasharray="7 6"/></svg>';
+    }
+    if (kind === 'fire') {
+      return head + floor +
+        '<rect x="26" y="66" width="188" height="60" rx="9" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M44 126 v-24 M84 126 v-24 M124 126 v-24 M164 126 v-24 M196 126 v-24" stroke="var(--ink-soft)" stroke-width="3"/>' +
+        '<path d="M60 66 q-4-22 12-32 q-2 16 10 20 q10-8 8-24 q22 18 14 36 z" fill="var(--mk-orange)" stroke="var(--mk-red)" stroke-width="3"/>' +
+        '<path d="M124 66 q-4-22 12-32 q-2 16 10 20 q10-8 8-24 q22 18 14 36 z" fill="var(--mk-orange)" stroke="var(--mk-red)" stroke-width="3"/>' +
+        '<circle cx="46" cy="140" r="8" fill="none" stroke="var(--ink-soft)" stroke-width="3.5"/>' +
+        '<circle cx="196" cy="140" r="8" fill="none" stroke="var(--ink-soft)" stroke-width="3.5"/></svg>';
+    }
+    if (kind === 'dirty') {
+      return head + floor +
+        '<rect x="40" y="58" width="160" height="70" rx="8" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M56 100 q16-16 32 0 q16 16 32 0 q16-16 32 0 q10 10 20 2" fill="none" stroke="#7A6A4F" stroke-width="6" stroke-linecap="round"/>' +
+        '<circle cx="78" cy="78" r="7" fill="#7A6A4F"/><circle cx="132" cy="72" r="5" fill="#7A6A4F"/>' +
+        '<circle cx="166" cy="84" r="6" fill="#7A6A4F"/>' +
+        '<path d="M96 36 q10-14 24-6 q14-10 24 6" fill="none" stroke="var(--ink-soft)" stroke-width="4" stroke-linecap="round"/>' +
+        '<path d="M120 20 l6 12 h-12 z" fill="var(--mk-orange)" stroke="' + ink + '" stroke-width="2.5"/></svg>';
+    }
+    /* cold / timeout */
+    return head + floor +
+      '<rect x="52" y="46" width="136" height="82" rx="7" fill="#C8A87C" ' + sw + '/>' +
+      '<path d="M52 74 h136" stroke="' + ink + '" stroke-width="3"/>' +
+      '<path d="M74 100 h92" stroke="#8B7355" stroke-width="5" stroke-linecap="round"/>' +
+      '<path d="M92 34 q4-14 -6-22 M120 30 q6-16 -4-24 M148 34 q4-14 -6-22" fill="none" stroke="var(--mk-blue)" stroke-width="4" stroke-linecap="round" opacity=".7"/>' +
+      '<circle cx="196" cy="42" r="20" fill="var(--board-2)" ' + sw + '/>' +
+      '<path d="M196 30 v12 l9 6" fill="none" stroke="var(--mk-red)" stroke-width="4" stroke-linecap="round"/></svg>';
+  }
+
+  /* =====================================================================
+   * ORDER BANK — 44 real AZ-400 decisions
+   *   need : stages that MUST be on the line
+   *   ban  : stages that must NOT be (instant disaster, specific lesson)
+   * ================================================================== */
+  var ORDERS = [
+    { t:1, tier:300, h:'Ship the boxed pizza',
+      s:'The artifact is sealed in the pantry and already tested. You are putting it into <strong>production</strong>. What must the deploy leg carry?',
+      need:['env','gate','smoke'], ban:[],
+      why:'Approvals and checks attach to an <strong>Environment</strong>, so a production deploy has to be a deployment job that targets one — a plain job can never be gated. The smoke test is how you find out you broke the dining room before the customers tell you.',
+      c:'Deployment job + environment + approval', b:'az400-pipelines' },
+
+    { t:1, tier:400, h:'Where does the inspector stand?',
+      s:'Compliance requires a <strong>named human</strong> to sign off before anything touches prod. Where is that configured?',
+      need:['env','gate'], ban:[],
+      why:'Approvals are a <em>check on the Environment resource</em> in Azure DevOps (an environment protection rule in GitHub Actions). They are not a YAML task, and they cannot be attached to a plain job or to a stage without an environment.',
+      c:'Checks live on environments, not on jobs', b:'az400-pipelines' },
+
+    { t:1, tier:400, h:'Staff table, thirty times a day',
+      s:'Deploying to the <strong>dev</strong> dining room, dozens of times a day, by the team that owns the code.',
+      need:['env'], ban:['gate'],
+      why:'Gate prod, not dev. An approval on every dev deploy is how you train a team to stop deploying. Still target an environment so you keep deployment history and can scope checks later.',
+      c:'Approval scope: gate the risky ring only', b:'az400-pipelines' },
+
+    { t:1, tier:400, h:'The clear-text pantry card',
+      s:'An API key sits in a variable group as <strong>plain text</strong>, half the org can read it, and rotating it means editing it in four places.',
+      need:['kv'], ban:['vg'],
+      why:'Link the variable group to <strong>Key Vault</strong>. Values are fetched at run time, never stored in Azure DevOps, and rotation happens once in the vault. A plain variable group is a laminated card taped inside the pass — anyone walking by reads it.',
+      c:'Key Vault-linked variable group', b:'az400-pipelines' },
+
+    { t:1, tier:400, h:'Private-only kitchen',
+      s:'Deploy target is a SQL Managed Instance on a <strong>private VNet</strong> — no public endpoint, no line of sight from the internet.',
+      need:['selfhosted'], ban:['mshosted'],
+      why:'Microsoft-hosted agents live in Azure’s public network and rotate IPs. Reaching private-only resources needs a self-hosted agent (or a VNet-injected managed pool) that sits inside the network.',
+      c:'Agent selection: network reachability', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'Last night’s mess',
+      s:'Your self-hosted cook produces builds that pass locally and fail randomly in CI, quietly picking up files left over from previous runs.',
+      need:['clean'], ban:[],
+      why:'Self-hosted agents <em>reuse</em> the working directory between runs. Set the workspace to clean (outputs / resources / all) so yesterday’s state never gets baked in. Microsoft-hosted agents get this free because the entire VM is destroyed after the job.',
+      c:'Dirty workspace on self-hosted agents', b:'az400-pipelines' },
+
+    { t:1, tier:400, h:'Six minutes of package restore',
+      s:'Restoring packages takes six minutes on every build. The packages are <strong>not</strong> the thing you ship, and they can be regenerated from the lock file.',
+      need:['cache'], ban:['art'],
+      why:'Cache is for regenerable <em>inputs</em>: packages, layers, tool downloads. Artifacts are for <em>outputs</em> you must keep and hand to the next stage. Publishing node_modules as an artifact is the classic waste.',
+      c:'Cache vs artifact — inputs vs outputs', b:'az400-pipelines' },
+
+    { t:1, tier:400, h:'The hand-off',
+      s:'The build stage produced the deployable zip. The deploy stage runs an hour later, on a different agent, possibly in a different pool. How does the zip travel?',
+      need:['art'], ban:['cache'],
+      why:'Artifacts are the <strong>contract</strong> between jobs and stages — durable, versioned, downloadable. Cache is best-effort and is allowed to miss; never use it to move build output.',
+      c:'Artifacts move output; cache is a hint', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The half-built checkout',
+      s:'An unfinished checkout redesign must merge to <strong>main</strong> this sprint so trunk stays healthy — but no customer may see it yet.',
+      need:['flag'], ban:[],
+      why:'Feature flags let unfinished work ship dark. Hiding it on a long-lived branch is the anti-pattern the exam punishes: merge small and often, then toggle behaviour at run time.',
+      c:'Feature flag vs long-lived branch', b:'az400-source-control' },
+
+    { t:2, tier:400, h:'Unknown blast radius',
+      s:'A brand new pricing engine. Nobody knows how real users will react, and you want <strong>measured signal from real traffic</strong> before everyone gets it.',
+      need:['canary'], ban:['bluegreen','rolling'],
+      why:'Canary sends a small slice of live traffic to the new version and watches metrics before widening. Blue/green flips <em>everyone</em> in one swap; rolling replaces instances without ever creating a measured audience.',
+      c:'Canary vs blue/green vs rolling', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'The sixty-second revert',
+      s:'A regulator requires you to prove prod can be back on the <strong>previous</strong> version in under a minute, losing no in-flight requests.',
+      need:['bluegreen','rollback'], ban:['rolling'],
+      why:'Blue/green keeps the old environment warm and intact — reverting is a swap back, not a redeploy. Rolling has already destroyed the previous instances, so there is nothing to swap to.',
+      c:'Blue/green for instant, provable rollback', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'Two hundred nodes, no spare capacity',
+      s:'A stateless fleet of 200 nodes. No budget to stand up a second full environment. Downtime is not acceptable.',
+      need:['rolling'], ban:['bluegreen'],
+      why:'Blue/green doubles the footprint for the duration of the release. Rolling updates in batches and holds capacity roughly constant — the right call when you cannot pay for a twin kitchen.',
+      c:'Rolling when you cannot double capacity', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Fourteen copies of the same YAML',
+      s:'Fourteen microservice repos copy-pasted the same 80-line build definition. One of them silently drifted and nobody noticed for a quarter.',
+      need:['template'], ban:[],
+      why:'Extend a central YAML template with parameters. Define the line once, version it, and let every station reference it — copy-paste is technical debt that compounds per repo.',
+      c:'Pipeline-as-code template reuse', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Find it before prod',
+      s:'Security wants SAST findings to <strong>block the pull request</strong>, not to be discovered in production three weeks later.',
+      need:['scan'], ban:[],
+      why:'Shift left: run code scanning on the PR build and make it a required status check. A finding that only appears after deploy is a finding you already shipped.',
+      c:'Code scanning on PR, as a required check', b:'ghas-codeql' },
+
+    { t:2, tier:400, h:'Build once, deploy many',
+      s:'The same version must travel dev → test → prod, byte-identical, with <strong>no rebuild</strong> between rings.',
+      need:['art','env'], ban:['build'],
+      why:'Build once and promote the exact same artifact. Rebuilding per environment means every ring tested a different binary — you validated something you never actually shipped.',
+      c:'Build once, promote the artifact', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'No password in the pipeline',
+      s:'The pipeline authenticates to Azure. Security has banned stored client secrets — they expire at 3am and get pasted into chat when they do.',
+      need:['ident'], ban:['secvar','vg'],
+      why:'<strong>Workload identity federation</strong> (OIDC) on the service connection trades a short-lived token at run time. There is no secret to store, rotate, expire or leak. A stored client secret is a credential with a countdown timer.',
+      c:'Workload identity federation vs stored SP secret', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'Compliance clean room',
+      s:'Audit demands every release build starts from a provably clean machine with no leftover state and no persistent local credentials.',
+      need:['mshosted'], ban:['selfhosted'],
+      why:'Microsoft-hosted agents are a fresh VM per job, destroyed afterwards. That ephemerality <em>is</em> the audit control. A self-hosted box accumulates state, tools and secrets you then have to prove are harmless.',
+      c:'Hosted agent ephemerality as a control', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'The GPU build',
+      s:'The build needs a specific GPU driver and a 400 GB local dataset that takes an hour to download and barely changes.',
+      need:['selfhosted','cache'], ban:['mshosted'],
+      why:'Hosted agents start empty every run and cap out on disk and job time. Specialised hardware plus a big warm working set means your own cook in your own kitchen, with the expensive inputs cached.',
+      c:'Self-hosted for hardware + warm data', b:'az400-pipelines' },
+
+    { t:3, tier:500, h:'The 7pm Friday hotfix',
+      s:'7pm Friday. One-line hotfix. The build is done and the artifact is sealed. Design the <strong>release leg</strong> for the riskiest hour of the week.',
+      need:['env','gate','canary','smoke','rollback'], ban:[],
+      why:'High-risk window = environment (so checks can attach) + approval + a measured exposure (canary) + post-deploy verification + an automatic way back. Every one of those is a separate exam answer, and this is the question that combines them.',
+      c:'High-risk release design, end to end', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Green ticks, angry customers',
+      s:'Deploys report success because the task exited 0. You find out the site is down from a customer tweet forty minutes later.',
+      need:['smoke'], ban:[],
+      why:'Exit code 0 means the deployment <em>task</em> succeeded, not that the app works. A post-deploy smoke test (plus an availability test / health check) is the difference between "deployed" and "serving".',
+      c:'Post-deploy verification vs task exit code', b:'az400-instrumentation' },
+
+    { t:2, tier:400, h:'Kill it now, not in twelve minutes',
+      s:'Live incident at peak. You need the new behaviour <strong>gone in seconds</strong>. A full redeploy of the previous artifact takes twelve minutes.',
+      need:['flag'], ban:['rollback'],
+      why:'A feature flag kill switch is the fastest revert that exists — it changes behaviour without changing the deployed bits. Redeploying the previous version is correct but slow; twelve minutes at peak is twelve minutes of incident.',
+      c:'Feature flag kill switch as fastest revert', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Settings per dining room',
+      s:'dev, test and prod each need their own <strong>non-secret</strong> connection settings, served by one shared YAML definition.',
+      need:['vg','env'], ban:[],
+      why:'Scope a variable group per environment and select it by stage. One template serves every dining room; the values differ, the line does not. (Secrets are the other question — that is Key Vault.)',
+      c:'Variable group scoping per stage', b:'az400-pipelines' },
+
+    { t:3, tier:400, h:'Secret sauce on the takeout menu',
+      s:'A deploy script echoes the connection string when it fails. It is now sitting in a public build log, and the same value was committed to the repo last year.',
+      need:['kv','scan'], ban:['vg'],
+      why:'Two fixes, both required: fetch from Key Vault at run time so the value is masked and never stored in the pipeline, and turn on <strong>secret scanning with push protection</strong> so it cannot re-enter the repo. Rotating the credential is step zero — a leaked secret is a burned secret.',
+      c:'Secret leakage in logs + secret scanning', b:'ghas-secret-scanning' },
+
+    { t:2, tier:300, h:'Tests after the box?',
+      s:'Someone moved the test job to run <em>after</em> the artifact is published, "so the artifact is ready sooner".',
+      need:['test','art'], ban:[],
+      why:'Nothing gets boxed until the taste test passes. A published artifact is a promise that it is servable; publishing first turns your feed into a shelf of unverified pizza and someone will deploy it.',
+      c:'Quality gates precede artifact publication', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Forty minutes in the queue',
+      s:'Every PR waits forty minutes for an agent. The builds themselves take four. You need concurrency <strong>today</strong>, with no hardware to buy and no maintenance appetite.',
+      need:['mshosted'], ban:['selfhosted'],
+      why:'The bottleneck is parallel jobs, not the recipe. Buy hosted parallelism and scale instantly; self-hosted means procuring, patching and babysitting machines to solve a queueing problem.',
+      c:'Parallel jobs / pool capacity', b:'az400-pipelines' },
+
+    { t:3, tier:400, h:'Forty pods, new image',
+      s:'Rolling a new container image to a 40-pod AKS deployment. You want Kubernetes’ <strong>native default</strong>, no extra cost, no second replica set, and health-checked progress.',
+      need:['rolling','smoke'], ban:['bluegreen'],
+      why:'A Kubernetes Deployment rolls pods in batches by default, and readiness probes are the taste test that stops the rollout. Blue/green on AKS means a full second replica set plus a service switch — real capability, real cost, not the default.',
+      c:'AKS rolling update + readiness probes', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'The empty environment',
+      s:'You created an Environment but its deployment history is blank and you cannot see which VM or namespace received which version.',
+      need:['env'], ban:[],
+      why:'Add <em>resources</em> (Kubernetes namespace, VM resource) to the environment. Resources give you per-target traceability and let checks be scoped to specific infrastructure rather than a name on a page.',
+      c:'Environment resources and traceability', b:'az400-pipelines' },
+
+    { t:3, tier:500, h:'Make the scan unskippable',
+      s:'The platform team must <strong>guarantee</strong> that no product pipeline can ship without running the security scan. Fourteen teams, fourteen opinions.',
+      need:['template','scan'], ban:[],
+      why:'Publish the stage as a template and enforce it with a <strong>required template check</strong> on the environment or service connection. A guideline every team can edit is documentation; a check they cannot bypass is a control.',
+      c:'Required template check as enforcement', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The cache that never hits',
+      s:'Your cache reports a miss on every run. The key is the pipeline name.',
+      need:['cache'], ban:[],
+      why:'Key the cache on a hash of the lock file, plus the OS/runtime. A key that never changes never invalidates (you serve stale ingredients); a key that changes every run never hits (you paid for nothing).',
+      c:'Cache key design + restore keys', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The soft opening',
+      s:'Staging must mirror prod exactly, receive the <strong>same artifact</strong> prod will get, and require a QA lead sign-off before promotion.',
+      need:['env','gate','art'], ban:['build'],
+      why:'Staging is the soft opening: same artifact, same configuration shape, real approval. Rebuilding for staging means production gets a binary staging never saw.',
+      c:'Staging ring with promotion approval', b:'az400-pipelines' },
+
+    { t:3, tier:400, h:'Progressive with guardrails',
+      s:'Roll out to 5% of traffic, watch live error rate and latency, and back out <strong>automatically</strong> if the numbers move the wrong way.',
+      need:['canary','smoke','rollback'], ban:[],
+      why:'Canary gives you the measured slice, health checks / post-route validation give you the signal, and the on-failure hook gives you the automatic exit. Without the automatic exit you have a canary and a human staring at a dashboard at 2am.',
+      c:'Canary + automated health gate + auto-rollback', b:'az400-instrumentation' },
+
+    { t:2, tier:400, h:'The box holds the keys',
+      s:'A self-hosted agent has a client secret sitting in an environment variable on the machine, set by an engineer who left in 2023.',
+      need:['ident','kv'], ban:['secvar'],
+      why:'Move to workload identity federation for Azure access and Key Vault for anything else. Credentials that live on a long-running agent outlive the people who set them, survive reboots, and are invisible to every audit you run.',
+      c:'Credentials on long-lived agents', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Approval fatigue',
+      s:'Fourteen approvers on prod, three of whom rubber-stamp anything, and releases now stall for days waiting on whoever is on holiday.',
+      need:['env','gate'], ban:[],
+      why:'Keep the gate but make it mean something: minimum number of approvers, a timeout, and <em>automated</em> checks (query work items, invoke a REST endpoint, Azure Monitor alert check) doing the boring verification instead of humans clicking through.',
+      c:'Approval design: timeouts, minimums, auto-checks', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'The 01:00 window',
+      s:'Production deploys are only permitted between 01:00 and 04:00. Builds still run all day.',
+      need:['env','gate'], ban:[],
+      why:'That is a <strong>Business Hours check</strong> on the environment, not a scheduled trigger. Triggers decide when a pipeline <em>starts</em>; checks decide when a deployment is <em>allowed to proceed</em>, and hold the run until the window opens.',
+      c:'Business hours check vs scheduled trigger', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The supplier recall',
+      s:'A package you ship in every service just had a critical CVE published. You need to know instantly and get a pull request that bumps it.',
+      need:['scan'], ban:[],
+      why:'Dependabot alerts fire off the dependency graph (your posted ingredient list) and version updates open the PR for you. Without the graph, a recall notice is a rumour you cannot act on.',
+      c:'Dependabot alerts + dependency graph', b:'ghas-supply-chain' },
+
+    { t:2, tier:400, h:'One tenant, one demo',
+      s:'A trade show demo needs an experimental UI enabled for <strong>one tenant only</strong>, on the exact same build everyone else is running.',
+      need:['flag'], ban:['bluegreen','canary'],
+      why:'Targeted feature flags do per-user / per-tenant / per-group filters on a single deployed build. Deployment strategies target <em>infrastructure</em>, not identities — you cannot canary "just this customer".',
+      c:'Targeted flags vs deployment strategies', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'Strangers writing code',
+      s:'Public OSS repo, pull requests from forks, and your pipeline must have <strong>zero</strong> access to production credentials while still building the PR.',
+      need:['mshosted'], ban:['kv','vg','secvar','selfhosted'],
+      why:'Fork PR builds run code a stranger wrote. Never expose a self-hosted agent, a Key Vault-linked group or any secret to that job — build on an ephemeral hosted agent with secrets withheld, and require a maintainer to approve before any secret-bearing workflow runs.',
+      c:'Fork PR builds and secret exposure', b:'ghas-secret-scanning' },
+
+    { t:2, tier:300, h:'Which commit is in prod?',
+      s:'Ops needs to answer "exactly which commit is running in production right now" at any moment, without asking a human.',
+      need:['art','env'], ban:[],
+      why:'Stamp the build number / commit SHA into the artifact name, publish it once, and let the environment’s deployment history tie version to target. Traceability is a property of the pipeline, not of anybody’s memory.',
+      c:'Artifact versioning + deployment history', b:'az400-pipelines' },
+
+    { t:3, tier:500, h:'The breaking migration',
+      s:'A breaking database schema change ships alongside the UI change that needs it, to a live service with no maintenance window.',
+      need:['flag','rollback','smoke'], ban:[],
+      why:'Expand / contract: ship the additive migration first, put the new code path behind a flag, contract the schema in a later release. Plan the rollback explicitly, because the database does <em>not</em> roll back with your artifact — and verify after, because a half-migrated schema fails quietly.',
+      c:'Expand/contract migrations + rollback planning', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'Warm before you route',
+      s:'On App Service you must warm the new version, verify it, and only then send real traffic — no cold starts for the first customer.',
+      need:['bluegreen','smoke'], ban:['canary'],
+      why:'Deployment slots: deploy to the staging slot, smoke it while it is warm, then swap. The swap warms the app before routing, so the first real request is not the one that pays the cold-start tax.',
+      c:'App Service slots as blue/green', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Retention ate production',
+      s:'The exact artifact currently running in production was cleaned up by a retention policy. You cannot redeploy it.',
+      need:['art'], ban:[],
+      why:'Retain the runs and packages that matter — pin the release, or promote the package to a feed view with its own retention. Build artifacts expire by design; the thing serving customers must never be one of the things that expires.',
+      c:'Retention policies vs deployable history', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The cook who remembers the knives',
+      s:'Builds are three times faster on your own hardware and the team wants that. You are accepting the maintenance burden that comes with it.',
+      need:['selfhosted','clean'], ban:[],
+      why:'Self-hosted buys warm caches, custom tooling and specialised hardware. The tax is patching, capability drift and workspace hygiene — clean the workspace every run or you silently inherit yesterday’s state.',
+      c:'Self-hosted trade-off + workspace hygiene', b:'az400-pipelines' },
+
+    { t:3, tier:500, h:'Friday, 7pm, at a bank',
+      s:'Regulated financial service. Production release. Evidence of a security scan is required in the audit trail, a human must approve, exposure must be gradual, and you must be able to prove you can revert.',
+      need:['scan','art','env','gate','canary','smoke','rollback'], ban:[],
+      why:'This is the whole exam in one order: scanned and evidenced, boxed once, deployed through an environment, approved by a human, exposed gradually, verified after, and reversible automatically. If you can build this line from memory you can answer most of the Build & Release domain.',
+      c:'Regulated release: the full line', b:'az400-pipelines' },
+
+    { t:1, tier:300, h:'Pull the recipe book',
+      s:'A pipeline job needs the source. The default checkout was disabled by someone chasing a faster build, and now the build step cannot find a single file.',
+      need:['src','build'], ban:[],
+      why:'A job checks out the repo by default; disabling it is an explicit choice (sometimes correct for deploy-only jobs that consume artifacts). Every job runs on a different agent with an empty workspace — nothing is implicit across jobs.',
+      c:'Checkout behaviour per job', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'One secret, one pipeline',
+      s:'A single third-party webhook token, used by exactly one pipeline, in a team with no Key Vault and no appetite to stand one up this sprint. Store it correctly.',
+      need:['secvar'], ban:['vg'],
+      why:'Mark the variable <strong>secret</strong>: encrypted at rest, never shown back in the UI, masked in logs. It is not the enterprise answer — no central rotation, no audit trail, no reuse across pipelines — but a plain variable group is clear text and Key Vault is a project rather than a task. The exam tests all three; the differentiator is scope and rotation, not "which is most secure".',
+      c:'Secret variable vs variable group vs Key Vault', b:'az400-pipelines' },
+
+    { t:2, tier:400, h:'Ephemeral, but with a warm pantry',
+      s:'You want the audit story of throwaway agents, but the package restore still costs six minutes on every single run.',
+      need:['mshosted','cache'], ban:['selfhosted'],
+      why:'Hosted agents are ephemeral <em>machines</em>, but the pipeline cache is a service — it survives the VM. That is exactly how you get clean-room builds without paying full restore cost every time.',
+      c:'Hosted agents + pipeline cache', b:'az400-pipelines' },
+
+    /* ================================================================ 100
+     * FOUNDATION — what each stage IS. One idea per ticket, no comparisons,
+     * no limits, no traps. Never assumes the reader has opened the portal.
+     * ============================================================== */
+    { t:1, tier:100, h:'What is an agent?',
+      s:'Your pipeline needs an actual computer to run on. Microsoft can lend you a <strong>brand-new machine for each run</strong> and destroy it afterwards. Which tile is that?',
+      need:['mshosted'], ban:[],
+      why:'An <strong>agent</strong> is the machine that runs your pipeline steps. A Microsoft-hosted agent is a fresh virtual machine created for the job and thrown away when it finishes — nothing you install on it survives the run.',
+      c:'What an agent is', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'The kitchen you own',
+      s:'You need software Microsoft does not preinstall, and you want the machine to still be there tomorrow with everything on it. Which kind of agent is that?',
+      need:['selfhosted'], ban:[],
+      why:'A <strong>self-hosted agent</strong> is a machine you provide, install the agent software on, and maintain. You control what is on it — and you also own patching it. Same job, different landlord.',
+      c:'Self-hosted agent, in one sentence', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'How does the code even get there?',
+      s:'The agent starts completely empty. Before it can build anything, the files from your repository have to arrive on it. Which stage does that?',
+      need:['src'], ban:[],
+      why:'<strong>Checkout</strong> clones the repository onto the agent. Every run starts from an empty workspace — nothing about your source is on that machine until checkout puts it there.',
+      c:'Checkout: the source arrives', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'From ingredients to pizza',
+      s:'Source code is not something a server can run. Something has to compile it, bundle it, or turn it into a container image. Which stage?',
+      need:['build'], ban:[],
+      why:'The <strong>build</strong> stage turns source into a runnable thing — a compiled binary, a bundled site, a container image. Everything after it works on the <em>output</em> of this step, never on your source again.',
+      c:'What building actually produces', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'Before it leaves the kitchen',
+      s:'You want the pipeline itself to prove the code still works, automatically, on every commit, before anybody sees it.',
+      need:['test'], ban:[],
+      why:'<strong>Automated tests</strong> in the pipeline are what make continuous integration mean anything. Without them a green build only proves the code compiled — not that it does what it is supposed to.',
+      c:'Automated tests in the pipeline', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'The sealed box',
+      s:'The build produced a deployable file. A completely different stage, on a different machine, has to pick that file up an hour later. Where do you put it?',
+      need:['art'], ban:[],
+      why:'A <strong>published artifact</strong> is build output that the pipeline stores so later stages can download it. Agents do not share disks — if you do not publish it, it disappears the second the job ends.',
+      c:'What an artifact is for', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'The dining room has a name',
+      s:'“Deploy to dev.” “Deploy to prod.” Azure DevOps wants those to be <strong>named targets it can track</strong>, not just words in a script.',
+      need:['env'], ban:[],
+      why:'An <strong>Environment</strong> is a named deployment target — dev, test, prod. It records what was deployed there and when, and it is the thing you can later attach rules to.',
+      c:'What an environment is', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'Somebody has to say yes',
+      s:'Before anything reaches customers, a named human must click Approve. Which piece of the kitchen is that?',
+      need:['gate'], ban:[],
+      why:'An <strong>approval</strong> pauses the pipeline until a person signs off. It is the simplest control there is: the deployment does not proceed until someone with the authority says it can.',
+      c:'What an approval does', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'Where a password should live',
+      s:'Your pipeline needs a database password. It must <em>not</em> be typed into the YAML file, because the YAML file is in the repository and everybody can read the repository.',
+      need:['kv'], ban:[],
+      why:'<strong>Azure Key Vault</strong> is a managed safe for secrets. The pipeline fetches the value when it runs, so the secret is never written into source control, and exactly one place holds the real copy.',
+      c:'What Key Vault is for', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'Masked, inside the pipeline itself',
+      s:'Small team, one token, no Key Vault yet. You still need the value hidden in the pipeline UI and blanked out of the logs.',
+      need:['secvar'], ban:[],
+      why:'A <strong>secret variable</strong> is encrypted at rest, never shown back to you after you save it, and masked if a log tries to print it. It is the simplest place a secret can live that is not plain text.',
+      c:'What a secret variable is', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'Settings that are not secrets',
+      s:'A region name, an API URL and a log level. Nothing secret — just values that differ per environment and are used by several pipelines.',
+      need:['vg'], ban:[],
+      why:'A <strong>variable group</strong> holds a named set of values you can attach to more than one pipeline. Use it for configuration; use Key Vault for anything that would hurt you if it leaked.',
+      c:'What a variable group is', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'A robot that reads the recipes',
+      s:'You want an automatic check that reads the code itself, looking for security bugs — SQL injection, unsafe deserialisation — before it ever runs anywhere.',
+      need:['scan'], ban:[],
+      why:'A <strong>security scan</strong> (static analysis — CodeQL, for example) analyses source code for vulnerable patterns. It is a robot <em>reading</em> your code, not a robot running it.',
+      c:'What a security scan is', b:'ghas-codeql' },
+
+    { t:1, tier:100, h:'Did it actually come up?',
+      s:'The deployment task finished. You want the pipeline itself to hit the site and confirm it answers, rather than assuming.',
+      need:['smoke'], ban:[],
+      why:'A <strong>smoke test</strong> is a small check run after deployment — request the health endpoint, confirm it answers. It is how the pipeline learns the difference between “I deployed” and “it works”.',
+      c:'What a smoke test is', b:'az400-instrumentation' },
+
+    { t:1, tier:100, h:'Put last night’s menu back',
+      s:'The new version is bad. You want a defined, automatic way to return production to the version that was working an hour ago.',
+      need:['rollback'], ban:[],
+      why:'A <strong>rollback</strong> is a planned way back to the previous known-good version. “We will figure it out” is not a rollback plan; a path back that somebody has actually walked is.',
+      c:'What rollback means', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'Off without a redeploy',
+      s:'A new feature is already in the deployed code but must not be visible to customers yet. You want to switch it on and off without shipping anything new.',
+      need:['flag'], ban:[],
+      why:'A <strong>feature flag</strong> is a switch checked at run time. The code is deployed; the behaviour is controlled separately. That is what lets a team merge unfinished work safely.',
+      c:'What a feature flag is', b:'az400-source-control' },
+
+    { t:1, tier:100, h:'Scrub between shifts',
+      s:'Your own build machine still has files from the last run in its folder. You want every run to start from a known-empty working directory.',
+      need:['clean'], ban:[],
+      why:'<strong>Cleaning the workspace</strong> deletes the leftovers before the job starts. Hosted agents get this free because the whole machine is new; a self-hosted agent reuses its folder unless you tell it not to.',
+      c:'What cleaning the workspace does', b:'az400-pizza-parlor' },
+
+    { t:1, tier:100, h:'Yesterday’s prepped ingredients',
+      s:'Downloading the same third-party packages takes minutes on every single run, and those packages almost never change.',
+      need:['cache'], ban:[],
+      why:'The <strong>cache</strong> saves a folder between runs and restores it when the key matches. It is a speed optimisation for things you could always regenerate — never a place to keep something you must not lose.',
+      c:'What the cache is for', b:'az400-pizza-parlor' },
+
+    { t:2, tier:100, h:'What continuous integration actually is',
+      s:'Define CI with the smallest honest set of stages: every commit gets the source, produces the thing, and is proven to still work.',
+      need:['src','build','test'], ban:[],
+      why:'<strong>Continuous integration</strong> = get the code, build it, test it, automatically, on every change. That is the entire definition. Everything else in this game is what you add once CI exists.',
+      c:'Continuous integration, defined', b:'az400-pizza-parlor' },
+
+    { t:2, tier:100, h:'What continuous delivery adds',
+      s:'CI already passes. Continuous delivery is the part that takes the proven output and puts it somewhere real. Two tiles, minimum.',
+      need:['art','env'], ban:[],
+      why:'<strong>Continuous delivery</strong> keeps the tested build output as a versioned artifact and deploys that exact artifact to a named environment. CI proves it is good; CD moves it.',
+      c:'Continuous delivery, defined', b:'az400-pizza-parlor' },
+
+    { t:2, tier:100, h:'The whole build stage, start to finish',
+      s:'Draw the standard build stage: fetch, produce, prove, hand off. Four tiles, in that order.',
+      need:['src','build','test','art'], ban:[],
+      why:'This is the shape of nearly every build pipeline you will ever read: <strong>checkout → build → test → publish artifact</strong>. Learn this line and most YAML files stop being mysterious.',
+      c:'The canonical build stage', b:'az400-pipelines' },
+
+    { t:2, tier:100, h:'The smallest safe production deploy',
+      s:'The absolute minimum for putting something in front of customers on purpose: a named target, and a human who agreed to it.',
+      need:['env','gate'], ban:[],
+      why:'You need somewhere to deploy <em>to</em> (an environment, so it is tracked) and somebody who said yes (an approval). Later you add tests, canaries and rollbacks — this is the floor, not the ceiling.',
+      c:'The minimum production deploy', b:'az400-pipelines' },
+
+    { t:2, tier:100, h:'Two different robots',
+      s:'One robot <em>runs</em> your code to check it behaves. A different robot <em>reads</em> your code looking for dangerous patterns. Put both on the line.',
+      need:['test','scan'], ban:[],
+      why:'Tests run the software and check behaviour. Security scanning reads the software and checks for vulnerable code. They find completely different problems, and passing one says nothing at all about the other.',
+      c:'Tests and scans are not the same check', b:'ghas-codeql' },
+
+    /* ================================================================ 200
+     * PRACTITIONER — the happy path. How you actually configure the thing,
+     * the setting that matters, the workflow you would really follow.
+     * ============================================================== */
+    { t:1, tier:200, h:'Picking the pool',
+      s:'A standard Node build. Nothing private, no special hardware. You are writing the <strong>pool:</strong> block for the first time.',
+      need:['mshosted'], ban:[],
+      why:'For an ordinary build you write <strong>vmImage: ubuntu-latest</strong> (or windows-latest) and get a Microsoft-hosted agent with the common toolchains already installed. That is the default answer unless something specific stops you.',
+      c:'Choosing a hosted pool image', b:'az400-pipelines' },
+
+    { t:1, tier:200, h:'Standing up your own agent',
+      s:'You installed the agent software on a VM and registered it into a pool. What else do you configure before you trust its builds?',
+      need:['selfhosted','clean'], ban:[],
+      why:'A registered self-hosted agent reuses its working folder on every run. Set the workspace clean option in the job (outputs, resources, or all) so a build can never inherit the last one. This is the setup step people skip exactly once.',
+      c:'Registering an agent + workspace setting', b:'az400-pipelines' },
+
+    { t:1, tier:200, h:'Adding the cache task',
+      s:'You want package restore to stop costing five minutes. You are adding the Cache task and choosing a key.',
+      need:['cache'], ban:[],
+      why:'Key it on a hash of the lock file plus the OS — the standard pattern is <strong>npm | "$(Agent.OS)" | package-lock.json</strong>, with restore keys for a partial hit. Cache is a task inside the job, not a setting on the pipeline.',
+      c:'Cache task and key pattern', b:'az400-pipelines' },
+
+    { t:1, tier:200, h:'Publish here, download there',
+      s:'Two stages: build, then deploy. You added Publish Pipeline Artifact at the end of the first one. What carries the output across?',
+      need:['art'], ban:[],
+      why:'The published artifact is the hand-off. Deployment jobs download it automatically; a plain job needs an explicit Download step. Either way this is the normal, supported way output crosses a stage boundary.',
+      c:'Publishing and downloading artifacts', b:'az400-pipelines' },
+
+    { t:1, tier:200, h:'Where you actually click Approve',
+      s:'You have been asked to add sign-off before prod. Which two things do you set up in the Azure DevOps UI?',
+      need:['env','gate'], ban:[],
+      why:'Create the Environment, add an <strong>Approvals</strong> check to it, then make the deploy a deployment job that targets that environment. Approvals are configured on the environment — they are not a task you write into YAML.',
+      c:'Configuring approvals on an environment', b:'az400-pipelines' },
+
+    { t:1, tier:200, h:'Wiring the vault in',
+      s:'You are connecting a pipeline to Key Vault for the first time, the normal way, so that secret names show up as pipeline variables.',
+      need:['kv','vg'], ban:[],
+      why:'Create a variable group, tick <strong>“Link secrets from an Azure key vault”</strong>, pick the service connection and vault, then select which secrets to expose. The vault holds the values; the group is only the doorway.',
+      c:'Key Vault-linked variable group setup', b:'az400-pipelines' },
+
+    { t:1, tier:200, h:'The little padlock',
+      s:'You are adding a single API token in the pipeline variables UI. There is a padlock icon next to the value field.',
+      need:['secvar'], ban:[],
+      why:'Ticking the padlock makes it a secret variable: encrypted, never shown again, masked in logs. Note the practical catch you will hit immediately — secret variables are not injected into scripts automatically. You map them in the task’s <strong>env:</strong> block.',
+      c:'Marking a variable secret (and mapping it)', b:'az400-pipelines' },
+
+    { t:1, tier:200, h:'Turning on code scanning',
+      s:'A GitHub repository. You want CodeQL running. You open Settings → Code security and see two options.',
+      need:['scan'], ban:[],
+      why:'<strong>Default setup</strong> enables CodeQL in one click and detects the languages for you. <strong>Advanced setup</strong> writes a workflow file you can edit — schedules, extra query packs, path filters. Start with default; move to advanced when you need the control.',
+      c:'CodeQL default vs advanced setup', b:'ghas-codeql' },
+
+    { t:1, tier:200, h:'Publishing test results',
+      s:'Your tests run and the output scrolls past in the log. You want pass/fail counts on the run summary and a trend over time.',
+      need:['test'], ban:[],
+      why:'Run the tests, then publish the results file (JUnit, xUnit, VSTest) with the Publish Test Results task. Without publishing, the pipeline only knows the exit code — you lose the tests tab, per-test history and flaky-test detection.',
+      c:'Publishing test results, not just running tests', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Slots, the normal way',
+      s:'App Service. You are deploying to the staging slot and swapping to production. What do you do in between?',
+      need:['bluegreen','smoke'], ban:[],
+      why:'Deploy to the staging slot, warm it and smoke test it, then swap. The swap is near-instant and the instance is already warm, so the first real customer does not pay the cold-start tax.',
+      c:'Deployment slots: deploy, verify, swap', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Your first canary',
+      s:'You want the new version to go to a small share of real traffic first, then widen if the numbers look fine.',
+      need:['canary'], ban:[],
+      why:'A <strong>canary</strong> release routes a percentage of live traffic to the new version. The mechanism varies — slot traffic percentage, a deployment-group strategy, a service-mesh rule — but the idea is always: expose a slice, watch, widen.',
+      c:'What a canary release does', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'The default in Kubernetes',
+      s:'You applied an updated Deployment manifest to AKS and pods started being replaced a few at a time, on their own.',
+      need:['rolling'], ban:[],
+      why:'<strong>RollingUpdate</strong> is the default strategy for a Kubernetes Deployment. maxSurge and maxUnavailable control how aggressive it is, and readiness probes decide whether the rollout is allowed to keep going.',
+      c:'AKS default deployment strategy', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Extending a template',
+      s:'You are moving the shared build steps into a central repository so other pipelines reference them instead of copying them.',
+      need:['template'], ban:[],
+      why:'Put the steps in a template YAML, declare a <strong>repositories:</strong> resource pointing at the central repo, then use <strong>extends:</strong> or a template reference with parameters. Ordinary built-in reuse — no plugin, no tooling.',
+      c:'Referencing a YAML template', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Feature flags, the Azure way',
+      s:'You want a switch you can flip from a portal, without redeploying the application.',
+      need:['flag'], ban:[],
+      why:'Azure App Configuration has a <strong>Feature Manager</strong>: define the flag there, read it with the feature-management SDK, toggle it in the portal. The deployed bits do not change when you flip it.',
+      c:'App Configuration feature manager', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Getting the previous version back',
+      s:'Production is bad. You want the documented, supported way to return to the version that was running before.',
+      need:['rollback','art'], ban:[],
+      why:'Redeploy the previous successful run’s artifact, or swap the slot back. Both only work because you kept the artifact — which is why “build once, keep the box” is a prerequisite for having a rollback at all.',
+      c:'Redeploying the previous artifact', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Adding a resource to the environment',
+      s:'You created an Environment called Production. You want it to know about the specific AKS namespace you deploy into.',
+      need:['env'], ban:[],
+      why:'Add a <strong>Kubernetes</strong> or <strong>Virtual machine</strong> resource to the environment. You get per-resource deployment history, and checks can then be scoped to that exact target rather than to a name on a page.',
+      c:'Environment resources', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'One pipeline, three dining rooms',
+      s:'dev, test and prod each need their own non-secret settings, served from one YAML definition.',
+      need:['vg','env'], ban:[],
+      why:'Make a variable group per environment and select it per stage in the stage’s <strong>variables:</strong> block. The definition stays single; only the values change per dining room.',
+      c:'Selecting a variable group per stage', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Where the YAML lives',
+      s:'Somebody asks where your pipeline definition is stored and how changes to it get reviewed.',
+      need:['src'], ban:[],
+      why:'The YAML file lives in the repository, next to the code it builds, and changes to it go through pull request like everything else. That is what “pipeline as code” means in practice — the definition is versioned with the thing it defines.',
+      c:'Pipeline as code lives in the repo', b:'az400-source-control' },
+
+    { t:2, tier:200, h:'How many times should the compiler run?',
+      s:'You are writing a two-stage pipeline. The first stage builds. The second deploys to dev.',
+      need:['build','art'], ban:[],
+      why:'Once. The build stage compiles and publishes; the deploy stage downloads. Adding a build step to the deploy stage is the most common beginner mistake in multi-stage YAML, and it quietly means each ring runs a different binary.',
+      c:'Build in the build stage only', b:'az400-pipelines' },
+
+    { t:2, tier:200, h:'Adding a health check step',
+      s:'After the deploy task, you want one more step that proves the site answers before the stage reports success.',
+      need:['smoke'], ban:[],
+      why:'A script that requests the health endpoint and fails the job on anything other than a 200 is enough to start with. An Azure Monitor availability test then does the same thing continuously, forever, after the pipeline has gone home.',
+      c:'Post-deploy health check step', b:'az400-instrumentation' },
+
+    { t:2, tier:200, h:'When you actually need your own machine',
+      s:'The build needs a licensed tool that cannot be reinstalled on a throwaway machine, because the licence is bound to the host.',
+      need:['selfhosted'], ban:[],
+      why:'That is the ordinary reason teams run self-hosted agents: something must be preinstalled, licensed, or reachable that a hosted agent cannot provide. You accept patching and capacity management in exchange.',
+      c:'The normal reason to go self-hosted', b:'az400-pipelines' },
+
+    { t:3, tier:200, h:'The completely ordinary pipeline',
+      s:'Assemble the pipeline most teams actually run, end to end: rented machine, warm packages, fetch, produce, prove, box.',
+      need:['mshosted','cache','src','build','test','art'], ban:[],
+      why:'Six tiles, no drama. This is the shape of a normal CI pipeline and you should be able to write it from memory. Once this is automatic, the 300-level questions about limits and cost start making sense instead of sounding like trivia.',
+      c:'The everyday CI pipeline, assembled', b:'az400-pipelines' },
+
+    /* ================================================================ 300
+     * PROFESSIONAL — production. Real limits, real cost, what breaks under
+     * load, what you actually troubleshoot, and when NOT to use the thing.
+     * ============================================================== */
+    { t:1, tier:300, h:'The job that runs out of time',
+      s:'A hosted build has grown to six hours and ten minutes. It now dies partway through without an error of its own.',
+      need:['mshosted'], ban:[],
+      why:'Microsoft-hosted jobs are capped — 60 minutes on free public-project parallelism, six hours on paid private — and the image ships with limited free disk. A build near the ceiling is a design smell: split the stages, parallelise, cache more, or move to self-hosted where you own the ceiling.',
+      c:'Hosted agent time and disk limits', b:'az400-pipelines' },
+
+    { t:1, tier:300, h:'The cache that costs more than it saves',
+      s:'Your cache entry has grown to 6 GB. Restoring and unpacking it now takes longer than simply running the restore command.',
+      need:['cache'], ban:[],
+      why:'Pipeline caching has a size ceiling and least-recently-used eviction, and every hit costs download plus decompression. Caching something large and cheaply regenerated is often slower than regenerating it. Measure the restore step; do not assume the cache is free.',
+      c:'Cache size, eviction and the break-even point', b:'az400-pipelines' },
+
+    { t:1, tier:300, h:'Not enough traffic to canary',
+      s:'An internal tool with forty users a day. You want progressive exposure, but 5% of forty users is two people and neither of them will notice anything.',
+      need:['bluegreen'], ban:['canary'],
+      why:'A canary needs enough traffic for the metrics to mean something. Below that volume you are deploying slowly with no signal — all of the complexity, none of the information. Blue/green gives you the same instant reversibility without pretending you have statistics.',
+      c:'Canary needs traffic volume to work', b:'az400-pipelines' },
+
+    { t:1, tier:300, h:'The cost of the twin kitchen',
+      s:'Blue/green on a 200-instance fleet means paying for 400 instances for the length of every release. Finance has noticed and would like a word.',
+      need:['rolling'], ban:['bluegreen'],
+      why:'Blue/green doubles the footprint for the duration of the swap. On a small fleet nobody cares; at scale it is a real line item. Rolling holds capacity roughly constant and charges you in reversibility speed instead of in money.',
+      c:'Blue/green capacity cost at scale', b:'az400-pipelines' },
+
+    { t:1, tier:300, h:'Flag debt',
+      s:'The codebase now has 140 feature flags. Nobody knows which ninety are permanently on. Every code path is conditional and the test matrix has quietly exploded.',
+      need:['flag'], ban:[],
+      why:'Flags are inventory. Give every release flag an owner and an expiry date, remove it once the feature is fully on, and keep only the genuinely long-lived operational switches. Unremoved flags multiply the number of states you are obliged to test.',
+      c:'Feature flag lifecycle and cleanup', b:'az400-source-control' },
+
+    { t:1, tier:300, h:'The variable that prints as three asterisks',
+      s:'A bash step echoes a secret variable and gets asterisks. A different step needs the real value and receives an empty string.',
+      need:['secvar'], ban:[],
+      why:'Secret variables are not injected into the script environment automatically — you map them in the task’s <strong>env:</strong> block. And masking is not security: a value that gets split across lines, base64-encoded or JSON-escaped walks straight past the masker. Treat build logs as public.',
+      c:'Secret mapping, and the limits of masking', b:'az400-pipelines' },
+
+    { t:1, tier:300, h:'Key Vault says 403',
+      s:'The pipeline fails reading a secret it read fine last month. Nothing in the YAML changed.',
+      need:['kv'], ban:[],
+      why:'Check three things, in this order: the service connection’s identity still has Get and List on secrets (access policy or RBAC role), the vault firewall still allows the agent’s network, and the secret has not passed its expiry date. Key Vault failures in pipelines are almost always identity or network — very rarely the pipeline.',
+      c:'Troubleshooting Key Vault access from a pipeline', b:'az400-pipelines' },
+
+    { t:1, tier:300, h:'Artifact storage is a bill',
+      s:'Ten pipelines, forty runs a day, a 900 MB artifact each. Artifact storage consumption is now a recurring finance conversation.',
+      need:['art'], ban:[],
+      why:'Retention is a cost decision with a safety floor. Keep short retention for ordinary CI runs, explicitly pin or retain anything that is deployed, and push shared libraries into a package feed with its own retention rather than keeping every build forever.',
+      c:'Artifact retention as a cost/risk trade', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The flaky suite nobody trusts',
+      s:'Eleven percent of runs fail on tests that pass when re-run. The team now hits Re-run reflexively without reading the failure.',
+      need:['test'], ban:[],
+      why:'A flaky suite is worse than no suite, because it trains everybody to ignore red. Quarantine the flaky tests into a non-blocking lane, then fix or delete them, and keep the blocking suite fast and trustworthy. Test reliability is a production concern, not a hygiene nicety.',
+      c:'Flaky tests destroy the signal', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Three thousand findings on day one',
+      s:'You enabled scanning on a ten-year-old repository. It reported three thousand alerts immediately and the team stopped looking within a week.',
+      need:['scan'], ban:[],
+      why:'Baseline the existing findings, then fail the build only on <em>new</em> alerts introduced by the pull request. A gate everybody ignores is not a gate. A gate that only ever complains about the code you just wrote actually gets fixed.',
+      c:'Baselining: block on new findings only', b:'ghas-codeql' },
+
+    { t:2, tier:300, h:'Approvals are lead time',
+      s:'Deployment frequency dropped by half after you added approvals to every stage. Change failure rate did not move at all.',
+      need:['env','gate'], ban:[],
+      why:'Every manual gate is queue time inside your lead time. Keep humans where judgement is genuinely required and replace the rest with automated checks — work item queries, REST endpoint checks, Azure Monitor alert checks. A control that costs a day and prevents nothing has negative value, and you can prove it with DORA metrics.',
+      c:'Gate cost measured in lead time', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The agent fleet is a service',
+      s:'Six self-hosted agents. Two have drifted to a different Node version, one has a full disk, and nobody in the room can say who patches them.',
+      need:['selfhosted','clean'], ban:[],
+      why:'A self-hosted pool is infrastructure you now operate: image build, patching, capability parity, disk hygiene, scale. If you cannot name its owner, hosted agents plus paid parallelism are usually cheaper than the incidents you are about to have.',
+      c:'Self-hosted pools have an operational cost', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The template that broke fourteen repos',
+      s:'You renamed a parameter in the shared template. Fourteen pipelines failed within the hour and none of those teams changed anything.',
+      need:['template'], ban:[],
+      why:'A shared template is a published API. Pin consumers to a tag or release branch, add parameters with defaults instead of renaming, and give a deprecation window. Referencing a moving branch means every consumer ships your mistakes the instant you make them.',
+      c:'Template versioning and breaking changes', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The rollback that could not roll back',
+      s:'You redeployed the previous artifact. The application still fails, because that release also ran a schema migration which dropped a column.',
+      need:['rollback','art'], ban:[],
+      why:'Code rolls back; data does not. Make migrations backward compatible for at least one release (expand now, contract later) and rehearse the rollback path, not just the forward path. An untested rollback is a hypothesis, and you are testing it during an incident.',
+      c:'Rollback is bounded by the data layer', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The smoke test that always passes',
+      s:'Your health endpoint returns 200 whenever the process is alive. It returned 200 continuously throughout the four-hour outage.',
+      need:['smoke'], ban:[],
+      why:'A health check that does not touch its dependencies checks nothing useful. Verify the database connection, the cache and the critical downstream call — and keep it cheap enough to run continuously without becoming a load source of its own.',
+      c:'Shallow health checks are false comfort', b:'az400-instrumentation' },
+
+    { t:2, tier:300, h:'The rollout that stalls forever',
+      s:'An AKS rolling update has been stuck at 3 of 40 pods for twenty minutes. Nothing is failing loudly and the pipeline is still green-ish.',
+      need:['rolling','smoke'], ban:[],
+      why:'A rolling update stops when new pods never become ready — a failing readiness probe, an image pull error, or no spare capacity for maxSurge. That stall is the safety mechanism doing its job. Set progressDeadlineSeconds so it fails and reports instead of hanging until somebody notices.',
+      c:'Rollout stalls, readiness and progress deadlines', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Migrating two hundred pipelines',
+      s:'Two hundred pipelines authenticate with stored client secrets. You have been asked what it actually costs to move all of them to workload identity federation.',
+      need:['ident'], ban:['secvar'],
+      why:'The feature is free; the migration is not. Each service connection is converted individually and every federated credential is scoped to a specific subject — organisation, project, repository, branch or environment. That scoping is the security benefit and it is also the work. Budget for the subject mapping, not for the switch.',
+      c:'Federated identity rollout cost and subject scoping', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'What may vanish, what must not',
+      s:'Under load some runs get a cache miss, and after a retention sweep some artifacts are gone. Exactly one of those is an incident.',
+      need:['art'], ban:['cache'],
+      why:'A cache miss is normal and must never break a run. A missing artifact means you cannot redeploy what is currently in production. Design so a miss costs time and an artifact loss is impossible — pin the deployed run, promote to a feed, or lengthen retention on anything deployable.',
+      c:'Best-effort vs guaranteed storage', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Two releases, one production',
+      s:'Two runs reached the production stage at the same moment and deployed different versions three seconds apart. Production is now a coin flip.',
+      need:['env','gate'], ban:[],
+      why:'Serialise deployments to a shared target: an exclusive lock check on the environment, plus a decision about whether the queue runs everything in order or cancels all but the latest. Two writers against one environment is a race, and races in production are outages.',
+      c:'Exclusive locks and deployment queueing', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'Build time is developer time',
+      s:'The pull request build takes 34 minutes. Developers start something else and come back an hour later, having lost the context entirely.',
+      need:['build','cache'], ban:[],
+      why:'Under roughly ten minutes people wait; over it they leave and the feedback loop dies. Attack it with parallel jobs, test splitting, incremental builds and caching — and track build duration as a production metric, because it is a tax on every change your team will ever make.',
+      c:'Build duration as a first-class metric', b:'az400-pipelines' },
+
+    { t:2, tier:300, h:'The window nobody is awake for',
+      s:'Your business-hours check holds releases until 01:00. The queue is empty by 22:00, and the on-call engineer is asleep when the deployment actually runs.',
+      need:['env','gate'], ban:[],
+      why:'A deployment window that nobody watches shifts risk rather than reducing it — you have swapped a small daytime blast radius for an unattended nocturnal one. Windows exist to align deployment with the people who can respond. If nobody is responding, deploy in daylight behind a flag instead.',
+      c:'Deployment windows must align with responders', b:'az400-pipelines' },
+
+    { t:3, tier:300, h:'Evidence has to bind to the build',
+      s:'Compliance wants the scan result attached to the exact build being promoted — not to a nightly job that ran against main at some point last week.',
+      need:['scan','art'], ban:[],
+      why:'Evidence must bind to artifact identity: same commit, same build number, stored alongside the artifact, with retention that outlives the deployment. A scan that ran on a different commit proves nothing about what you shipped, and an auditor will ask you which commit it was.',
+      c:'Binding scan evidence to artifact identity', b:'ghas-codeql' },
+
+    /* ================================================================ 500
+     * ARCHITECT — the layer above the exam. Cross-service consequences,
+     * cost and SLO math, failure-mode analysis, design-review arguments.
+     * ============================================================== */
+    { t:1, tier:500, h:'Paved road or checkpoint',
+      s:'Forty product teams, one platform team of four. You must raise the security floor for everybody without becoming the bottleneck that reviews every pipeline change.',
+      need:['template','scan','env','gate'], ban:[],
+      why:'The argument in the room is <strong>paved road versus checkpoint</strong>. Templates make the safe path the easy path; a required-template check at a shared boundary — the environment, the service connection — makes it the only path, without anybody reading anybody’s YAML. Review-every-change scales linearly with team count; a control at a shared boundary does not scale at all, which is the point.',
+      c:'Platform enforcement at a shared boundary', b:'az400-pipelines' },
+
+    { t:1, tier:500, h:'If one agent were compromised',
+      s:'A design review asks the uncomfortable question: if an attacker owned one build agent for an hour, what could they put into production, and how would you ever know?',
+      need:['mshosted','ident','scan','art'], ban:[],
+      why:'The build system <em>is</em> a production system. Ephemeral agents remove persistence, federated identity removes stealable long-lived credentials, artifact provenance and signing make tampering detectable after the fact, and two-person control on the promotion boundary limits what a single compromised identity can do alone. None of this is a task you add; it is a threat model you design the pipeline around.',
+      c:'Build-system compromise as a threat model', b:'ghas-supply-chain' },
+
+    { t:1, tier:500, h:'Separation of duties meets Tuesday night',
+      s:'Regulation says the person who writes a change may not be the person who releases it. The team is six engineers, two of whom are on holiday at any given time.',
+      need:['env','gate'], ban:[],
+      why:'Encode the rule in the platform, not in a policy document: approver groups that exclude the requester, minimum approver counts, and an audit trail that survives somebody editing the pipeline. Then design the degraded case — what happens at 2am with one eligible approver — because an unachievable control gets bypassed, and a routinely bypassed control is worse than an absent one because it also lies to the auditor.',
+      c:'Separation of duties vs operational reality', b:'az400-pipelines' },
+
+    { t:1, tier:500, h:'How much budget may one release spend?',
+      s:'You are asked to justify progressive delivery in terms of the error budget rather than in terms of caution.',
+      need:['canary','smoke','rollback','flag'], ban:[],
+      why:'The damage of a bad release is roughly exposure × error rate × time. Canary bounds the first term, automated verification bounds the third, and a flag makes reverting independent of the deployment pipeline entirely. The design question is therefore not “do we canary” but “what fraction of a month’s error budget is one release allowed to consume”, and that number decides the ramp schedule.',
+      c:'Error budget as the release design input', b:'az400-instrumentation' },
+
+    { t:2, tier:500, h:'The change that cannot be undone',
+      s:'A stateful service with an irreversible data migration and outbound messages already published to partners. The review asks for the rollback plan, and the honest answer is that there is not one.',
+      need:['art','rollback','smoke'], ban:['bluegreen'],
+      why:'Some changes genuinely cannot be rolled back — destructive migrations, external side effects, messages other people have already consumed. For those, the recovery mechanism is rolling <em>forward</em> fast, which moves the entire investment into detection speed, small batches and a rehearsed fix path. Claiming “we will roll back” about an irreversible change is itself the failure mode.',
+      c:'Irreversible change: roll forward by design', b:'az400-pipelines' },
+
+    { t:2, tier:500, h:'The parallelism bill',
+      s:'Peak queue depth is forty jobs at 10am and zero overnight. You must choose between buying hosted parallelism and running a scale-set agent fleet, and the CFO wants the crossover point.',
+      need:['mshosted','cache'], ban:['selfhosted'],
+      why:'Hosted parallelism is a fixed price per concurrent job with zero operations. A self-hosted scale set is cheaper per job-minute at high sustained utilisation and more expensive once you price the image pipeline, patching, capability drift and someone being on-call for it. Compute the crossover from <em>utilisation</em>, not list price — and put engineer queue time on the same spreadsheet, because it is the largest number on it.',
+      c:'Build capacity economics and the crossover point', b:'az400-pipelines' },
+
+    { t:2, tier:500, h:'Evidence that outlives the build',
+      s:'An auditor asks you to prove, for a release eleven months ago, what was scanned, who approved it, and that the binary running in production is the one that was approved.',
+      need:['scan','art','env','gate'], ban:[],
+      why:'The chain must be immutable and independently retrievable: artifact identity bound to a commit, scan results retained with it, approval records held outside the pipeline’s own mutable history, and deployment history on the environment. Design the retention of the <em>evidence</em> separately from the retention of the <em>build</em> — they are almost always configured by different people with different incentives.',
+      c:'Traceability chain and evidence retention', b:'az400-pipelines' },
+
+    { t:2, tier:500, h:'Deployment is not release',
+      s:'The design review keeps conflating two different things: getting the bits onto the servers, and customers seeing the change.',
+      need:['art','env','flag'], ban:[],
+      why:'Separating deployment from release is the structural idea underneath almost everything else here. Deploy continuously and safely; release on a business decision. It changes who owns which risk — engineering owns deployment, product owns release — it decouples the two rollback mechanisms, and it is exactly why a flag beats a redeploy at 3am.',
+      c:'Deployment/release separation as an org boundary', b:'az400-source-control' },
+
+    { t:2, tier:500, h:'The release process is eating the SLO',
+      s:'The service promises 99.9% monthly. Each deployment causes on average four minutes of elevated errors. You deploy twelve times a week.',
+      need:['env','gate','smoke','bluegreen'], ban:[],
+      why:'99.9% of a month is about 43 minutes of budget. Twelve deploys a week at four minutes of degradation is roughly 200 minutes — the release process alone blows the objective before a single real incident happens. The answer is not to deploy less often; it is to make deployment invisible to the SLI (slot swap, connection draining, readiness gating). Release cost belongs in the error-budget arithmetic.',
+      c:'Release cost against the error budget', b:'az400-instrumentation' },
+
+    { t:2, tier:500, h:'Ephemeral, private, and credential-free',
+      s:'Builds must reach private-only resources, leave nothing behind, and hold no credential worth stealing. Design the agent tier.',
+      need:['selfhosted','clean','ident'], ban:['secvar'],
+      why:'Scale-set agents inside the VNet give network reach; one job per VM plus workspace cleaning gives you hosted-grade ephemerality; federated identity means the machine holds no secret at all. That combination is what “self-hosted” should mean at scale — not a pet server that has been up since 2021 and has an engineer’s personal access token in a text file on it.',
+      c:'Ephemeral private-network agent design', b:'az400-pipelines' },
+
+    { t:3, tier:500, h:'One control plane, several estates',
+      s:'Two Azure tenants, an AWS account and an on-prem estate, all served by one delivery platform. The review is about where the decisions are allowed to live.',
+      need:['template','env','gate','art'], ban:[],
+      why:'Push variability out to parameters and environment definitions; keep the sequence, the checks and the evidence in one place. The alternative — a pipeline dialect per estate — means every control has to be reimplemented per target, and the drift between them is invisible until an audit or an incident finds it for you.',
+      c:'Multi-estate delivery: variability at the edges', b:'az400-pipelines' },
+
+    { t:3, tier:500, h:'Six regions and a bake time',
+      s:'Six regions, one artifact. The question in the review is not how to deploy — it is in what order, and how long you wait between them.',
+      need:['canary','rolling','smoke'], ban:[],
+      why:'<strong>Bake time is the design variable.</strong> Deploy to the smallest region first, hold long enough for slow-burning failures to surface — memory growth, cache poisoning, the hourly job, the nightly batch — then widen with deliberately increasing blast radius. A rollout that reaches all six regions in ten minutes has bought you nothing except a faster global incident.',
+      c:'Rollout ordering and bake time', b:'az400-pipelines' },
+
+    { t:3, tier:500, h:'You rolled back and it still will not start',
+      s:'The bad version is gone. The service still will not come up, because every client is retrying at once and the cold caches cannot serve the load.',
+      need:['rollback','flag','smoke'], ban:[],
+      why:'Recovery has its own failure mode. Retry storms, empty caches and thundering herds mean a system can be unable to reach a healthy state under full load even though the defect is gone — a metastable failure. Design the way back in: load shedding, staged traffic restoration, jittered backoff, cache warming. Otherwise your rollback plan only works on a system that was not busy.',
+      c:'Metastable failure during recovery', b:'az400-instrumentation' },
+
+    { t:3, tier:500, h:'Where do you set the threshold?',
+      s:'Security wants every finding to block. Engineering says that stops all delivery. You are chairing the review and both of them are partly right.',
+      need:['scan','template','gate'], ban:[],
+      why:'The negotiable variables are severity and novelty, never whether a gate exists at all. Block on new critical findings in changed code, report everything else, and put the threshold itself on a review schedule with data attached — findings that escaped to production, mean time to remediate, false-positive rate. A control with no measured outcome is a preference, and preferences lose to delivery pressure every single quarter.',
+      c:'Setting the enforcement threshold with data', b:'ghas-codeql' }
+  ];
+
+  /* =====================================================================
+   * WHAT THIS DRILLS
+   * ================================================================== */
+  var DRILLS = [
+    ['az400-pipelines', 'Build &amp; Release Pipelines',
+      'Deployment jobs vs plain jobs · environments &amp; resources · approvals, business-hours and required-template checks · agent selection (hosted vs self-hosted, network reach, ephemerality) · dirty workspace · cache vs artifacts · cache key design · build-once-deploy-many · variable groups vs Key Vault links vs secret variables · workload identity federation · canary vs blue/green vs rolling · App Service slots · AKS rolling updates · feature flags &amp; kill switches · rollback strategies · expand/contract migrations · YAML template reuse and retention.'],
+    ['az400-source-control', 'Source Control &amp; Branching',
+      'Feature flags versus long-lived branches, trunk health, merging unfinished work safely.'],
+    ['az400-instrumentation', 'Instrumentation &amp; Feedback',
+      'Post-deploy smoke tests and health checks, why exit code 0 is not "serving", automated rollback driven by live metrics.'],
+    ['ghas-codeql', 'CodeQL &amp; Code Scanning',
+      'Shift-left SAST on the pull request and required status checks.'],
+    ['ghas-secret-scanning', 'Secret Scanning',
+      'Secrets in build logs, push protection, and why fork pull requests never get credentials.'],
+    ['ghas-supply-chain', 'Dependabot &amp; Supply Chain',
+      'Dependency graph as the ingredient list, alerts as supplier recalls, automated version-bump PRs.'],
+    ['az400-pizza-parlor', 'The DevOps Pizza Parlor',
+      'The metaphor this whole game runs on, mapped concept by concept.']
+  ];
+
+  function drillsHTML() {
+    var h = '<summary class="hand">What this drills 🍕</summary>' +
+            '<p class="small" style="margin:.3rem 0 .7rem">Every order in the bank maps to one of these. ' +
+            'Lose a run, read the board, come back.</p><div class="pr-recap">';
+    DRILLS.forEach(function (d) {
+      h += '<a href="' + WB + d[0] + '.html" style="border-left-color:var(--mk-blue)">' +
+             '<b>' + d[1] + '</b><span>' + d[2] + '</span></a>';
+    });
+    return h + '</div>';
+  }
+  document.getElementById('pr-drills-title').innerHTML = drillsHTML();
+
+  /* =====================================================================
+   * GAME STATE
+   * ================================================================== */
+  var byId = function (id) { return document.getElementById(id); };
+  var elTitle = byId('pr-title'), elPlay = byId('pr-play'), elOver = byId('pr-over');
+  var G = null, ticker = null, veil = null;
+
+  function label(id) { return STAGES[id] ? STAGES[id].n : id; }
+
+  function buildDeck() {
+    var t1 = [], t2 = [], t3 = [];
+    deckFor().forEach(function (o) { (o.t === 1 ? t1 : o.t === 2 ? t2 : t3).push(o); });
+    return S.shuffle(t1).concat(S.shuffle(t2)).concat(S.shuffle(t3));
+  }
+
+  function newGame() {
+    var c = cfg();
+    G = {
+      score: 0, combo: 0, best: 0, health: c.health, maxHealth: c.health,
+      wave: 1, served: 0, idx: 0,
+      deck: buildDeck(), sel: {}, order: null, tier: S.tier.get(), cfg: c,
+      time: 0, limit: 1, missed: [], clean: 0, mult: 1, alive: true
+    };
+  }
+
+  var MULTS = [1, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 3];
+  function multFor(c) { return MULTS[Math.min(c, MULTS.length - 1)]; }
+
+  /* --------------------------------------------------------- rendering -- */
+  /** Which tiles are on the board at the selected tier. */
+  function paletteIds() {
+    var pal = G && G.cfg ? G.cfg.pal : cfg().pal;
+    return pal; /* null means "all of them" */
+  }
+  function onBoard(id) {
+    var pal = paletteIds();
+    return !pal || pal.indexOf(id) !== -1;
+  }
+  /** The palette groups that hold at least one of an order's required stages. */
+  function hintFor(o) {
+    var names = [];
+    GROUPS.forEach(function (g) {
+      var touched = g.ids.some(function (id) { return o.need.indexOf(id) !== -1; });
+      if (touched) names.push('<strong style="color:' + g.c + '">' + g.name + '</strong>');
+    });
+    return names.join(' · ');
+  }
+
+  function renderPalette() {
+    var h = '';
+    GROUPS.forEach(function (g) {
+      var ids = g.ids.filter(onBoard);
+      if (!ids.length) return;
+      h += '<div class="pr-group" style="--g-c:' + g.c + '"><h4>' + g.name + '</h4><div class="pr-tiles">';
+      ids.forEach(function (id) {
+        var st = STAGES[id];
+        h += '<button type="button" class="pr-tile" data-id="' + id + '" ' +
+                'title="' + st.d + '" aria-pressed="false">' +
+                '<span class="pr-k">' + KEY_OF[id] + '</span>' +
+                '<em>' + st.e + '</em><em>' + st.n + '</em>' +
+             '</button>';
+      });
+      h += '</div></div>';
+    });
+    byId('pr-palette').innerHTML = h;
+  }
+  /* bound ONCE — renderPalette runs again on every restart, so binding
+     inside it would stack a listener per run and double-toggle the tiles. */
+  byId('pr-palette').addEventListener('click', function (ev) {
+    var b = ev.target.closest ? ev.target.closest('.pr-tile') : null;
+    if (b) toggle(b.getAttribute('data-id'));
+  });
+
+  function renderStrip() {
+    var stars = '';
+    for (var i = 0; i < G.maxHealth; i++) stars += (i < G.health ? '★' : '☆');
+    var m = multFor(G.combo);
+    byId('pr-strip').innerHTML =
+      cell(G.score.toLocaleString(), 'score', 'var(--mk-blue)') +
+      cell('×' + m.toFixed(2).replace(/\.?0+$/, ''), 'combo ' + G.combo, m > 1 ? 'var(--mk-green)' : 'var(--ink-soft)') +
+      cell('<span class="pr-stars">' + stars + '</span>', 'health rating', 'var(--mk-orange)') +
+      cell(G.wave, 'wave', 'var(--mk-purple)') +
+      cell(G.tier, S.tier.label(G.tier), 'var(--t' + G.tier + ')') +
+      cell(G.served + '/' + G.deck.length, 'served', 'var(--mk-teal)');
+  }
+  function cell(v, l, c) {
+    return '<div class="pr-cell" style="--pr-c:' + c + '"><b>' + v + '</b><span>' + l + '</span></div>';
+  }
+
+  function renderTicket() {
+    var o = G.order;
+    var t = S.tier.of(o.tier);
+    byId('pr-ticket').innerHTML =
+      '<div class="pr-tno">Order #' + (G.served + 1) + ' · ' +
+        '<span class="tier-pill tier-any" data-tier="' + t + '" style="--tier-color:var(--t' + t + ')">' +
+          t + ' ' + S.tier.label(t) + '</span> · ' +
+        o.need.length + ' required stage' + (o.need.length === 1 ? '' : 's') + '</div>' +
+      '<h3 class="hand">' + o.h + '</h3>' +
+      '<p>' + o.s + '</p>' +
+      (G.cfg.hint
+        ? '<p class="small" style="margin:0">💡 Look in: ' + hintFor(o) + '</p>'
+        : '');
+  }
+
+  function renderLine() {
+    var setup = SETUP_IDS.filter(function (id) { return G.sel[id]; });
+    byId('pr-setup').innerHTML = setup.length
+      ? setup.map(function (id) {
+          return '<span class="pr-node" style="--n-c:' + COLOR_OF[id] + '">' + STAGES[id].e + ' ' + STAGES[id].n + '</span>';
+        }).join('')
+      : '<span class="pr-empty" style="color:var(--ink-soft);font-family:var(--font-hand)">kitchen setup: nothing chosen</span>';
+
+    var line = LINE_ORDER.filter(function (id) { return G.sel[id]; });
+    byId('pr-lineview').innerHTML = line.length
+      ? line.map(function (id) {
+          return '<span class="pr-node fx-pop" style="--n-c:' + COLOR_OF[id] + '">' + STAGES[id].e + ' ' + STAGES[id].n + '</span>';
+        }).join('<span class="pr-arrow">→</span>')
+      : '<span class="pr-empty">the line is empty — the conveyor is still moving</span>';
+  }
+
+  function renderTiles() {
+    var tiles = byId('pr-palette').querySelectorAll('.pr-tile');
+    for (var i = 0; i < tiles.length; i++) {
+      var on = !!G.sel[tiles[i].getAttribute('data-id')];
+      tiles[i].classList.toggle('is-on', on);
+      tiles[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  function toggle(id) {
+    if (!G || !G.alive || veil) return;
+    if (!onBoard(id)) return;   /* tile is not on the board at this tier */
+    G.sel[id] = !G.sel[id];
+    if (!G.sel[id]) delete G.sel[id];
+    S.sfx.tick();
+    renderTiles(); renderLine();
+  }
+
+  /* ------------------------------------------------------------- clock -- */
+  function limitFor(o) {
+    var c = G.cfg;
+    var base = (12 + 2.6 * o.need.length) * c.time - 1.1 * c.press * (G.wave - 1);
+    return Math.max(8 * c.time, Math.min(26 * c.time, base));
+  }
+
+  function startTimer() {
+    stopTimer();
+    ticker = setInterval(function () {
+      G.time -= 0.1;
+      var pct = Math.max(0, G.time / G.limit) * 100;
+      byId('pr-timerbar').style.width = pct.toFixed(1) + '%';
+      byId('pr-timerwrap').classList.toggle('is-panic', G.time <= 4);
+      if (G.time <= 0) { stopTimer(); resolve(true); }
+    }, 100);
+  }
+  function stopTimer() { if (ticker) { clearInterval(ticker); ticker = null; } }
+
+  /* --------------------------------------------------------- next order -- */
+  function nextOrder() {
+    if (G.idx >= G.deck.length) { gameOver('cleared'); return; }
+    G.order = G.deck[G.idx++];
+    G.sel = {};
+    G.limit = limitFor(G.order);
+    G.time = G.limit;
+    renderStrip(); renderTicket(); renderLine(); renderTiles();
+    byId('pr-timerbar').style.width = '100%';
+    byId('pr-timerwrap').classList.remove('is-panic');
+    startTimer();
+  }
+
+  /* ---------------------------------------------------------- resolve --- */
+  function resolve(timedOut) {
+    if (!G || !G.alive || veil) return;
+    stopTimer();
+    var o = G.order;
+    var chosen = Object.keys(G.sel);
+    var missing = o.need.filter(function (id) { return !G.sel[id]; });
+    var banned  = (o.ban || []).filter(function (id) { return G.sel[id]; });
+    var extra   = chosen.filter(function (id) {
+      return o.need.indexOf(id) === -1 && (o.ban || []).indexOf(id) === -1;
+    });
+
+    var kind = null;
+    if (timedOut)              kind = 'timeout';
+    else if (banned.length)    kind = DISASTER_OF[banned[0]] || 'cold';
+    else if (missing.length)   kind = DISASTER_OF[missing[0]] || 'cold';
+    else if (extra.length >= G.cfg.jam) kind = 'cold';
+
+    if (kind) { fail(kind, o, missing, banned, extra, timedOut); }
+    else      { win(o, extra); }
+  }
+
+  function win(o, extra) {
+    var c = G.cfg;
+    var secs = Math.max(0, G.time / c.time); /* seconds banked, normalised per tier */
+    var mult = multFor(G.combo);
+    var pts = Math.round(((70 + 12 * secs) * mult - c.extra * extra.length) * c.mult);
+    pts = Math.max(20, pts);
+    G.score += pts;
+    G.served++;
+    if (extra.length && !c.keep) { G.combo = 0; } else { G.combo++; if (!extra.length) G.clean++; }
+    S.sfx.correct();
+    if (G.combo === 5 || G.combo === 9) { S.confetti({ count: 70 }); S.toast('Combo ×' + multFor(G.combo) + ' — the line is singing', 'good'); }
+
+    if (G.served % 6 === 0) { G.wave++; S.toast('WAVE ' + G.wave + ' — the tickets are coming faster', 'info'); }
+
+    showVeil({
+      good: true,
+      title: extra.length ? 'Served — but the line was baggy' : 'Served. Hot, correct, on time.',
+      color: extra.length ? 'var(--mk-orange)' : 'var(--mk-green)',
+      body:
+        '<p><strong>+' + pts + ' pts</strong>' +
+        (mult > 1 ? ' <span class="small">(×' + mult + ' combo)</span>' : '') +
+        (c.mult !== 1 ? ' <span class="small">(tier ' + G.tier + ' ×' + c.mult + ')</span>' : '') +
+        (extra.length ? ' <span class="small" style="color:var(--mk-orange)">−' + (c.extra * extra.length) + ' for ' + extra.length + ' unnecessary stage' + (extra.length === 1 ? '' : 's') +
+            (c.keep ? '' : ', combo reset') + '</span>' : '') +
+        '</p>' +
+        diffHTML(o, [], [], extra) +
+        '<div class="keyfact"><p>' + o.why + '</p></div>'
+    });
+  }
+
+  function fail(kind, o, missing, banned, extra, timedOut) {
+    G.health--;
+    G.combo = 0;
+    G.served++;
+    S.sfx.wrong();
+    if (G.missed.indexOf(o) === -1) G.missed.push(o);
+    var d = DISASTERS[kind];
+    var lead;
+    if (timedOut)              lead = 'The ticket sat on the rail until the table walked out. Read faster — the required stages are named in the order.';
+    else if (banned.length)    lead = 'You put <strong>' + label(banned[0]) + '</strong> on the line. This order specifically must not have it.';
+    else if (missing.length)   lead = 'The line was missing <strong>' + missing.map(label).join('</strong>, <strong>') + '</strong>.';
+    else                       lead = 'You stacked ' + extra.length + ' stages nobody asked for. The line jammed and the order went cold.';
+
+    showVeil({
+      good: false,
+      title: d.t,
+      color: d.c,
+      body:
+        scene(kind) +
+        '<p>' + lead + '</p>' +
+        diffHTML(o, missing, banned, extra) +
+        '<div class="trap" data-label="⚠ THE REAL CONCEPT: ' + o.c.toUpperCase() + '"><p>' + o.why + '</p></div>' +
+        '<p class="small">Health rating: ' + G.health + ' / ' + G.maxHealth + ' · <a href="' + WB + o.b + '.html">read the board on this →</a></p>'
+    });
+  }
+
+  function diffHTML(o, missing, banned, extra) {
+    var h = '<div class="pr-diff">';
+    o.need.forEach(function (id) {
+      var hit = missing.indexOf(id) === -1;
+      h += '<span class="' + (hit ? 'pr-hit' : 'pr-miss') + '">' + (hit ? '✓ ' : '✗ ') + label(id) + '</span>';
+    });
+    banned.forEach(function (id) { h += '<span class="pr-bad">✗ ' + label(id) + '</span>'; });
+    extra.forEach(function (id) { h += '<span class="pr-extra">+ ' + label(id) + ' (not asked for)</span>'; });
+    return h + '</div>';
+  }
+
+  /* ------------------------------------------------------------- veil --- */
+  function showVeil(cfg) {
+    var host = byId('pr-veil-host');
+    veil = document.createElement('div');
+    veil.className = 'pr-veil';
+    veil.innerHTML =
+      '<div class="fx-pop" style="--v-c:' + cfg.color + '">' +
+        '<h2 class="hand">' + cfg.title + '</h2>' + cfg.body +
+        '<div class="row" style="margin-top:.9rem">' +
+          '<button class="btn btn--primary" id="pr-next">' +
+            (G.health <= 0 ? 'See the damage ⏎' : 'Next ticket ⏎') + '</button>' +
+        '</div>' +
+      '</div>';
+    host.appendChild(veil);
+    var btn = byId('pr-next');
+    btn.focus();
+    btn.addEventListener('click', dismissVeil);
+  }
+
+  function dismissVeil() {
+    if (!veil) return;
+    veil.parentNode.removeChild(veil);
+    veil = null;
+    if (G.health <= 0) { gameOver('closed'); return; }
+    renderStrip();
+    nextOrder();
+  }
+
+  /* --------------------------------------------------------- game over -- */
+  function gameOver(reason) {
+    G.alive = false;
+    stopTimer();
+    /* best scores are kept PER TIER — a foundation run must never be
+       measured against an architect run. 'pizza-rush@300', etc. */
+    var key = GAME_ID + '@' + G.tier;
+    var prev = S.score.best(key);
+    var isBest = S.score.save(key, G.score);
+    var delta = G.score - prev;
+
+    var xpGain = Math.max(10, Math.round(G.score / 55));
+    S.xp.add(xpGain, 'Pizza Rush — ' + G.served + ' orders served');
+    if (G.score >= 1500) S.progress.complete(GAME_ID);
+    if (isBest) S.confetti();
+
+    var accuracy = G.served ? Math.round((G.clean / G.served) * 100) : 0;
+
+    var missHTML = '';
+    if (G.missed.length) {
+      missHTML = '<h3 class="hand">What burned you</h3><div class="pr-recap">';
+      G.missed.forEach(function (o) {
+        missHTML += '<a href="' + WB + o.b + '.html">' +
+                      '<b>' + o.c + '</b>' +
+                      '<span>“' + o.h + '” — needed ' + o.need.map(label).join(' + ') +
+                      (o.ban && o.ban.length ? ', never ' + o.ban.map(label).join(' / ') : '') + '</span>' +
+                    '</a>';
+      });
+      missHTML += '</div>';
+    } else {
+      missHTML = '<div class="keyfact"><p>Not a single disaster. The health inspector left disappointed.</p></div>';
+    }
+
+    var serves = Math.max(1, Math.ceil(Math.abs(delta) / 180));
+    var deltaLine;
+    if (isBest && prev > 0)      deltaLine = '<strong style="color:var(--mk-green)">NEW PERSONAL BEST — beat your old ' + prev.toLocaleString() + ' by ' + delta.toLocaleString() + '.</strong>';
+    else if (isBest)             deltaLine = '<strong style="color:var(--mk-green)">First score on the board: ' + G.score.toLocaleString() + '. Now beat it.</strong>';
+    else if (prev === 0)         deltaLine = 'Zero points and ' + G.maxHealth + ' disasters. The bar is on the floor — clear it.';
+    else                         deltaLine = 'You were <strong style="color:var(--mk-red)">' + Math.abs(delta).toLocaleString() + ' points</strong> short of your best (' + prev.toLocaleString() + '). That is roughly ' + serves + ' clean serve' + (serves === 1 ? '' : 's') + '.';
+
+    elPlay.classList.add('is-hidden');
+    elOver.classList.remove('is-hidden');
+    elOver.innerHTML =
+      '<h1 class="hand" style="color:' + (reason === 'cleared' ? 'var(--mk-green)' : 'var(--mk-red)') + '">' +
+        (reason === 'cleared' ? 'Service complete. Every ticket cleared.' : 'CLOSED BY THE HEALTH DEPARTMENT') + '</h1>' +
+      '<p class="lede">' + deltaLine + '</p>' +
+      '<p class="small" style="margin-top:-.4rem">Played at ' +
+        '<span class="tier-pill tier-any" data-tier="' + G.tier + '" style="--tier-color:var(--t' + G.tier + ')">' +
+          G.tier + ' ' + S.tier.label(G.tier) + '</span> — score multiplier ×' + G.cfg.mult +
+        ', ' + G.maxHealth + ' health stars, best kept under <strong>' + key + '</strong>.</p>' +
+      '<div class="pr-strip">' +
+        cell(G.score.toLocaleString(), 'final score', 'var(--mk-blue)') +
+        cell(G.served, 'orders taken', 'var(--mk-teal)') +
+        cell(G.clean, 'clean serves', 'var(--mk-green)') +
+        cell(accuracy + '%', 'clean rate', 'var(--mk-orange)') +
+        cell('LV ' + S.level(), '+' + xpGain + ' xp', 'var(--mk-purple)') +
+      '</div>' +
+      missHTML +
+      '<div class="row" style="margin:1.1rem 0">' +
+        '<button class="btn btn--primary btn--lg" id="pr-again">One more run ⏎</button>' +
+        '<a class="btn btn--ghost" href="' + WB + 'az400-pipelines.html">Read the pipelines board</a>' +
+        '<a class="btn btn--ghost" href="../index.html">← Hub</a>' +
+      '</div>' +
+      '<details class="pr-drills" open>' + drillsHTML() + '</details>';
+
+    byId('pr-again').addEventListener('click', start);
+    byId('pr-again').focus();
+  }
+
+  /* ------------------------------------------------------------ start --- */
+  function start() {
+    if (!playable()) { quit(); S.toast('No orders written at tier ' + S.tier.get() + ' yet.', 'bad'); return; }
+    newGame();
+    elTitle.classList.add('is-hidden');
+    elOver.classList.add('is-hidden');
+    elOver.innerHTML = '';
+    elPlay.classList.remove('is-hidden');
+    renderPalette();
+    nextOrder();
+    window.scrollTo(0, 0);
+  }
+
+  function quit() {
+    if (!G || !G.alive) return;
+    stopTimer();
+    if (veil) { veil.parentNode.removeChild(veil); veil = null; }
+    G.alive = false;
+    elPlay.classList.add('is-hidden');
+    elTitle.classList.remove('is-hidden');
+    refreshTitle();
+  }
+
+  /* ======================================================== tier wiring == */
+  /** Is there enough written at the selected tier to run a real service? */
+  function playable() { return deckFor().length >= MIN_ORDERS; }
+
+  /** The nearest tier that actually has a bank, searching outwards. */
+  function nearestPlayableTier() {
+    var here = S.tier.get(), all = S.tier.all(), counts = S.tier.counts(ORDERS);
+    var best = null, bestGap = 1e9;
+    all.forEach(function (t) {
+      if (t === here || counts[t] < MIN_ORDERS) return;
+      var gap = Math.abs(t - here);
+      if (gap < bestGap) { bestGap = gap; best = t; }
+    });
+    return best;
+  }
+
+  function renderTierEmpty() {
+    var host = byId('pr-tier-empty');
+    var t = S.tier.get(), n = deckFor().length;
+    if (n >= MIN_ORDERS) { host.innerHTML = ''; return; }
+    var near = nearestPlayableTier();
+    host.innerHTML =
+      '<div class="tier-empty tier-any">' +
+        '<b>The kitchen is empty at tier ' + t + '.</b>' +
+        '<p>Only ' + n + ' order' + (n === 1 ? '' : 's') + ' ' + (n === 1 ? 'is' : 'are') +
+        ' written for <strong>' + t + ' ' + S.tier.label(t) + '</strong>, and a service needs at least ' +
+        MIN_ORDERS + '. Opening anyway would just be the same few tickets on repeat.</p>' +
+        (near
+          ? '<p style="margin-top:.7rem"><button class="btn btn--primary btn--sm" id="pr-tier-jump">' +
+              'Cook at tier ' + near + ' ' + S.tier.label(near) + ' instead →</button></p>'
+          : '') +
+      '</div>';
+    if (near) {
+      byId('pr-tier-jump').addEventListener('click', function () { S.tier.set(near); });
+    }
+  }
+
+  /** The start-screen summary line: bank size + the rules at this tier. */
+  function renderTierLine() {
+    var t = S.tier.get(), c = cfg(), n = deckFor().length;
+    var pal = c.pal ? c.pal.length : Object.keys(STAGES).length;
+    byId('pr-tierline').innerHTML =
+      '<strong>' + n + ' order' + (n === 1 ? '' : 's') + '</strong> on tonight’s rail · ' +
+      pal + ' stage tiles on the board · ' + c.health + ' health stars · ' +
+      'clock ×' + c.time.toFixed(2).replace(/\.?0+$/, '') + ' · ' +
+      'score ×' + c.mult + (c.hint ? ' · hints on' : ' · no hints') + '.<br>' +
+      '<span style="color:var(--ink-soft)">' + S.tier.blurb(t) + '</span>';
+    byId('pr-count').textContent = n + ' order' + (n === 1 ? '' : 's');
+    byId('pr-start').disabled = !playable();
+
+    /* the rules boxes describe the rules AT THIS TIER, not a fixed set */
+    var WORD = ['zero','one','two','three','four','five','six','seven'];
+    byId('pr-rule-extra').textContent = c.extra + ' pts';
+    byId('pr-rule-jam').textContent = WORD[c.jam] ? WORD[c.jam].replace(/^./, function (x) { return x.toUpperCase(); }) : c.jam;
+    byId('pr-rule-stars').textContent = (WORD[c.health] || c.health) + ' stars';
+  }
+
+  function refreshBest() {
+    var b = S.score.best(scoreKey());
+    byId('pr-best').textContent = b
+      ? '★ best ' + b.toLocaleString() + ' @' + S.tier.get()
+      : '★ best — @' + S.tier.get();
+  }
+
+  /** Everything on the title screen that depends on the selected tier. */
+  function refreshTitle() { renderTierLine(); renderTierEmpty(); refreshBest(); }
+
+  S.tier.mountPicker('#pr-tier-host', {
+    compact: true,
+    heading: 'Skill tier',
+    label: 'Skill tier for Pizza Rush',
+    belowLabel: 'Also serve tickets from lower tiers'
+  });
+
+  /* Changing tier mid-service must restart cleanly, never half-swap the deck
+     under a live run. Stop everything, then re-open at the new tier. */
+  document.addEventListener('station:tier', function () {
+    var wasLive = !!(G && G.alive);
+    stopTimer();
+    if (veil && veil.parentNode) { veil.parentNode.removeChild(veil); }
+    veil = null;
+    if (G) G.alive = false;
+    if (wasLive && playable()) {
+      S.toast('Tier ' + S.tier.get() + ' — fresh service, new rail.', 'info');
+      refreshTitle();
+      start();
+      return;
+    }
+    elPlay.classList.add('is-hidden');
+    elOver.classList.add('is-hidden');
+    elOver.innerHTML = '';
+    elTitle.classList.remove('is-hidden');
+    refreshTitle();
+    if (wasLive) S.toast('Tier ' + S.tier.get() + ' has no service to run.', 'bad');
+  });
+
+  byId('pr-start').addEventListener('click', start);
+  byId('pr-serve').addEventListener('click', function () { resolve(false); });
+  byId('pr-clear').addEventListener('click', function () {
+    if (!G || veil) return; G.sel = {}; renderTiles(); renderLine(); S.sfx.tick();
+  });
+  byId('pr-quit').addEventListener('click', quit);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+    if (veil) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dismissVeil(); }
+      return;
+    }
+    if (!elPlay.classList.contains('is-hidden') && G && G.alive) {
+      if (e.key === 'Enter') { e.preventDefault(); resolve(false); return; }
+      if (e.key === 'Backspace') { e.preventDefault(); G.sel = {}; renderTiles(); renderLine(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); quit(); return; }
+      var k = e.key.toUpperCase();
+      if (ID_OF_KEY[k]) { e.preventDefault(); toggle(ID_OF_KEY[k]); }
+      return;
+    }
+    if (!elOver.classList.contains('is-hidden') && e.key === 'Enter') { e.preventDefault(); start(); return; }
+    if (!elTitle.classList.contains('is-hidden') && e.key === 'Enter') { e.preventDefault(); start(); }
+  });
+
+  refreshTitle();
+});
+</script>
+
+<style>
+  a.locked{
+    opacity:.72; text-decoration:none; cursor:pointer;
+    border-bottom:1px dashed currentColor;
+  }
+  a.locked::after{ content:" 🔒"; font-size:.85em; }
+  .demo-strip{
+    max-width:980px; margin:0 auto 1rem; padding:.65rem .9rem; border-radius:10px;
+    font-size:.85rem; line-height:1.45; display:flex; gap:.7rem; align-items:center;
+    flex-wrap:wrap;
+    border:1px solid var(--mk-green);
+    background:color-mix(in srgb, var(--mk-green) 9%, transparent);
+    color:var(--ink-soft);
+  }
+  .demo-strip b{color:var(--ink)}
+  .demo-strip a{color:var(--mk-blue); font-weight:600}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(!document.querySelector('meta[name="viewport"]')){
+    var mv=document.createElement('meta');
+    mv.name='viewport'; mv.content='width=device-width, initial-scale=1';
+    (document.head||document.documentElement).appendChild(mv);
+  }
+  // Study material is not published here. Any link into it becomes an upgrade prompt.
+  var GATED=/\/(whiteboards|drills|labs|tracks)\//;
+  function sweep(root){
+    var as=(root||document).querySelectorAll?(root||document).querySelectorAll('a[href]'):[];
+    for(var i=0;i<as.length;i++){
+      var a=as[i], h=a.getAttribute('href')||'';
+      if(a.dataset.gateDone) continue;
+      a.dataset.gateDone='1';
+      if(!GATED.test(h)) continue;
+      a.setAttribute('href','../index.html#unlock');
+      a.classList.add('locked');
+      a.setAttribute('title','Part of the full study library — see what is included');
+    }
+  }
+  function boot(){
+    sweep(document);
+    new MutationObserver(function(m){for(var i=0;i<m.length;i++)sweep(m[i].target);})
+      .observe(document.body,{childList:true,subtree:true});
+    var host=document.querySelector('.page')||document.body;
+    var s=document.createElement('div');
+    s.className='demo-strip no-print';
+    s.innerHTML='<span><b>Free forever.</b> Every game, every skill level, no account. '+
+      'The whiteboards, flashcards and exam simulator are part of the full library.</span>'+
+      '<a href="../index.html">← All games</a>';
+    host.insertBefore(s,host.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
+</body>
+</html>

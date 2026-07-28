@@ -1,0 +1,2240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supply Chain Siege · GH-500</title>
+<link rel="stylesheet" href="../assets/css/station.css">
+<script src="../assets/js/station.js" defer></script>
+<style>
+/* ================== SUPPLY CHAIN SIEGE — page-local styles ================== */
+.sg-wrap { max-width: 1080px; margin: 0 auto; }
+
+.sg-logo { width: min(100%, 380px); margin: 0 auto .4rem; }
+.sg-logo .st { fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- top stats ---- */
+.sg-stats { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); margin-bottom: .7rem; }
+.sg-stat { text-align: center; padding: .35rem .3rem .4rem; border: 2.5px solid var(--board-edge); border-radius: 10px; background: var(--board-2); box-shadow: var(--shadow-2); }
+.sg-stat b { display: block; font-family: var(--font-hand); font-size: 1.4rem; line-height: 1.05; color: var(--sg-c, var(--ink)); }
+.sg-stat span { font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* ---- HP bar ---- */
+.sg-hp { height: 16px; border-radius: 999px; overflow: hidden; border: 2.5px solid var(--board-edge); background: color-mix(in srgb, var(--ink) 10%, transparent); margin-bottom: .8rem; position: relative; }
+.sg-hp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--mk-green), var(--mk-teal)); transition: width .35s cubic-bezier(.2,.8,.3,1); }
+.sg-hp.is-hurt i { background: linear-gradient(90deg, var(--mk-orange), var(--mk-red)); }
+.sg-hp em { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: .62rem; font-weight: 800; letter-spacing: .12em; color: var(--ink); text-transform: uppercase; }
+
+/* ---- the field ---- */
+.sg-field {
+  position: relative; height: 168px; margin-bottom: .8rem;
+  border: 2.5px dashed var(--board-edge); border-radius: 14px;
+  background:
+    repeating-linear-gradient(90deg, var(--board-grid) 0 1px, transparent 1px 40px),
+    var(--board-2);
+  overflow: hidden;
+}
+.sg-train { position: absolute; left: 0; top: 0; bottom: 0; width: 74px; display: grid; place-items: center; background: linear-gradient(90deg, color-mix(in srgb, var(--mk-green) 26%, var(--board-2)), transparent); border-right: 3px solid var(--mk-green); z-index: 3; }
+.sg-field.is-hurt .sg-train { border-right-color: var(--mk-red); background: linear-gradient(90deg, color-mix(in srgb, var(--mk-red) 34%, var(--board-2)), transparent); }
+.sg-train svg { width: 54px; height: auto; }
+.sg-mini {
+  position: absolute; width: 132px; padding: .28rem .4rem;
+  border: 2px solid var(--sg-sev, var(--ink-soft)); border-radius: 8px;
+  background: var(--board-2); box-shadow: var(--shadow-2);
+  font-size: .62rem; line-height: 1.25; will-change: left;
+}
+.sg-mini .p { font-family: var(--font-mono); font-weight: 700; font-size: .66rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.sg-mini .m { color: var(--ink-soft); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-mini.is-front { border-width: 3px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--sg-sev) 30%, transparent), var(--shadow-3); }
+.sg-mini.is-boss { animation: cs-pulse 1s ease-in-out infinite; border-style: double; border-width: 4px; }
+.sg-mini .bar { display: block; height: 3px; margin-top: .18rem; border-radius: 2px; background: var(--sg-sev); }
+
+/* ---- active card ---- */
+.sg-card { border: 3px solid var(--sg-sev, var(--ink)); border-radius: 14px; background: var(--board-2); padding: .8rem .9rem; box-shadow: var(--shadow-2); }
+.sg-card.is-boss { border-style: double; border-width: 6px; }
+.sg-card h3 { margin: 0 0 .3rem; font-family: var(--font-mono); font-size: 1.05rem; word-break: break-all; }
+.sg-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: .35rem .7rem; margin: .5rem 0 .55rem; }
+.sg-fact { font-size: .74rem; }
+.sg-fact b { display: block; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.sg-note { font-size: .86rem; border-left: 4px solid var(--board-edge); padding-left: .6rem; color: var(--ink); margin: 0; }
+
+/* ---- routes ---- */
+.sg-routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; margin: .8rem 0; }
+.sg-route {
+  display: grid; grid-template-rows: auto auto; gap: .1rem;
+  text-align: left; padding: .5rem .6rem;
+  border: 2.5px solid var(--board-edge); border-radius: 10px;
+  background: var(--board-2); box-shadow: var(--shadow-2);
+  transition: transform .1s ease, border-color .12s ease;
+}
+.sg-route:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--r-c, var(--mk-blue)); }
+.sg-route strong { font-size: .8rem; color: var(--r-c, var(--ink)); }
+.sg-route span { font-size: .66rem; color: var(--ink-soft); line-height: 1.3; }
+.sg-route .k { float: right; font-family: var(--font-mono); font-weight: 800; font-size: .7rem; border: 2px solid var(--board-edge); border-radius: 5px; padding: 0 .3em; }
+.r-auto { --r-c: var(--mk-green); }
+.r-group { --r-c: var(--mk-blue); }
+.r-dismiss { --r-c: var(--mk-purple); }
+.r-ignore { --r-c: var(--mk-orange); }
+.r-block { --r-c: var(--mk-red); }
+
+/* ---- verdict feed ---- */
+.sg-verdict { margin: .7rem 0 0; min-height: 3.4rem; }
+.sg-v { border-left: 6px solid var(--v-c); border-radius: 4px 10px 10px 4px; background: color-mix(in srgb, var(--v-c) calc(var(--wash) * 100%), var(--board-2)); padding: .5rem .7rem; font-size: .85rem; }
+.sg-v b { display: block; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: var(--v-c); margin-bottom: .15rem; }
+.v-good { --v-c: var(--mk-green); }
+.v-breach { --v-c: var(--mk-red); }
+.v-break { --v-c: var(--mk-orange); }
+.v-mis { --v-c: var(--mk-purple); }
+
+/* ---- sub question ---- */
+.sg-sub { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1rem; background: color-mix(in srgb, var(--board) 78%, transparent); backdrop-filter: blur(4px); }
+.sg-sub__box { width: min(620px, 100%); max-height: 86vh; overflow-y: auto; background: var(--board-2); border: 3px solid var(--mk-purple); border-radius: 14px; padding: 1rem 1.1rem; box-shadow: var(--shadow-3); }
+.sg-subopt { display: grid; grid-template-columns: 1.7rem minmax(0,1fr); gap: .5rem; align-items: start; width: 100%; text-align: left; padding: .5rem .65rem; margin-bottom: .4rem; border: 2.5px solid var(--board-edge); border-radius: 9px; background: var(--board-2); font-size: .88rem; line-height: 1.4; }
+.sg-subopt:hover:not(:disabled) { border-color: var(--mk-purple); }
+.sg-subopt .n { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border: 2px solid var(--board-edge); border-radius: 7px; font-family: var(--font-mono); font-weight: 800; font-size: .76rem; }
+.sg-subopt.is-right { border-color: var(--mk-green); background: color-mix(in srgb, var(--mk-green) 16%, var(--board-2)); }
+.sg-subopt.is-wrong { border-color: var(--mk-red); background: color-mix(in srgb, var(--mk-red) 16%, var(--board-2)); }
+
+/* ---- wave banner ---- */
+.sg-wave { position: fixed; inset: 0; z-index: 1090; display: grid; place-items: center; pointer-events: none; }
+.sg-wave b { font-family: var(--font-hand); font-size: clamp(2rem, 10vw, 4.5rem); color: var(--mk-red); text-shadow: 0 4px 18px rgba(0,0,0,.35); animation: cs-pop .4s cubic-bezier(.2,1.5,.4,1) both; }
+
+/* ---- tier bar + coach line ---- */
+.sg-tierbar {
+  border: 2.5px solid var(--board-edge); border-radius: 12px;
+  background: var(--board-2); box-shadow: var(--shadow-2);
+  padding: .75rem .85rem; margin: 1.1rem 0;
+}
+.sg-tierbar .small { color: var(--ink-soft); }
+.sg-coach {
+  margin: .5rem 0 0; font-size: .78rem; line-height: 1.45; color: var(--ink-soft);
+  border-left: 4px solid var(--mk-teal); padding-left: .6rem;
+}
+
+/* ---- yml output ---- */
+.sg-yml { font-size: .78rem; }
+.sg-yml .c-bad { color: #FF7B72; }
+
+details.sg-drills { border: 2.5px solid var(--board-edge); border-radius: 12px; background: var(--board-2); padding: .2rem .9rem; margin: 1.4rem 0; }
+details.sg-drills > summary { cursor: pointer; font-weight: 800; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; padding: .7rem 0; color: var(--ghas); list-style: none; }
+details.sg-drills > summary::-webkit-details-marker { display: none; }
+details.sg-drills > summary::before { content: "▸ "; }
+details.sg-drills[open] > summary::before { content: "▾ "; }
+details.sg-drills ul { margin: 0 0 1rem; padding-left: 1.15rem; }
+details.sg-drills li { margin-bottom: .3rem; font-size: .9rem; }
+
+.sg-miss-list li { margin-bottom: .5rem; }
+.sg-miss-list a { color: var(--mk-blue); font-weight: 700; }
+.sg-delta-line { font-family: var(--font-hand); font-size: 1.6rem; }
+
+@media (max-width: 520px) {
+  .sg-field { height: 200px; }
+  .sg-mini { width: 108px; font-size: .56rem; }
+  .sg-routes { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+</style>
+</head>
+<body>
+
+<main class="page sg-wrap">
+
+  <h1 class="sr-only">Supply Chain Siege</h1>
+
+  <!-- ===================== START ===================== -->
+  <section id="scr-start" class="board">
+    <svg class="sg-logo" viewBox="0 0 380 96" role="img" aria-label="Supply Chain Siege" style="color:var(--mk-pink)">
+      <g class="st">
+        <rect x="8" y="30" width="46" height="40" rx="6" style="stroke:var(--mk-green)"/>
+        <circle cx="20" cy="76" r="7" style="stroke:var(--mk-green)"/>
+        <circle cx="44" cy="76" r="7" style="stroke:var(--mk-green)"/>
+        <path d="M54 50h26" style="stroke:var(--ink-soft);stroke-dasharray:5 6"/>
+        <path d="M88 40h34v22H88z" style="stroke:var(--mk-orange)"/>
+        <path d="M136 40h34v22h-34z" style="stroke:var(--mk-red)"/>
+        <path d="M184 40h34v22h-34z" style="stroke:var(--mk-purple)"/>
+        <path d="M126 51h6M174 51h6" style="stroke:var(--ink-soft)"/>
+      </g>
+      <text x="230" y="44" style="font-family:var(--font-hand);font-size:22px;fill:var(--ink)">SUPPLY CHAIN</text>
+      <text x="230" y="72" style="font-family:var(--font-hand);font-size:26px;fill:var(--mk-pink)">SIEGE</text>
+    </svg>
+
+    <p class="lede center">Dependabot alerts march at your release train. Route every one before it lands.
+      Under-react and a vulnerability breaches production. Over-react and you snap the build.
+      <strong>Your routing decisions write a real dependabot.yml — you get to read it at the end.</strong></p>
+
+    <div class="grid grid-3" style="margin:1.2rem 0">
+      <div class="sticky sticky--pink"><strong>Up to five lanes</strong><br>Auto-merge · Grouped PR · Dismiss · Ignore rule · Block at the dependency review gate. The lower tiers open fewer of them — dismiss-versus-ignore is a tier-300 idea, so it is not on the board before then.</div>
+      <div class="sticky sticky--yellow"><strong>Damage is visible</strong><br>Breach −25 HP. Build break −12 HP. A card that reaches the train un-routed −25 HP and a lecture.</div>
+      <div class="sticky sticky--blue"><strong>Boss waves</strong><br>Transitive vulnerabilities behind a locked-down private registry. Routing alone will not save you — you have to configure.</div>
+    </div>
+
+    <div class="marker-box mk-pink">
+      <span class="box-title" style="color:var(--mk-pink)">Controls</span>
+      <p style="margin-bottom:.35rem"><span class="kbd">A</span> auto-merge · <span class="kbd">G</span> group · <span class="kbd">D</span> dismiss · <span class="kbd">I</span> ignore · <span class="kbd">B</span> block. Or number the lanes you can actually see — <span class="kbd">1</span> is the leftmost open lane, and the lower tiers open fewer of them. Sub-questions use <span class="kbd">1</span>–<span class="kbd">5</span>. Tap on touch.</p>
+      <p class="small" style="margin:0">Correct route <strong style="color:var(--mk-green)">+100 × combo</strong> · sub-question <strong style="color:var(--mk-green)">+60</strong> · distance left <strong>× 60</strong> · every wave survived <strong>+250</strong>. Everything is then multiplied by the tier: <strong>×0.6</strong> at 100 up to <strong>×1.6</strong> at 500.</p>
+    </div>
+
+    <div class="sg-tierbar">
+      <div id="tier-picker-host"></div>
+      <p class="small" style="margin:.5rem 0 0">The tier changes the deck <em>and</em> the siege:
+        how many lanes are open, how much health the train has, how fast the cards march,
+        how many options a configuration question offers, and what a point is worth.
+        Best scores are kept per tier.</p>
+    </div>
+
+    <div id="tier-gate" class="is-hidden"></div>
+
+    <div class="row" style="justify-content:center;margin-top:1rem">
+      <button class="btn btn--primary btn--lg" id="btn-start" type="button">▶ Hold the line</button>
+      <a class="btn btn--ghost" href="../index.html#unlock" class="locked">GH-500 track</a>
+      <a class="btn btn--ghost" href="../index.html">← Hub</a>
+    </div>
+    <p class="center small" id="start-best" style="margin-bottom:0"></p>
+  </section>
+
+  <!-- ===================== GAME ===================== -->
+  <section id="scr-game" class="is-hidden">
+    <div class="sg-stats">
+      <div class="sg-stat" style="--sg-c:var(--mk-green)"><b id="st-score">0</b><span>Score</span></div>
+      <div class="sg-stat" style="--sg-c:var(--mk-orange)"><b id="st-combo">×1</b><span>Combo</span></div>
+      <div class="sg-stat" style="--sg-c:var(--mk-red)"><b id="st-wave">1</b><span>Wave</span></div>
+      <div class="sg-stat" style="--sg-c:var(--ghas)"><b id="st-left">0</b><span>Inbound</span></div>
+    </div>
+
+    <div class="sg-hp" id="hpbar"><i id="hpfill"></i><em id="hplabel">RELEASE TRAIN 100%</em></div>
+
+    <div class="sg-field" id="field">
+      <div class="sg-train" aria-hidden="true">
+        <svg viewBox="0 0 60 46"><g fill="none" stroke="var(--mk-green)" stroke-width="3" stroke-linejoin="round">
+          <rect x="4" y="10" width="34" height="22" rx="3"/><path d="M38 18h12l6 8v6H38z"/>
+          <circle cx="14" cy="38" r="5"/><circle cx="30" cy="38" r="5"/><circle cx="47" cy="38" r="5"/>
+          <path d="M10 4v6M20 6v4"/></g></svg>
+      </div>
+    </div>
+
+    <div class="sg-card" id="card"></div>
+
+    <div class="sg-routes" id="routes">
+      <button class="sg-route r-auto" data-r="auto" type="button"><strong>Auto-merge <span class="k">A</span></strong><span>Security update PR, merge it and move on</span></button>
+      <button class="sg-route r-group" data-r="group" type="button"><strong>Grouped PR <span class="k">G</span></strong><span>Roll into a scheduled grouped update</span></button>
+      <button class="sg-route r-dismiss" data-r="dismiss" type="button"><strong>Dismiss <span class="k">D</span></strong><span>Close the alert with a stated reason</span></button>
+      <button class="sg-route r-ignore" data-r="ignore" type="button"><strong>Ignore rule <span class="k">I</span></strong><span>Stop the PRs in dependabot.yml</span></button>
+      <button class="sg-route r-block" data-r="block" type="button"><strong>Block at gate <span class="k">B</span></strong><span>Fail the PR at dependency review</span></button>
+    </div>
+
+    <div class="sg-verdict" id="verdict"></div>
+  </section>
+
+  <!-- ===================== GAME OVER ===================== -->
+  <section id="scr-over" class="board is-hidden"></section>
+
+  <!-- ===================== DRILLS ===================== -->
+  <details class="sg-drills">
+    <summary>What this drills</summary>
+    <ul>
+      <li><strong>The three-way split.</strong> Dependabot <em>alerts</em> (dependency graph + advisory database, no PRs), <em>security updates</em> (PRs that fix an alert), <em>version updates</em> (scheduled PRs that have nothing to do with vulnerabilities). Different toggles, different config, different limits.</li>
+      <li><strong>dependabot.yml.</strong> <code>groups</code> with <code>applies-to</code>, <code>ignore</code> with <code>versions</code> and <code>update-types</code>, <code>versioning-strategy</code>, <code>open-pull-requests-limit</code>, <code>registries</code>, <code>schedule</code>, <code>target-branch</code>, <code>allow</code>.</li>
+      <li><strong>Dependency review action.</strong> Runs on <code>pull_request</code>, reviews what the PR <em>adds</em>. <code>fail-on-severity</code> vs <code>fail-on-scopes</code> vs <code>allow-licenses</code>/<code>deny-licenses</code>. It is a gate on new arrivals, not a scanner of what you already have.</li>
+      <li><strong>Dismissal reasons.</strong> A fix has already been started · No bandwidth to fix this · Risk is tolerable to this project · This alert is inaccurate · Vulnerable code is not actually used. Reasons are audit records, not shrug emojis.</li>
+      <li><strong>Reachability vs presence.</strong> GitHub tells you the vulnerable package is present. Whether the vulnerable <em>function</em> is called is your judgement — and you have to record it.</li>
+      <li><strong>Transitive dependencies.</strong> No direct patch means waiting on the parent, or forcing the resolution with overrides / resolutions / central package management.</li>
+      <li><strong>Dismiss vs ignore.</strong> Dismissing closes an alert. An ignore rule stops the pull requests. Neither of them fixes anything.</li>
+      <li><strong>SBOM &amp; dependency graph.</strong> Exporting SPDX, why the ingredient list matters when the next advisory drops.</li>
+      <li><strong>Private registries.</strong> <code>registries:</code> plus Dependabot secrets — Actions secrets are a separate store.</li>
+    </ul>
+    <p class="small" style="margin-bottom:1rem">
+      Whiteboards: <a href="../index.html#unlock" class="locked">Dependabot &amp; Supply Chain</a> ·
+      <a href="../index.html#unlock" class="locked">Enablement, Policy &amp; Rollout</a> ·
+      <a href="../index.html#unlock" class="locked">Secret Scanning</a> ·
+      <a href="../index.html#unlock" class="locked">The Pizza Parlor</a>
+    </p>
+  </details>
+
+  <p class="center"><a class="btn btn--ghost" href="../index.html">← Back to the hub</a></p>
+</main>
+
+<script>
+/* =========================================================================
+ * SUPPLY CHAIN SIEGE — GH-500
+ * ====================================================================== */
+(function () {
+  'use strict';
+
+  var GAME_ID = 'supply-chain-siege';
+  var MODULE_ID = 'supply-chain-siege';
+
+  var CONCEPT = {
+    three:   { label: 'Alerts vs security updates vs version updates', href: '../whiteboards/ghas-supply-chain.html' },
+    cfg:     { label: 'dependabot.yml configuration',                  href: '../whiteboards/ghas-supply-chain.html' },
+    dismiss: { label: 'Dismissal reasons and what they mean',          href: '../whiteboards/ghas-supply-chain.html' },
+    review:  { label: 'Dependency review gate policy',                 href: '../whiteboards/ghas-supply-chain.html' },
+    reach:   { label: 'Reachability vs mere presence',                 href: '../whiteboards/ghas-supply-chain.html' },
+    trans:   { label: 'Transitive dependencies and lockfiles',         href: '../whiteboards/ghas-supply-chain.html' },
+    sbom:    { label: 'SBOM and the dependency graph',                 href: '../whiteboards/ghas-supply-chain.html' },
+    reg:     { label: 'Private registries and Dependabot secrets',     href: '../whiteboards/ghas-supply-chain.html' },
+    automerge:{label: 'Auto-merge mechanics and fetch-metadata',       href: '../whiteboards/ghas-supply-chain.html' },
+    policy:  { label: 'Org policy, enablement and enforcement',        href: '../whiteboards/ghas-admin-rollout.html' }
+  };
+
+  /* Canonical lane order. The .sg-route buttons appear in this order in the
+     markup, and every tier's `lanes` list is a subset in this same order — that
+     is what makes "press 3" mean "the third lane you can see". */
+  var ROUTES = ['auto', 'group', 'dismiss', 'ignore', 'block'];
+  var ROUTE_LABEL = {
+    auto: 'auto-merge the security update',
+    group: 'roll it into a grouped update PR',
+    dismiss: 'dismiss the alert',
+    ignore: 'add an ignore rule to dependabot.yml',
+    block: 'block it at the dependency review gate'
+  };
+  var RANK = { ignore: 0, dismiss: 1, group: 2, auto: 3, block: 4 };
+
+  var REASONS = [
+    { k: 'fix_started', t: 'A fix has already been started' },
+    { k: 'no_bandwidth', t: 'No bandwidth to fix this' },
+    { k: 'tolerable', t: 'Risk is tolerable to this project' },
+    { k: 'inaccurate', t: 'This alert is inaccurate' },
+    { k: 'not_used', t: 'Vulnerable code is not actually used' }
+  ];
+
+  var SEV_COLOR = { Critical: 'var(--mk-red)', High: 'var(--mk-orange)', Moderate: 'var(--mk-purple)', Low: 'var(--mk-teal)' };
+
+  /* =====================================================================
+   * ALERT BANK — 44 cards
+   * ================================================================== */
+  var BANK = [
+
+  { id:'lodash', pkg:'lodash@4.17.20', eco:'npm', dir:'/', sev:'High', cvss:7.4, dep:'direct', reach:'yes',
+    patch:'4.17.21', breaking:false, pace:1, tier:300, c:'three',
+    note:'Prototype pollution. Called directly from the order-total code path. The patch is a semver-patch bump with no API change.',
+    ans:'auto',
+    why:'Direct, reachable, patched, non-breaking. This is the exact shape Dependabot security updates were built for — auto-merge with a required status check and stop thinking about it.' },
+
+  { id:'log4j', pkg:'org.apache.logging.log4j:log4j-core@2.14.1', eco:'maven', dir:'/', sev:'Critical', cvss:10.0, dep:'direct', reach:'yes',
+    patch:'2.17.1', breaking:false, pace:1, tier:300, c:'three',
+    note:'Remote code execution via JNDI lookup. Your service logs user-supplied strings.',
+    ans:'auto',
+    why:'CVSS 10, reachable, a drop-in patched version exists. Nothing here is a judgement call — the only wrong answer is a slow one.' },
+
+  { id:'minimist', pkg:'minimist@1.2.5', eco:'npm', dir:'/', sev:'Low', cvss:3.7, dep:'transitive', reach:'no',
+    patch:'via mocha@10.4.0', breaking:false, pace:1, tier:400, c:'trans',
+    note:'Pulled in by mocha, a devDependency. Never ships. The patched version arrives when the parent bumps.',
+    ans:'group',
+    why:'Low, dev-only, transitive, and the fix rides along with the parent. Group it with your weekly dev-dependency PR instead of burning a review cycle on it.',
+    yml:{ group:'dev-dependencies' } },
+
+  { id:'express5', pkg:'express@4.18.2', eco:'npm', dir:'/', sev:'Moderate', cvss:6.1, dep:'direct', reach:'yes',
+    patch:'5.0.0 (major)', breaking:true, pace:2, tier:400, c:'dismiss',
+    note:'Open redirect. The only patched line is 5.x, which is a breaking rewrite of the middleware signature. A migration branch is already open with 60% of routes ported.',
+    ans:'dismiss', reason:'fix_started',
+    why:'The work is genuinely underway, so the honest reason is "a fix has already been started" — which keeps the alert out of your queue without pretending the risk is gone. Reasons are audit records; picking a convenient one is how you fail the audit, not the exam.' },
+
+  { id:'markdownit', pkg:'markdown-it@12.3.2', eco:'npm', dir:'/docs', sev:'Moderate', cvss:5.3, dep:'direct', reach:'no',
+    patch:'none published', breaking:false, pace:2, tier:400, c:'reach',
+    note:'ReDoS in the linkify parser. Your docs build runs it once at CI time over files you author. linkify is disabled in your config.',
+    ans:'dismiss', reason:'not_used',
+    why:'GitHub tells you the package is present; it does not compute reachability for you. You looked, the vulnerable path is not invoked, so record "vulnerable code is not actually used" — that judgement, written down, is the deliverable.' },
+
+  { id:'newtonsoft', pkg:'Newtonsoft.Json@12.0.1', eco:'nuget', dir:'/src/Api', sev:'High', cvss:7.5, dep:'direct', reach:'unknown',
+    patch:'13.0.3', breaking:false, pace:2, tier:400, c:'dismiss',
+    note:'The .csproj declares a floating range 12.0.*, but packages.lock.json resolves to 13.0.3, which is already patched. The alert fired on the manifest range.',
+    ans:'dismiss', reason:'inaccurate',
+    why:'The resolved version is not vulnerable — the alert is wrong about your actual build. "This alert is inaccurate" is the correct reason, and the durable fix is committing the lock file so resolution is not a guess.' },
+
+  { id:'pr482', pkg:'PR #482 adds fast-json-patch-ng@0.1.0', eco:'npm', dir:'/', sev:'Critical', cvss:9.8, dep:'direct (new)', reach:'yes',
+    patch:'none', breaking:false, pace:1, tier:400, c:'review',
+    note:'A brand new dependency arriving in an open pull request. No patched version exists anywhere.',
+    ans:'block',
+    why:'Dependency review runs on the pull request and reviews what the PR ADDS. fail-on-severity: critical stops this before it is ever in your graph — far cheaper than triaging it as an alert next week.',
+    yml:{ review:{ sev:'critical' } } },
+
+  { id:'gpl', pkg:'PR #491 adds fastreport-core@3.2.1', eco:'nuget', dir:'/src/Api', sev:'None', cvss:0, dep:'direct (new)', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:400, c:'review',
+    note:'No advisory at all. Licensed GPL-3.0. Your product ships as a closed-source binary and legal mandates permissive licences only.',
+    ans:'block',
+    why:'Dependency review fails on more than severity: deny-licenses / allow-licenses is the licence gate. A zero-CVSS dependency can still be the one that costs you the product.',
+    yml:{ review:{ lic:'GPL-3.0, AGPL-3.0' } } },
+
+  { id:'awssdk', pkg:'aws-sdk@2.x', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:true, pace:2, tier:300, c:'cfg',
+    note:'No vulnerability. Dependabot version updates open a major-bump PR most weeks and you deliberately stay on 2.x until the v3 migration is funded.',
+    ans:'ignore',
+    why:'This is version-update noise, not a security alert. An ignore rule with update-types: version-update:semver-major stops the churn — and note it would also suppress a major-version security fix, which is exactly why you scope it tightly.',
+    yml:{ ignore:{ name:'aws-sdk', ut:'version-update:semver-major' } } },
+
+  { id:'typesnode', pkg:'@types/node, @types/jest, @types/express', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:300, c:'cfg',
+    note:'Three separate version-update PRs every week. All type definitions. All trivially safe.',
+    ans:'group',
+    why:'groups with a pattern of "@types/*" collapses three PRs into one. Grouping is the single highest-value dependabot.yml feature for teams that have quietly stopped reviewing Dependabot PRs.',
+    yml:{ group:'types', pattern:'@types/*' } },
+
+  { id:'pillow', pkg:'pillow@10.2.0', eco:'pip', dir:'/', sev:'Critical', cvss:9.1, dep:'direct', reach:'yes',
+    patch:'10.3.0', breaking:false, pace:1, tier:300, c:'three',
+    note:'Buffer overflow in image decoding. You resize customer-uploaded menu photos with it.',
+    ans:'auto',
+    why:'User-supplied input hits the vulnerable decoder. Patch exists, minor bump. Auto-merge and let the tests be your gate.' },
+
+  { id:'requestssdk', pkg:'requests@2.28.1', eco:'pip', dir:'/', sev:'Moderate', cvss:5.9, dep:'transitive', reach:'unknown',
+    patch:'2.32.0 (blocked by internal-sdk pin)', breaking:false, pace:2, tier:400, c:'trans',
+    note:'Pinned hard by your own internal-sdk package. The SDK team has merged the bump but has not cut a release.',
+    ans:'dismiss', reason:'fix_started',
+    why:'You cannot patch a transitive dependency someone else pins. The fix is genuinely started upstream, so say so — and put a date on it, because "fix started" with no follow-up is how a moderate becomes a breach.' },
+
+  { id:'xnet', pkg:'golang.org/x/net@0.17.0', eco:'gomod', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'0.23.0', breaking:false, pace:1, tier:300, c:'three',
+    note:'HTTP/2 rapid reset. Your API is internet-facing and speaks HTTP/2.',
+    ans:'auto',
+    why:'Internet-facing, reachable, patched. The Go module graph makes this a clean bump — nothing to debate.' },
+
+  { id:'dockerbase', pkg:'node:18-alpine → node:22-alpine', eco:'docker', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:true, pace:2, tier:300, c:'three',
+    note:'No advisory. Dependabot version updates for the docker ecosystem noticed a newer base image tag. Node 18 reaches end of life next quarter.',
+    ans:'group',
+    why:'This is a version update, not a security update — no alert, no advisory. Major runtime bumps belong in a planned grouped PR you actually test, not an auto-merge.',
+    yml:{ group:'base-images' } },
+
+  { id:'checkout', pkg:'actions/checkout@v3 → v4', eco:'github-actions', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:300, c:'three',
+    note:'Dependabot supports the github-actions ecosystem for version updates. No advisory attached.',
+    ans:'group',
+    why:'Action bumps are version updates. Group them so the whole workflow fleet moves in one reviewable PR — and pin actions by commit SHA if you want the supply chain guarantee that a tag cannot give you.',
+    yml:{ group:'github-actions', pattern:'*' } },
+
+  { id:'tj-actions', pkg:'third-party/changed-files@v41', eco:'github-actions', dir:'/', sev:'Critical', cvss:9.6, dep:'direct', reach:'yes',
+    patch:'v41.0.1', breaking:false, pace:2, tier:400, c:'three',
+    note:'The action was compromised and a malicious tag was published pointing at code that dumps runner memory. A clean patched release exists.',
+    ans:'auto',
+    why:'Someone swapped your flour supplier for a knockoff with the same label. Take the patched release now, then pin every third-party action to a full commit SHA so a tag can never be repointed under you again.' },
+
+  { id:'boss-registry', pkg:'Pipelino.Contracts → System.Text.Json@6.0.0', eco:'nuget', dir:'/src/Api', sev:'Critical', cvss:9.8, dep:'transitive', reach:'yes',
+    patch:'6.0.10 (via Pipelino.Contracts@4.2.0)', breaking:false, pace:3, tier:400, c:'reg', boss:true,
+    note:'BOSS. The parent package lives in a private Azure Artifacts feed. Dependabot logs: "unable to resolve dependency files — authentication required". No PR has been opened at all.',
+    ans:'auto',
+    sub:{ q:'Dependabot cannot even open the PR. What actually unblocks it?',
+      o:['Add a registries: block to dependabot.yml and reference credentials stored as Dependabot secrets',
+         'Store the feed PAT as an Actions secret and reference it with ${{ secrets.FEED_PAT }}',
+         'Vendor the package into the repo so Dependabot can read it',
+         'Raise open-pull-requests-limit so there is room for the PR'],
+      a:0,
+      w:'registries: in dependabot.yml, with credentials from the DEPENDABOT secrets store — which is a separate store from Actions secrets. Dependabot cannot read Actions secrets, and that single fact is the most-missed configuration question on this exam.' },
+    why:'Critical, reachable, and a patched parent exists — the routing is right. But routing does not help while Dependabot is locked out of the pantry.' },
+
+  { id:'boss-override', pkg:'deep-nested-lib → tar@4.4.18', eco:'npm', dir:'/', sev:'Critical', cvss:9.8, dep:'transitive', reach:'yes',
+    patch:'6.2.1 exists, but no parent has released a bump', breaking:false, pace:3, tier:400, c:'trans', boss:true,
+    note:'BOSS. Four levels deep. A patched tar exists on the registry; nothing in your tree will accept it. Dependabot cannot open a useful PR.',
+    ans:'group',
+    sub:{ q:'The patched version exists but no parent will take it. What holds the line today?',
+      o:['Force the resolution with an npm overrides block (yarn resolutions / NuGet central package management), then test',
+         'Dismiss the alert as "risk is tolerable"',
+         'Add an ignore rule for tar so the noise stops',
+         'Wait for the parent maintainer and note it in the risk register'],
+      a:0,
+      w:'overrides / resolutions rewrite the resolved version across the whole tree. It is the only real answer for a deep transitive with no parent release — and it is why lockfiles are a security control, not a build detail.' },
+    why:'You cannot auto-merge a PR that cannot be built and you must not silence a reachable critical. Grouped, forced, tested — then chase the parent.' },
+
+  { id:'samplefolder', pkg:'handlebars@4.7.6', eco:'npm', dir:'/samples', sev:'High', cvss:7.5, dep:'direct', reach:'no',
+    patch:'4.7.8', breaking:false, pace:2, tier:400, c:'reach',
+    note:'Lives in /samples, a folder excluded from the build, never published, never deployed. The template it uses is a static demo.',
+    ans:'dismiss', reason:'not_used',
+    why:'Not deployed and not invoked. Record "vulnerable code is not actually used" — but note the alert will come back for the next advisory, which is the argument for deleting dead sample code rather than dismissing it forever.' },
+
+  { id:'alreadyfixed', pkg:'jackson-databind@2.13.0', eco:'maven', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'2.15.4 — already merged to main last Tuesday', breaking:false, pace:2, tier:400, c:'dismiss',
+    note:'The bump merged a week ago. The alert stayed open because the advisory was later re-scoped to a wider version range that your old release branch still matches.',
+    ans:'dismiss', reason:'inaccurate',
+    why:'On main the resolved version is patched, so for this repo the alert no longer describes reality. Careful though: if that release branch is still supported, the honest answer changes — dismissal is scoped to the alert, not to your whole estate.' },
+
+  { id:'prlimit', pkg:'eslint, prettier, typescript, vitest, tsx', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:400, c:'cfg',
+    note:'Five open version-update PRs and nobody has reviewed one in a month. A critical security update is due to land tomorrow.',
+    ans:'group',
+    sub:{ q:'Will the version-update backlog block tomorrow\'s security PR?',
+      o:['No — open-pull-requests-limit applies to version updates; security update PRs are counted separately',
+         'Yes — the limit is global, so the security PR is queued until you merge one',
+         'Yes, unless you set open-pull-requests-limit: 0',
+         'No — security updates ignore dependabot.yml entirely, including groups and ignore rules'],
+      a:0,
+      w:'open-pull-requests-limit governs version updates. Security updates have their own budget. And the last option is the classic trap: security updates DO respect your ignore rules, which is exactly how teams accidentally silence a fix.' },
+    why:'Group the tooling into one weekly PR so the queue is reviewable again. Grouping is the answer to alert fatigue — the smoke detector nobody replaces the battery in.',
+    yml:{ group:'tooling', pattern:'eslint*, prettier, typescript, vitest' } },
+
+  { id:'versioning-sdk', pkg:'axios@1.6.0 in @pipelino/sdk', eco:'npm', dir:'/packages/sdk', sev:'Moderate', cvss:5.3, dep:'direct', reach:'yes',
+    patch:'1.7.4', breaking:false, pace:3, tier:400, c:'cfg',
+    note:'This repo publishes a library that thousands of consumers install. Pinning an exact version in the manifest would force a conflict on every consumer.',
+    ans:'auto',
+    sub:{ q:'Which versioning-strategy belongs on this ecosystem block?',
+      o:['widen — broaden the allowed range rather than pinning consumers to one version',
+         'increase — always bump the manifest to the exact new version',
+         'lockfile-only — never touch the manifest at all',
+         'auto — let Dependabot decide per ecosystem'],
+      a:0,
+      w:'widen is for published libraries: it relaxes the range so consumers can resolve freely. increase is for applications. lockfile-only is for repos where the manifest is generated or governed elsewhere.' },
+    why:'Take the patch — but how it is written into the manifest is a versioning-strategy decision, and getting it wrong makes every downstream consumer hate you.' },
+
+  { id:'lockfileonly', pkg:'zod@3.22.2', eco:'npm', dir:'/apps/web', sev:'Low', cvss:3.1, dep:'transitive', reach:'no',
+    patch:'3.23.8 (resolvable in the lockfile)', breaking:false, pace:3, tier:400, c:'cfg',
+    note:'A monorepo where package.json ranges are generated by a tool and must not be hand-edited. The lockfile can move freely.',
+    ans:'group',
+    sub:{ q:'Which versioning-strategy keeps Dependabot inside the lines?',
+      o:['lockfile-only','increase','increase-if-necessary','widen'],
+      a:0,
+      w:'lockfile-only tells Dependabot to update the resolved versions in the lock file and leave the manifest untouched — the right answer whenever the manifest is generated, governed, or shared across a monorepo.' },
+    why:'Low, unreachable, transitive: it rides the weekly group. The interesting decision is the strategy, not the routing.',
+    yml:{ group:'web-deps' } },
+
+  { id:'schedule', pkg:'symfony/http-kernel@6.3.0', eco:'composer', dir:'/', sev:'Moderate', cvss:6.5, dep:'direct', reach:'yes',
+    patch:'6.3.12', breaking:false, pace:2, tier:400, c:'cfg',
+    note:'Your team reviews dependency PRs on Monday mornings and nobody looks at them any other day. Right now Dependabot opens PRs daily.',
+    ans:'auto',
+    sub:{ q:'What schedule block matches how this team actually works?',
+      o:['interval: weekly with day: monday and a timezone',
+         'interval: daily — more often is always safer',
+         'interval: monthly to reduce noise',
+         'Remove the schedule block; Dependabot defaults to weekly anyway'],
+      a:0,
+      w:'schedule controls VERSION updates only — security updates arrive when the advisory does, regardless. Match the interval to your review ritual, and set the timezone or "Monday" means Monday in UTC.' },
+    why:'It is a reachable moderate with a patch: take it. The schedule question is about the version-update firehose, which is a different tap entirely.' },
+
+  { id:'dependabot-secrets', pkg:'@pipelino/ui@2.1.0', eco:'npm', dir:'/', sev:'High', cvss:7.1, dep:'direct', reach:'yes',
+    patch:'2.1.4', breaking:false, pace:3, tier:400, c:'reg',
+    note:'The Dependabot PR opens, but CI fails: the workflow cannot read the internal registry token it needs to install packages.',
+    ans:'auto',
+    sub:{ q:'The workflow on a Dependabot PR cannot see your secret. Why?',
+      o:['Workflows triggered by Dependabot get Dependabot secrets and a read-only GITHUB_TOKEN, not the repository Actions secrets',
+         'Dependabot PRs run with no secrets at all under any circumstances',
+         'The secret name must be prefixed with DEPENDABOT_',
+         'Dependabot PRs cannot trigger workflows'],
+      a:0,
+      w:'Dependabot-triggered runs use the separate Dependabot secrets store and a read-only token by default. Add the secret in the Dependabot secrets section, and grant explicit permissions in the workflow if it needs to write.' },
+    why:'The routing is easy. The reason your pipeline is red is a permissions model people learn exactly once, painfully.' },
+
+  { id:'automerge-meta', pkg:'react-router@6.21.0', eco:'npm', dir:'/apps/web', sev:'Moderate', cvss:6.1, dep:'direct', reach:'yes',
+    patch:'6.21.3', breaking:false, pace:3, tier:400, c:'automerge',
+    note:'You want a workflow that auto-merges patch-level security updates only, and never anything bigger.',
+    ans:'auto',
+    sub:{ q:'What tells the workflow whether this PR is a patch bump?',
+      o:['The dependabot/fetch-metadata action, which exposes update-type and dependency-type as step outputs',
+         'Parsing the PR title with a regular expression',
+         'The dependabot.yml versioning-strategy value',
+         'The semver label GitHub adds to every Dependabot PR'],
+      a:0,
+      w:'dependabot/fetch-metadata reads the structured metadata off the PR — update-type (semver-patch/minor/major), dependency-type, ecosystem — and then you gate gh pr merge --auto on it. Regex on the title is how you eventually auto-merge a major.' },
+    why:'Patch-level, reachable, tested: auto-merge is right. The trick is making "auto" mean only what you intended.' },
+
+  { id:'sbom', pkg:'xz-utils@5.6.0 (container layer)', eco:'docker', dir:'/', sev:'Critical', cvss:10.0, dep:'transitive', reach:'unknown',
+    patch:'5.6.2', breaking:false, pace:3, tier:400, c:'sbom',
+    note:'A backdoored release. Your compliance officer asks, at 9pm: "which of our 340 services shipped this?"',
+    ans:'auto',
+    sub:{ q:'What answers the 9pm question fastest?',
+      o:['Export the SBOM (SPDX) from the dependency graph for the affected repos and search it',
+         'Run a code scanning analysis across the org',
+         'Grep every repository for the package name',
+         'Open each repository\'s Dependabot alerts page one at a time'],
+      a:0,
+      w:'The dependency graph is the ingredient list posted for every dish, and SBOM export (SPDX) is how you hand it to someone else. The value of an SBOM is not the file — it is being able to answer "where are we exposed" in minutes instead of a week.' },
+    why:'Critical with a patched version: take it everywhere, immediately. Then answer the blast-radius question with data, not memory.' },
+
+  { id:'dismiss-vs-ignore', pkg:'moment@2.29.2', eco:'npm', dir:'/', sev:'Low', cvss:3.7, dep:'direct', reach:'no',
+    patch:'2.29.4', breaking:false, pace:2, tier:400, c:'cfg',
+    note:'A low-severity ReDoS you have consciously accepted. You are tired of the PR reappearing every week, but you still want to know if a worse advisory lands on moment.',
+    ans:'dismiss', reason:'tolerable',
+    why:'Dismissing with "risk is tolerable" closes THIS alert and leaves future advisories free to fire. An ignore rule would stop the pull requests — including the one for the next, nastier advisory. Dismiss silences one alert; ignore silences a stream.' },
+
+  { id:'ignore-versions', pkg:'chromedriver@120.x', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:true, pace:2, tier:300, c:'cfg',
+    note:'Must stay locked to the Chrome build installed on your self-hosted runners. Dependabot proposes 121, 122, 123 in turn.',
+    ans:'ignore',
+    why:'ignore with a versions constraint (">120") pins the reality of your runner fleet. This is the legitimate use of ignore: a hard external constraint, not fatigue.',
+    yml:{ ignore:{ name:'chromedriver', vers:'> 120' } } },
+
+  { id:'typosquat', pkg:'PR #503 adds reqeusts@2.31.0', eco:'pip', dir:'/', sev:'Critical', cvss:9.9, dep:'direct (new)', reach:'yes',
+    patch:'none', breaking:false, pace:2, tier:400, c:'review',
+    note:'Note the spelling. A brand new package, three days old, one maintainer, with a post-install script.',
+    ans:'block',
+    why:'Typosquat arriving through a pull request — the dependency review gate is the only control that sees it before it is in your graph. Then look hard at who approved the PR.',
+    yml:{ review:{ sev:'high' } } },
+
+  { id:'devscope', pkg:'PR #510 adds webpack-dev-middleware@5.3.3', eco:'npm', dir:'/', sev:'Critical', cvss:9.1, dep:'development (new)', reach:'no',
+    patch:'5.3.4', breaking:false, pace:3, tier:400, c:'review',
+    note:'Critical advisory, but a devDependency. Your dependency-review config sets fail-on-scopes: runtime, so the gate did not fire.',
+    ans:'group',
+    why:'The gate behaved exactly as configured — fail-on-scopes: runtime deliberately excludes dev dependencies. Blocking here would mean your config is wrong, not the PR. Take the patched version in the next grouped PR and decide, deliberately, whether dev scope should be gated at all.',
+    yml:{ group:'dev-dependencies' } },
+
+  { id:'rubygem', pkg:'rack@2.2.6', eco:'rubygems', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'2.2.8.1', breaking:false, pace:1, tier:300, c:'three',
+    note:'Denial of service through multipart parsing. Public endpoints accept file uploads.',
+    ans:'auto',
+    why:'Reachable, patched within the same minor line, upload endpoints exposed. Merge it.' },
+
+  { id:'cargo', pkg:'openssl@0.10.55', eco:'cargo', dir:'/agent', sev:'Moderate', cvss:5.9, dep:'transitive', reach:'yes',
+    patch:'0.10.66 (parent accepts it)', breaking:false, pace:2, tier:300, c:'trans',
+    note:'Transitive, but Cargo will resolve the patched version without touching your manifest — cargo update alone fixes it.',
+    ans:'auto',
+    why:'Transitive does not automatically mean stuck. When the parent range already allows the patched version, the fix is a lockfile update and Dependabot will open exactly that PR.' },
+
+  { id:'nobandwidth', pkg:'jquery@3.5.1', eco:'npm', dir:'/legacy-admin', sev:'Moderate', cvss:6.1, dep:'direct', reach:'yes',
+    patch:'3.7.1 (breaks the legacy admin theme)', breaking:true, pace:3, tier:400, c:'dismiss',
+    note:'The internal admin UI, reachable only from the corporate network, behind SSO. Upgrading breaks a theme nobody owns. The rewrite is funded for next quarter and nobody can touch it before then.',
+    ans:'dismiss', reason:'no_bandwidth',
+    why:'"No bandwidth" is a legitimate, honest reason — it says the risk is real and unfunded, which is precisely the signal a risk register needs. "Risk is tolerable" would be a lie, and lies in dismissal reasons are what auditors find.' },
+
+  { id:'tolerable', pkg:'debug@4.3.1', eco:'npm', dir:'/', sev:'Low', cvss:2.7, dep:'transitive', reach:'no',
+    patch:'none', breaking:false, pace:2, tier:400, c:'dismiss',
+    note:'A ReDoS reachable only if you pass attacker-controlled strings to the debug formatter, which you never do. No patch exists and the maintainer disputes the advisory.',
+    ans:'dismiss', reason:'tolerable',
+    why:'Low, unreachable, unpatched, disputed. "Risk is tolerable to this project" is the accurate record. Note it is not "inaccurate" — the advisory is real, it just does not matter here.' },
+
+  { id:'targetbranch', pkg:'spring-boot@3.1.2', eco:'maven', dir:'/', sev:'High', cvss:7.8, dep:'direct', reach:'yes',
+    patch:'3.1.12', breaking:false, pace:3, tier:400, c:'cfg',
+    note:'Your default branch is develop; main is the protected release branch that only accepts release PRs. Dependabot keeps targeting main.',
+    ans:'auto',
+    sub:{ q:'Which dependabot.yml key sends the PRs to the right branch?',
+      o:['target-branch','base-branch','default-branch','pull-request-branch-name'],
+      a:0,
+      w:'target-branch redirects Dependabot pull requests. Watch the side effect: setting target-branch on an ecosystem block turns security updates off for that block, because security updates only ever target the default branch.' },
+    why:'High and reachable — take the patch. But if the PR lands on the wrong branch it will sit there until it rots.' },
+
+  { id:'allowlist', pkg:'40 transitive npm packages', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'transitive', reach:'n/a',
+    patch:'n/a', breaking:false, pace:3, tier:400, c:'cfg',
+    note:'Version updates are opening PRs for indirect dependencies you never declared. You only want Dependabot proposing updates to packages you actually chose.',
+    ans:'ignore',
+    sub:{ q:'What is the cleaner way to express "direct dependencies only"?',
+      o:['An allow block with dependency-type: direct',
+         'An ignore rule listing every transitive package',
+         'Setting versioning-strategy: lockfile-only',
+         'Disabling version updates entirely'],
+      a:0,
+      w:'allow with dependency-type: direct (or all / production / development) is the positive filter. ignore is the negative one. Reaching for ignore when allow is the right tool is how dependabot.yml files grow to 300 lines.',
+      },
+    why:'Ignore rules will technically work and will also be unreadable in six months.',
+    yml:{ ignore:{ name:'*', ut:'version-update:semver-major' } } },
+
+  { id:'reachable-critical', pkg:'next@14.1.0', eco:'npm', dir:'/apps/web', sev:'Critical', cvss:9.1, dep:'direct', reach:'yes',
+    patch:'14.1.1', breaking:false, pace:1, tier:300, c:'three',
+    note:'Server-side request forgery in the middleware redirect handler. Your middleware runs on every request.',
+    ans:'auto',
+    why:'Patch release, reachable, internet-facing. Anything other than "merge it now" is a decision you will be explaining to someone.' },
+
+  { id:'no-patch-critical', pkg:'legacy-xml-parser@1.0.4', eco:'npm', dir:'/', sev:'Critical', cvss:9.8, dep:'direct', reach:'yes',
+    patch:'none — package unmaintained since 2019', breaking:false, pace:3, tier:400, c:'trans',
+    note:'XXE, reachable, actively exploited in the wild. The maintainer is gone. There is a drop-in replacement library.',
+    ans:'group',
+    sub:{ q:'There is nothing to merge. What is the actual remediation?',
+      o:['Replace the dependency with the maintained alternative in a planned PR',
+         'Dismiss with "no bandwidth to fix this"',
+         'Add an ignore rule so the alert stops recurring',
+         'Block it at the dependency review gate'],
+      a:0,
+      w:'When there is no patch and the code is reachable, removal is the fix. Dismissing documents an unmitigated critical; ignoring hides it; the gate only sees new arrivals, not what is already in your tree. This is the freezer nobody has cleaned since 2019 — throw it out.' },
+    why:'No patch means no security update PR will ever arrive. Plan the replacement and treat it as production work.' },
+
+  { id:'graphql', pkg:'graphql@16.6.0', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'unknown',
+    patch:'16.8.1', breaking:false, pace:2, tier:400, c:'reach',
+    note:'You have not determined whether the vulnerable parser path is reachable. The patch is a minor bump with full test coverage passing.',
+    ans:'auto',
+    why:'When reachability is unknown and the patch is cheap, patch. Reachability analysis is worth doing when the fix is expensive — it is never worth doing to avoid a green minor bump.' },
+
+  { id:'grouped-security', pkg:'12 npm advisories, all patch-level', eco:'npm', dir:'/', sev:'Moderate', cvss:5.4, dep:'direct', reach:'mixed',
+    patch:'all patched', breaking:false, pace:3, tier:400, c:'cfg',
+    note:'A dozen moderate advisories land at once after a shared transitive gets fixed upstream. Twelve separate security update PRs appear.',
+    ans:'group',
+    sub:{ q:'How do you group SECURITY updates rather than version updates?',
+      o:['A group with applies-to: security-updates',
+         'Groups only ever apply to version updates; security updates cannot be grouped',
+         'Set open-pull-requests-limit: 1',
+         'Set versioning-strategy: increase-if-necessary'],
+      a:0,
+      w:'applies-to on a group selects security-updates or version-updates. Without it, groups default to version updates and your twelve security PRs stay twelve.' },
+    why:'Twelve PRs that nobody reviews are worse than one PR that somebody does.',
+    yml:{ group:'npm-security', applies:'security-updates', pattern:'*' } },
+
+  { id:'gomod-indirect', pkg:'github.com/some/lib (indirect)', eco:'gomod', dir:'/', sev:'Low', cvss:3.3, dep:'transitive', reach:'no',
+    patch:'available', breaking:false, pace:1, tier:300, c:'trans',
+    note:'Marked // indirect in go.mod. Nothing in your code imports it directly.',
+    ans:'group',
+    why:'Low, indirect, unreachable, patched. It rides the weekly group. Spending a triage cycle on this is how you run out of attention before the critical arrives.',
+    yml:{ group:'go-deps' } },
+
+  { id:'license-change', pkg:'PR #518 bumps chartkit 3.9.0 → 4.0.0', eco:'npm', dir:'/apps/web', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:true, pace:3, tier:400, c:'review',
+    note:'No advisory. The 4.0.0 release relicensed from MIT to a source-available BSL licence. Your allow-licenses policy is MIT, Apache-2.0, BSD-3-Clause.',
+    ans:'block',
+    why:'Dependency review compares the licences of what the PR adds against your allow/deny list — a licence change on an upgrade is exactly the case an allow-list catches and a deny-list misses.',
+    yml:{ review:{ lic:'BSL-1.1' } } },
+
+  { id:'private-noalert', pkg:'internal-auth-lib@1.4.0', eco:'nuget', dir:'/src/Api', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:3, tier:400, c:'policy',
+    note:'Your own internal package. It has a known flaw your team found last month, but there is no public advisory, so no Dependabot alert exists at all.',
+    ans:'ignore',
+    sub:{ q:'How do you make internal vulnerabilities visible to Dependabot-style tooling?',
+      o:['Publish a repository security advisory (private, then optionally public) so the advisory database knows about it',
+         'Open a Dependabot alert manually from the Security tab',
+         'Add the package to dependabot.yml with a severity override',
+         'File a GitHub support ticket to add the advisory'],
+      a:0,
+      w:'Repository security advisories let you draft privately, collaborate in a temporary private fork, and publish — which is what feeds the advisory database. Dependabot only knows what the advisory database knows; there is no manual alert button.' },
+    why:'Nothing to route: no advisory means no alert. The ignore rule keeps version-update noise down while you handle the real problem through the advisory workflow.',
+    yml:{ ignore:{ name:'internal-auth-lib', ut:'version-update:semver-major' } } },
+
+  { id:'enforce-org', pkg:'Org rollout: 340 repositories', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:3, tier:500, c:'policy',
+    note:'Leadership wants Dependabot alerts on every repository, and nobody committing a dependabot.yml by hand 340 times.',
+    ans:'group',
+    sub:{ q:'What turns this on everywhere and keeps it on?',
+      o:['Enable it at the organization level (security configurations applied across repos, with new repos enrolled by default)',
+         'A scheduled workflow that commits dependabot.yml into every repository',
+         'A branch protection rule requiring the Dependabot check',
+         'An enterprise policy that blocks pushes to repos without dependabot.yml'],
+      a:0,
+      w:'Alerts are enabled by org/enterprise settings and security configurations, not by a file in the repo. dependabot.yml configures UPDATES. Confusing the two is the single most common wrong answer on this topic.' },
+    why:'Not a triage decision — a policy one. But the exam will hand it to you dressed as triage.' },
+
+  { id:'pip-hash', pkg:'cryptography@41.0.3', eco:'pip', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'42.0.4', breaking:false, pace:2, tier:300, c:'three',
+    note:'Your requirements.txt uses hash pinning (--hash=sha256:...). The patched release is available.',
+    ans:'auto',
+    why:'Dependabot regenerates the hashes with the bump. Hash pinning protects you from a registry swapping the artifact under a fixed version — it does not stop you from taking a patch.' },
+
+  { id:'composer-transitive', pkg:'guzzlehttp/psr7@2.4.3', eco:'composer', dir:'/', sev:'Moderate', cvss:6.5, dep:'transitive', reach:'yes',
+    patch:'2.4.5 (allowed by parent range)', breaking:false, pace:1, tier:300, c:'trans',
+    note:'Header injection. The parent constraint already permits 2.4.5 — a composer.lock update is all that is needed.',
+    ans:'auto',
+    why:'Reachable and resolvable without touching composer.json. Lockfile bumps are the cheapest security work you will ever do.' },
+
+  { id:'stale-ignore', pkg:'urllib3@1.26.5', eco:'pip', dir:'/', sev:'Critical', cvss:9.1, dep:'direct', reach:'yes',
+    patch:'2.2.2', breaking:false, pace:3, tier:400, c:'cfg',
+    note:'A critical advisory, but no security update PR has appeared. Someone added an ignore rule for urllib3 eighteen months ago to stop major-version churn.',
+    ans:'auto',
+    sub:{ q:'Why did no PR appear, and what do you fix?',
+      o:['Ignore rules suppress security updates too — remove or narrow the rule, then let the security update through',
+         'Security updates ignore dependabot.yml, so the rule is irrelevant and something else is broken',
+         'The alert must be dismissed before a PR can open',
+         'The advisory has not reached the advisory database yet'],
+      a:0,
+      w:'This is the trap the whole game exists for: an ignore rule silences security updates as well as version updates. Every ignore rule you write is a small, permanent hole in your patching, so scope them to update-types or versions and review them on a schedule.' },
+    why:'Critical, reachable, patched — the routing was never the problem. Your own config was.' }
+
+  ];
+
+
+  /* =====================================================================
+   * TIER 100 — FOUNDATION. What a dependency is, what an alert is, what
+   * "patched" means. Only three lanes are open here (see LANES below), so
+   * every card at this tier answers auto / group / dismiss.
+   * ================================================================== */
+  var BANK_100 = [
+
+  { id:'f-first-alert', pkg:'axios@1.6.0', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'1.7.4', breaking:false, pace:1, tier:100, c:'three',
+    note:'A library your code imports directly. A security flaw was found in it, and a fixed version already exists.',
+    ans:'auto',
+    why:'An alert says "a package you use has a known flaw". When a fixed version exists and it is not a breaking change, taking the fix is the whole job. Merge it.' },
+
+  { id:'f-direct-meaning', pkg:'express@4.18.1', eco:'npm', dir:'/', sev:'Moderate', cvss:5.3, dep:'direct', reach:'yes',
+    patch:'4.18.3', breaking:false, pace:1, tier:100, c:'three',
+    note:'DIRECT means you asked for this package yourself — it is listed in your package.json. You control which version you get.',
+    ans:'auto',
+    why:'Direct dependencies are the ones you chose. You can change the version yourself, which is why a patched release is simply something to take.' },
+
+  { id:'f-transitive-meaning', pkg:'ms@2.0.0 (pulled in by express)', eco:'npm', dir:'/', sev:'Low', cvss:3.1, dep:'transitive', reach:'no',
+    patch:'2.1.3 — arrives when express updates', breaking:false, pace:1, tier:100, c:'trans',
+    note:'TRANSITIVE means you never asked for this package. Something you DID ask for depends on it. You did not choose the version and you usually cannot change it directly.',
+    ans:'group',
+    why:'A transitive dependency is a dependency of a dependency. Low severity, not reachable, and the fix arrives when the parent updates — so it rides along in the next batched update rather than getting its own review.',
+    yml:{ group:'weekly-deps' } },
+
+  { id:'f-severity-scale', pkg:'jsonwebtoken@8.5.1', eco:'npm', dir:'/', sev:'Critical', cvss:9.8, dep:'direct', reach:'yes',
+    patch:'9.0.2', breaking:false, pace:1, tier:100, c:'three',
+    note:'Severity runs Low, Moderate, High, Critical. CVSS is a 0-10 score behind that label. This one is 9.8 and your login code uses it.',
+    ans:'auto',
+    why:'Critical means an attacker can do serious damage with little effort. Combine that with "your code actually runs it" and there is nothing to weigh up — take the patch now.' },
+
+  { id:'f-devdependency', pkg:'nodemon@2.0.20', eco:'npm', dir:'/', sev:'Low', cvss:2.8, dep:'development', reach:'no',
+    patch:'3.1.4', breaking:false, pace:1, tier:100, c:'three',
+    note:'A development dependency. It runs on a developer laptop while you work and is never installed on the server.',
+    ans:'group',
+    why:'Dev dependencies never reach production, so a low-severity flaw in one is not urgent. Batch it with the other routine updates instead of interrupting anyone.',
+    yml:{ group:'dev-dependencies' } },
+
+  { id:'f-version-update', pkg:'chalk 5.3.0 → 5.4.1', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:100, c:'three',
+    note:'No security problem at all. Dependabot noticed a newer release exists and offered to move you up to it.',
+    ans:'group',
+    why:'There are two different things called a Dependabot pull request. A SECURITY update fixes a known flaw. A VERSION update just keeps you current. This is the second kind, so it belongs in the weekly batch.',
+    yml:{ group:'weekly-deps' } },
+
+  { id:'f-what-is-lockfile', pkg:'tough-cookie@4.1.2', eco:'npm', dir:'/', sev:'Moderate', cvss:6.5, dep:'transitive', reach:'yes',
+    patch:'4.1.3 — a lockfile change only', breaking:false, pace:1, tier:100, c:'trans',
+    note:'Your package.json already allows this newer version. The lock file is the record of exactly which versions were installed, and it is pointing at the old one.',
+    ans:'auto',
+    why:'A lock file pins the exact versions so every machine installs the same thing. When the fix is already allowed by your manifest, updating the lock file is all that has to happen — the cheapest possible fix.' },
+
+  { id:'f-breaking-major', pkg:'chart.js@3.9.1', eco:'npm', dir:'/apps/web', sev:'Moderate', cvss:5.4, dep:'direct', reach:'yes',
+    patch:'4.4.3 (major version)', breaking:true, pace:2, tier:100, c:'three',
+    note:'The fix only exists in version 4, and version 4 changed how the library is called. Your code will not compile against it without changes.',
+    ans:'group',
+    why:'Version numbers go MAJOR.MINOR.PATCH. A major bump is allowed to break things, so it needs someone to actually do the work and test it. Batch it into planned work — never merge a breaking change unattended.',
+    yml:{ group:'web-deps' } },
+
+  { id:'f-not-installed', pkg:'gulp@3.9.1', eco:'npm', dir:'/', sev:'High', cvss:7.2, dep:'direct', reach:'no',
+    patch:'none', breaking:false, pace:2, tier:100, c:'reach',
+    note:'This was the old build tool. It is still listed in package.json but nothing in the repository imports it and it is not part of any build.',
+    ans:'dismiss', reason:'not_used',
+    why:'The package is present but nothing runs it. Closing the alert with a stated reason is called dismissing, and the reason becomes a permanent record of the judgement you made.' },
+
+  { id:'f-already-patched', pkg:'lodash@4.17.19', eco:'npm', dir:'/', sev:'High', cvss:7.4, dep:'direct', reach:'yes',
+    patch:'4.17.21 — merged three days ago', breaking:false, pace:2, tier:100, c:'dismiss',
+    note:'Somebody already merged the fix. Your project is on 4.17.21 now. The alert has not caught up.',
+    ans:'dismiss', reason:'inaccurate',
+    why:'The alert no longer describes your project. Dismissing it as inaccurate says exactly that — and it keeps your alert list meaning something, which is the only reason anyone reads it.' },
+
+  { id:'f-internet-facing', pkg:'nginx:1.20 (base image)', eco:'docker', dir:'/', sev:'Critical', cvss:9.4, dep:'direct', reach:'yes',
+    patch:'1.27-alpine', breaking:false, pace:2, tier:100, c:'three',
+    note:'The web server image every customer request passes through. A fixed image tag is published.',
+    ans:'auto',
+    why:'Anything that faces the internet and has a published fix goes first. The order is always: can an attacker reach it, and does a fix exist. Both yes means merge now.' },
+
+  { id:'f-test-only', pkg:'jest@29.3.0', eco:'npm', dir:'/', sev:'Low', cvss:3.3, dep:'development', reach:'no',
+    patch:'29.7.0', breaking:false, pace:2, tier:100, c:'three',
+    note:'The test runner. It runs in CI and on laptops. It is not part of the shipped application.',
+    ans:'group',
+    why:'Test tooling is dev-only. Low severity, no production exposure — batch it. Spending a review on this is time you did not spend on the critical that arrives tomorrow.',
+    yml:{ group:'dev-dependencies' } },
+
+  { id:'f-parent-allows', pkg:'semver@7.3.5 (via eslint)', eco:'npm', dir:'/', sev:'Moderate', cvss:5.3, dep:'transitive', reach:'no',
+    patch:'7.5.4 — eslint already accepts it', breaking:false, pace:2, tier:100, c:'trans',
+    note:'Transitive, but the parent package already allows the fixed version. Nothing is blocking the update.',
+    ans:'auto',
+    why:'Transitive does not automatically mean stuck. If the parent is happy with the newer version, the fix is just an install away. Check that before assuming you have to wait for anyone.' },
+
+  { id:'f-eol-runtime', pkg:'python 3.8 → 3.12', eco:'docker', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:true, pace:2, tier:100, c:'three',
+    note:'No advisory. Python 3.8 stopped receiving security fixes, so a newer image was offered.',
+    ans:'group',
+    why:'End of life means nobody will publish fixes for it any more, so every future flaw stays open forever. That is real, and it is planned work with testing — not an unattended merge.',
+    yml:{ group:'base-images' } },
+
+  { id:'f-cvss-vs-context', pkg:'pyyaml@5.3.1', eco:'pip', dir:'/', sev:'Critical', cvss:9.8, dep:'direct', reach:'yes',
+    patch:'6.0.1', breaking:false, pace:2, tier:100, c:'three',
+    note:'Arbitrary code execution when loading untrusted YAML. Your service loads YAML that customers upload.',
+    ans:'auto',
+    why:'The score tells you how bad it could be. Your own situation tells you whether it applies. Here both point the same way: customer-supplied input reaches the flaw, and a fix exists.' },
+
+  { id:'f-docs-only', pkg:'docsify@4.11.6', eco:'npm', dir:'/docs', sev:'Moderate', cvss:5.4, dep:'direct', reach:'no',
+    patch:'4.13.1', breaking:false, pace:3, tier:100, c:'reach',
+    note:'Used only to render the documentation site, which is built from files your own team writes.',
+    ans:'group',
+    why:'Where a package runs matters as much as what is wrong with it. Documentation tooling that only ever sees your own content is low urgency — take the fix in the next batch.',
+    yml:{ group:'docs-deps' } },
+
+  { id:'f-two-of-them', pkg:'4 npm packages, all patch-level', eco:'npm', dir:'/', sev:'Low', cvss:3.4, dep:'direct', reach:'no',
+    patch:'all patched', breaking:false, pace:3, tier:100, c:'cfg',
+    note:'Four separate pull requests arrived this morning. All four are tiny patch bumps to low-risk packages.',
+    ans:'group',
+    why:'Four pull requests need four reviews. One grouped pull request needs one. Grouping is the single most useful setting there is, because the real limit on dependency work is how much attention anyone has.',
+    yml:{ group:'weekly-deps', pattern:'*' } },
+
+  { id:'f-boss-vocab', pkg:'openssl@1.1.1t (container layer)', eco:'docker', dir:'/', sev:'Critical', cvss:9.8, dep:'transitive', reach:'yes',
+    patch:'3.0.14', breaking:false, pace:3, tier:100, c:'three', boss:true,
+    note:'BOSS. A critical flaw in a library buried inside your container image, not in your own code at all. A fixed base image exists.',
+    ans:'auto',
+    sub:{ q:'What is a Dependabot ALERT, in one sentence?',
+      o:['A notice that a package your project depends on has a publicly known security flaw',
+         'A pull request that upgrades a package to its newest version',
+         'A scan of your own source code for security bugs',
+         'A warning that your build is about to fail'],
+      a:0,
+      w:'An alert is a NOTICE, not a fix. It comes from comparing your dependency list against a public database of known flaws. The pull request that fixes it is a separate thing, called a security update — and it only appears if you have that switched on.' },
+    why:'Your container is made of other people\'s software too. A fixed base image exists, so take it.' },
+
+  { id:'f-abandoned', pkg:'request@2.88.2', eco:'npm', dir:'/', sev:'Moderate', cvss:6.1, dep:'direct', reach:'yes',
+    patch:'none — package deprecated in 2020', breaking:false, pace:3, tier:100, c:'trans',
+    note:'The package was abandoned by its author years ago. No fixed version will ever be published. Your code still calls it.',
+    ans:'group',
+    why:'Sometimes there is nothing to merge, because nobody is maintaining it any more. Then the fix is to replace the package — real work, planned properly, not a click.',
+    yml:{ group:'weekly-deps' } },
+
+  { id:'f-wrong-project', pkg:'tensorflow@2.11.0', eco:'pip', dir:'/experiments', sev:'High', cvss:7.8, dep:'direct', reach:'no',
+    patch:'2.16.1', breaking:true, pace:3, tier:100, c:'reach',
+    note:'Lives in a folder of one-off research notebooks that are never deployed, never built by CI, and never imported by the application.',
+    ans:'dismiss', reason:'not_used',
+    why:'Nothing here reaches a running system. Dismiss it with the honest reason and move on. Every minute you spend on something that cannot hurt you is a minute stolen from something that can.' }
+
+  ];
+
+
+  /* =====================================================================
+   * TIER 200 — PRACTITIONER. You can turn the features on and read what
+   * they produce. Four lanes: the dependency review gate opens here, the
+   * ignore rule does not — dismiss versus ignore is a tier-300 distinction.
+   * ================================================================== */
+  var BANK_200 = [
+
+  { id:'p-security-update', pkg:'flask@2.2.2', eco:'pip', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'2.3.3', breaking:false, pace:1, tier:200, c:'three',
+    note:'Dependabot opened a pull request titled "Bump flask from 2.2.2 to 2.3.3" with the advisory linked in the body and the changelog quoted.',
+    ans:'auto',
+    why:'That pull request is a Dependabot SECURITY UPDATE — it exists because of an advisory. Alerts are switched on in the repository settings; security updates are a separate switch next to them, and version updates need a dependabot.yml on top of that.' },
+
+  { id:'p-enable-updates', pkg:'6 npm packages, weekly', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:200, c:'cfg',
+    note:'You committed .github/dependabot.yml with package-ecosystem: npm and schedule interval weekly. Six pull requests appeared on Monday.',
+    ans:'group',
+    why:'dependabot.yml configures VERSION updates. It never turns alerts on and never turns security updates on — those live in repository or organisation settings. Getting that split right is the first configuration question people are asked.',
+    yml:{ group:'weekly-npm', pattern:'*' } },
+
+  { id:'p-gate-new-critical', pkg:'PR #601 adds node-serialize@0.0.4', eco:'npm', dir:'/', sev:'Critical', cvss:9.8, dep:'direct (new)', reach:'yes',
+    patch:'none', breaking:false, pace:1, tier:200, c:'review',
+    note:'A teammate opened a pull request that adds a brand new package. It has a known remote code execution flaw and there is no fixed version.',
+    ans:'block',
+    why:'The dependency review action runs on the pull request and looks at what the pull request ADDS. Setting fail-on-severity stops a known-bad package at the door, which costs you a red check instead of an incident.',
+    yml:{ review:{ sev:'critical' } } },
+
+  { id:'p-gate-license', pkg:'PR #607 adds ghostscript-node@1.4.0', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct (new)', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:200, c:'review',
+    note:'No advisory at all. The package is AGPL-3.0 and your product ships as a closed-source download.',
+    ans:'block',
+    why:'The same gate checks licences, not just severity. allow-licenses lists what you accept; deny-licenses lists what you refuse. A package with no security problem at all can still be the one legal will not let you ship.',
+    yml:{ review:{ lic:'AGPL-3.0' } } },
+
+  { id:'p-types-group', pkg:'@types/node, @types/react, @types/lodash', eco:'npm', dir:'/apps/web', sev:'None', cvss:0, dep:'development', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:200, c:'cfg',
+    note:'Three type-definition packages, three separate pull requests, every single week.',
+    ans:'group',
+    why:'A groups block with patterns: ["@types/*"] turns three pull requests into one. Groups are keyed by a name you choose and take a list of glob patterns — this is the first dependabot.yml feature worth learning properly.',
+    yml:{ group:'types', pattern:'@types/*' } },
+
+  { id:'p-actions-eco', pkg:'actions/setup-node@v3 → v4', eco:'github-actions', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:200, c:'cfg',
+    note:'Dependabot watches the workflow files too, once you add github-actions as an ecosystem in dependabot.yml.',
+    ans:'group',
+    why:'Actions are dependencies. The github-actions ecosystem uses directory "/" and looks at .github/workflows. Group the bumps so the whole workflow fleet moves in one reviewable pull request.',
+    yml:{ group:'github-actions', pattern:'*' } },
+
+  { id:'p-monorepo-dir', pkg:'vite@4.5.0 in /apps/admin', eco:'npm', dir:'/apps/admin', sev:'Moderate', cvss:5.9, dep:'development', reach:'no',
+    patch:'4.5.5', breaking:false, pace:2, tier:200, c:'cfg',
+    note:'A monorepo with three package.json files. Dependabot only opened pull requests for the root one.',
+    ans:'group',
+    why:'Each manifest needs its own entry in dependabot.yml, with its own directory value. Dependabot does not go looking — you tell it where every manifest lives, or those folders are silently unwatched.',
+    yml:{ group:'admin-deps' } },
+
+  { id:'p-reachable-high', pkg:'urllib3@1.26.12', eco:'pip', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'1.26.19', breaking:false, pace:1, tier:200, c:'three',
+    note:'Your service makes outbound HTTPS calls through it on every request. The fix stays inside the 1.26 line.',
+    ans:'auto',
+    why:'Same major version, same minor version, reachable, patched. The fix is designed to be safe to take — that is what a patch release means.' },
+
+  { id:'p-schedule', pkg:'12 composer packages', eco:'composer', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:200, c:'cfg',
+    note:'Dependabot is opening version-update pull requests every day and your team only reviews dependencies on Wednesdays.',
+    ans:'group',
+    why:'schedule with interval: weekly and day: wednesday matches the tool to how your team actually works. Note that schedule only affects version updates — a security update arrives when the advisory does, whatever day that is.',
+    yml:{ group:'php-deps', pattern:'*' } },
+
+  { id:'p-pr-limit', pkg:'18 open Dependabot pull requests', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:200, c:'cfg',
+    note:'Eighteen open version-update pull requests. The default cap is five per ecosystem; someone raised open-pull-requests-limit to 20.',
+    ans:'group',
+    why:'Raising the limit did not raise anybody\'s review capacity. Group them instead: the limit is a throttle for a queue nobody is draining, and grouping is what actually drains it.',
+    yml:{ group:'npm-all', pattern:'*' } },
+
+  { id:'p-fork-pr', pkg:'PR #612 from a fork adds left-pad-plus@1.0.0', eco:'npm', dir:'/', sev:'High', cvss:7.6, dep:'direct (new)', reach:'yes',
+    patch:'none', breaking:false, pace:2, tier:200, c:'review',
+    note:'An outside contributor opened a pull request from their own fork. It adds a package published two weeks ago by an account with no other releases.',
+    ans:'block',
+    why:'The gate is the right control for anything arriving through a pull request, and it matters most when the pull request comes from outside your organisation. Read the diff of the dependency file as carefully as the code.',
+    yml:{ review:{ sev:'high' } } },
+
+  { id:'p-nuget-patch', pkg:'System.Text.Json@6.0.0', eco:'nuget', dir:'/src/Api', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'6.0.10', breaking:false, pace:1, tier:200, c:'three',
+    note:'A patch release inside the same major version. Your API deserialises request bodies with it.',
+    ans:'auto',
+    why:'Reachable, patched, no API change. NuGet floats within the range your project file allows, and Dependabot will write the exact version for you.' },
+
+  { id:'p-go-mod', pkg:'github.com/gin-gonic/gin@1.9.0', eco:'gomod', dir:'/', sev:'Moderate', cvss:6.5, dep:'direct', reach:'yes',
+    patch:'1.10.0', breaking:false, pace:2, tier:200, c:'three',
+    note:'The HTTP router for your service. A minor version bump fixes it.',
+    ans:'auto',
+    why:'Go modules make this clean: go.mod and go.sum both move, the build either compiles or it does not, and your tests are the gate. Take it.' },
+
+  { id:'p-cargo-lock', pkg:'time@0.3.17', eco:'cargo', dir:'/agent', sev:'Moderate', cvss:6.2, dep:'transitive', reach:'no',
+    patch:'0.3.36 — cargo update resolves it', breaking:false, pace:2, tier:200, c:'trans',
+    note:'Transitive, and the parent crate already allows the fixed version. Only Cargo.lock changes.',
+    ans:'auto',
+    why:'When the parent range already permits the fix, the update is a lock file change and nothing else. Cheap, low risk, and Dependabot will open exactly that pull request.' },
+
+  { id:'p-dismiss-notused', pkg:'sharp@0.31.0', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'no',
+    patch:'0.33.4', breaking:true, pace:2, tier:200, c:'reach',
+    note:'The flaw is in the SVG rendering path. Your code only ever resizes JPEGs, and the upgrade needs a native rebuild your CI image cannot do yet.',
+    ans:'dismiss', reason:'not_used',
+    why:'GitHub tells you the package is present. Whether the vulnerable part of it is used is your call — and once you make it, you write it down. That written reason is the deliverable, not the click.' },
+
+  { id:'p-dismiss-fixstarted', pkg:'moment@2.29.1', eco:'npm', dir:'/apps/web', sev:'Moderate', cvss:5.6, dep:'direct', reach:'yes',
+    patch:'replaced by date-fns in PR #598', breaking:true, pace:2, tier:200, c:'dismiss',
+    note:'A pull request replacing moment entirely is open and half reviewed. It will land this sprint.',
+    ans:'dismiss', reason:'fix_started',
+    why:'The honest reason is that a fix is already underway. It keeps the alert out of the queue without pretending the risk went away — and if the pull request stalls, the reason is the thing that makes that visible.' },
+
+  { id:'p-dismiss-inaccurate', pkg:'ws@7.4.6', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'transitive', reach:'unknown',
+    patch:'8.17.1 — already resolved in the lock file', breaking:false, pace:3, tier:200, c:'dismiss',
+    note:'The alert fired on the range in package.json. Your package-lock.json actually resolves ws to 8.17.1, which is patched.',
+    ans:'dismiss', reason:'inaccurate',
+    why:'What you install is what the lock file says, not what the manifest allows. When the resolved version is already fixed, the alert is wrong about your build — and committing the lock file is what makes that provable.' },
+
+  { id:'p-gradle', pkg:'org.springframework:spring-web@5.3.20', eco:'gradle', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'5.3.39', breaking:false, pace:2, tier:200, c:'three',
+    note:'Dependabot supports gradle as an ecosystem. The fix stays in the 5.3 line.',
+    ans:'auto',
+    why:'Patch within the same minor line, reachable, tests cover it. The ecosystem changes the file format and nothing about the decision.' },
+
+  { id:'p-boss-three-way', pkg:'Renovation of dependabot.yml', eco:'npm', dir:'/', sev:'Moderate', cvss:5.0, dep:'direct', reach:'yes',
+    patch:'various', breaking:false, pace:3, tier:200, c:'three', boss:true,
+    note:'BOSS. Alerts are on. Security updates are on. dependabot.yml has just been added. Three kinds of pull request are now arriving and the team cannot tell them apart.',
+    ans:'group',
+    sub:{ q:'Which of these is configured in dependabot.yml?',
+      o:['Version updates — the scheduled pull requests that keep you current',
+         'Dependabot alerts — the notices about known flaws',
+         'Whether the dependency graph is enabled for the repository',
+         'Which severities appear on the Security tab'],
+      a:0,
+      w:'dependabot.yml configures version updates: which ecosystems, which directories, what schedule, what groups. Alerts and security updates are switched on in repository or organisation settings and work with no file at all. This split is the most-missed basic on the whole topic.' },
+    why:'The routing is the easy half. Knowing which switch produced which pull request is the half that gets tested.',
+    yml:{ group:'weekly-npm', pattern:'*' } },
+
+  { id:'p-python-hash', pkg:'certifi@2022.12.7', eco:'pip', dir:'/', sev:'Moderate', cvss:6.8, dep:'direct', reach:'yes',
+    patch:'2024.7.4', breaking:false, pace:3, tier:200, c:'three',
+    note:'Your requirements.txt pins exact versions with hashes. The patched release is published.',
+    ans:'auto',
+    why:'Dependabot rewrites the pin and regenerates the hash. Hash pinning protects you from someone swapping the file behind a version number — it was never meant to stop you taking a fix.' }
+
+  ];
+
+
+  /* =====================================================================
+   * TIER 300 — PROFESSIONAL. All five lanes. Capacity, SLAs, rollout risk,
+   * cost, and the first real "this one or that one" calls.
+   * ================================================================== */
+  var BANK_300 = [
+
+  { id:'q-automerge-gate', pkg:'fastify@4.24.0', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'4.28.1', breaking:false, pace:1, tier:300, c:'automerge',
+    note:'You want to auto-merge this class of update. Your test suite covers 34% of the codebase and there is no staging soak before production.',
+    ans:'auto',
+    sub:{ q:'What has to be true before auto-merge is safe to switch on?',
+      o:['Required status checks that would actually catch a regression, and a way to roll back quickly',
+         'Branch protection requiring one human approval on every Dependabot pull request',
+         'A rule that only patch-level bumps are auto-merged, which makes tests unnecessary',
+         'Nothing — Dependabot only proposes versions the maintainers marked as safe'],
+      a:0,
+      w:'Auto-merge converts your test suite into your review. With 34% coverage that is a real bet, and the honest mitigation is a fast rollback path plus a progressive deploy, not more caution about which bumps qualify.' },
+    why:'Take the patch. The interesting question is whether "auto" is a decision your pipeline has earned.' },
+
+  { id:'q-sla-clock', pkg:'8 alerts: 2 critical, 3 high, 3 moderate', eco:'npm', dir:'/', sev:'Critical', cvss:9.1, dep:'direct', reach:'mixed',
+    patch:'all patched', breaking:false, pace:1, tier:300, c:'cfg',
+    note:'Policy says criticals are fixed in 7 days, highs in 30, moderates in 90. All eight landed this morning and one engineer is on triage.',
+    ans:'group',
+    sub:{ q:'What does a remediation SLA actually buy you?',
+      o:['A defensible, funded order of work — so the moderate backlog stops competing with the critical',
+         'A guarantee that no vulnerability stays open longer than the window',
+         'Automatic dismissal of alerts once the window expires',
+         'A reduction in the number of alerts raised'],
+      a:0,
+      w:'An SLA is a prioritisation contract, not a promise about reality. Its real value is that it makes "we are not doing the moderates this week" a decision somebody signed rather than a thing that quietly happened.' },
+    why:'Group the moderates into one pull request, take the criticals individually and immediately. Batching is how you protect the clock on the ones that matter.',
+    yml:{ group:'moderate-batch', applies:'security-updates', pattern:'*' } },
+
+  { id:'q-staging-soak', pkg:'redis@4.6.0 (node client)', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'4.7.0', breaking:false, pace:1, tier:300, c:'automerge',
+    note:'The fix changes connection pooling behaviour under load. Your load tests run nightly against staging; production runs 40x the traffic.',
+    ans:'group',
+    why:'The patch is correct and the risk is operational, not security. Batch it into a release you soak in staging overnight — the failure mode you are guarding against is a 3am pager, not an exploit.',
+    yml:{ group:'runtime-deps' } },
+
+  { id:'q-ignore-runner-pin', pkg:'chromedriver@124.x', eco:'npm', dir:'/e2e', sev:'None', cvss:0, dep:'development', reach:'n/a',
+    patch:'n/a', breaking:true, pace:1, tier:300, c:'cfg',
+    note:'Must match the Chrome build baked into your self-hosted test runners, which are rebuilt quarterly. Dependabot proposes 125, 126, 127.',
+    ans:'ignore',
+    why:'An ignore rule with a versions constraint records a hard external constraint. This is the legitimate use — a real dependency on something outside the repository, not fatigue. Put the quarterly runner rebuild in the same ticket so the rule gets revisited.',
+    yml:{ ignore:{ name:'chromedriver', vers:'> 124' } } },
+
+  { id:'q-dismiss-vs-ignore', pkg:'tar@6.1.11', eco:'npm', dir:'/', sev:'Low', cvss:3.7, dep:'transitive', reach:'no',
+    patch:'6.2.1', breaking:false, pace:2, tier:300, c:'cfg',
+    note:'A low-severity path traversal you have accepted. The pull request reappears weekly and you are tired of closing it — but tar is exactly the package you would want to hear about next time.',
+    ans:'dismiss', reason:'tolerable',
+    why:'Dismiss closes THIS alert; the next advisory on tar still fires. An ignore rule stops the pull requests — including the one for the next, nastier advisory. Dismiss silences an event. Ignore silences a stream. That distinction is the whole tier.' },
+
+  { id:'q-transitive-override', pkg:'nested-lib → minimatch@3.0.4', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'transitive', reach:'yes',
+    patch:'3.1.2 exists; no parent has released a bump', breaking:false, pace:2, tier:300, c:'trans',
+    note:'Three levels deep. The patched version is on the registry and nothing in your tree will resolve to it.',
+    ans:'group',
+    sub:{ q:'What actually moves the resolved version today?',
+      o:['An npm overrides block (yarn resolutions, or NuGet central package management) forcing the version, then a test run',
+         'Deleting the lock file and reinstalling',
+         'An ignore rule so the alert stops reappearing',
+         'Waiting for the parent maintainer and noting it in the risk register'],
+      a:0,
+      w:'overrides rewrites the resolved version across the whole tree. It is the only real answer for a deep transitive with no parent release — and it is why the lock file is a security control rather than a build detail.' },
+    why:'You cannot auto-merge a fix nobody will publish, and you must not silence a reachable high. Force it, test it, then chase the parent.',
+    yml:{ group:'forced-resolutions' } },
+
+  { id:'q-review-scopes', pkg:'PR #630 adds webpack@5.90.0 (dev)', eco:'npm', dir:'/', sev:'High', cvss:7.3, dep:'development (new)', reach:'no',
+    patch:'5.94.0', breaking:false, pace:2, tier:300, c:'review',
+    note:'Your dependency review action is configured with fail-on-scopes: runtime. The gate stayed green even though the advisory is High.',
+    ans:'group',
+    why:'The gate did what you configured. fail-on-scopes deliberately excludes dev dependencies, because gating them stalls every build tooling change. Take the patched version in the next batch, and decide separately whether dev scope should be gated at all — that is a policy call, not a bug.',
+    yml:{ group:'dev-dependencies' } },
+
+  { id:'q-private-registry', pkg:'@pipelino/core@3.2.0', eco:'npm', dir:'/', sev:'High', cvss:7.8, dep:'direct', reach:'yes',
+    patch:'3.2.4', breaking:false, pace:2, tier:300, c:'reg',
+    note:'Dependabot logs "unable to resolve dependency files — authentication required". The package lives in a private npm registry. No pull request has opened.',
+    ans:'auto',
+    sub:{ q:'What unblocks Dependabot here?',
+      o:['A registries block in dependabot.yml, with credentials stored as Dependabot secrets',
+         'The registry token stored as an Actions secret and referenced from the workflow',
+         'Vendoring the package into the repository',
+         'Raising open-pull-requests-limit so there is room for the pull request'],
+      a:0,
+      w:'registries: in dependabot.yml, credentials from the DEPENDABOT secrets store. That store is separate from Actions secrets and Dependabot cannot read Actions secrets — which is why "it works in CI but Dependabot cannot see it" is such a common ticket.' },
+    why:'The routing is easy. Dependabot being locked out of half your dependency graph is the thing that quietly makes your coverage a lie.' },
+
+  { id:'q-sbom-question', pkg:'A supplier asks for your SBOM', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:300, c:'sbom',
+    note:'A customer contract now requires a machine-readable component inventory with every release. You have 40 repositories.',
+    ans:'group',
+    sub:{ q:'Where does that inventory come from?',
+      o:['Export SPDX from the dependency graph, per repository, and attach it to the release',
+         'Run code scanning and export the results',
+         'Generate it from the lock files with a custom script',
+         'Ask each team to maintain a spreadsheet of their dependencies'],
+      a:0,
+      w:'The dependency graph already knows your components; SBOM export hands that list to someone else in a standard format. The value is not the file — it is being able to answer "where are we exposed" in minutes when the next advisory lands.' },
+    why:'Not a triage decision. It is the reason triage is possible at all, and it will be handed to you dressed as triage.' },
+
+  { id:'q-review-capacity', pkg:'31 open dependency pull requests, 6 repos', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:300, c:'cfg',
+    note:'Median age 41 days. Nobody has merged one in three weeks. A critical security update is somewhere in the pile.',
+    ans:'group',
+    why:'An unreviewed queue is worse than no queue, because it hides the one pull request that mattered. Group aggressively, cut the schedule to monthly for anything low risk, and measure merge latency rather than pull request count.',
+    yml:{ group:'everything', pattern:'*' } },
+
+  { id:'q-eol-planning', pkg:'node:16 → node:22', eco:'docker', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:true, pace:3, tier:300, c:'three',
+    note:'Node 16 went end of life eighteen months ago. No advisories fire against it any more because nobody publishes advisories for unsupported versions.',
+    ans:'group',
+    why:'Silence from an end-of-life runtime is not safety, it is the absence of anyone looking. This is the case where a zero-alert dashboard is the alarming reading — plan the upgrade as production work.',
+    yml:{ group:'base-images' } },
+
+  { id:'q-actions-sha', pkg:'third-party/cache-action@v3', eco:'github-actions', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'yes',
+    patch:'n/a', breaking:false, pace:2, tier:300, c:'policy',
+    note:'A third-party action referenced by tag. Tags are mutable — the maintainer can repoint v3 at any commit, at any time, and your next run picks it up.',
+    ans:'ignore',
+    sub:{ q:'What removes the mutable-tag risk?',
+      o:['Pin the action to a full commit SHA, and let Dependabot propose SHA bumps with the version in a comment',
+         'Pin to a full semver tag such as v3.4.1 instead of v3',
+         'Fork the action and reference your own copy',
+         'Require the action to be from a verified creator'], a:0,
+      w:'A SHA cannot be repointed. Dependabot understands SHA pins and will still open update pull requests for them, so you keep the updates and lose the silent-substitution risk. A full semver tag is better than v3 and is still mutable.' },
+    why:'There is no advisory to route. The ignore rule stops the tag-chasing noise while you move the whole fleet to SHA pins.',
+    yml:{ ignore:{ name:'third-party/cache-action', ut:'version-update:semver-patch' } } },
+
+  { id:'q-release-branch', pkg:'jackson-databind@2.14.1 on release/3.2', eco:'maven', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'2.15.4 — already on main', breaking:false, pace:3, tier:300, c:'cfg',
+    note:'Main is patched. release/3.2 is still supported for two enterprise customers and still vulnerable. Dependabot only ever targets the default branch.',
+    ans:'group',
+    why:'Security updates only ever target the default branch — full stop. A supported release branch needs its own backport, and target-branch on an ecosystem block turns security updates OFF for that block, so it is not the answer either. This is manual work you have to plan for.',
+    yml:{ group:'backports' } },
+
+  { id:'q-vendored', pkg:'vendor/jquery-2.1.4.min.js', eco:'npm', dir:'/', sev:'High', cvss:7.2, dep:'direct', reach:'yes',
+    patch:'not tracked', breaking:false, pace:3, tier:300, c:'sbom',
+    note:'A library copied into the repository by hand in 2016. It is not in any manifest, so it is not in the dependency graph and no alert will ever fire for it.',
+    ans:'group',
+    why:'Your coverage is exactly as good as your manifests. Vendored, copy-pasted and system-installed components are invisible to the graph — which is why "zero alerts" is a claim you have to qualify. Get it into a manifest, then it can be managed.',
+    yml:{ group:'web-deps' } },
+
+  { id:'q-ci-cost', pkg:'23 grouped pull requests per week, full matrix build', eco:'npm', dir:'/', sev:'None', cvss:0, dep:'direct', reach:'n/a',
+    patch:'n/a', breaking:false, pace:3, tier:300, c:'cfg',
+    note:'Every Dependabot pull request runs a 40-minute matrix build across six targets. That is most of your monthly CI budget.',
+    ans:'group',
+    why:'Grouping cuts the build count, not just the review count. Add a lighter check for dependency pull requests and reserve the full matrix for merges — the cost of a control is part of whether the control survives contact with the budget.',
+    yml:{ group:'weekly-all', pattern:'*' } },
+
+  { id:'q-block-scope-runtime', pkg:'PR #641 adds xml2js@0.4.23', eco:'npm', dir:'/src/api', sev:'High', cvss:7.5, dep:'direct (new)', reach:'yes',
+    patch:'0.6.2 exists', breaking:false, pace:2, tier:300, c:'review',
+    note:'A new runtime dependency with a known advisory, and a fixed version is available. The author picked the old version because it was in a tutorial.',
+    ans:'block',
+    why:'Blocking here is cheap and correct: the author just needs to bump the version in their own pull request. Catching it at the gate costs one comment; catching it as an alert next week costs a triage cycle and a second pull request.',
+    yml:{ review:{ sev:'high' } } },
+
+  { id:'q-boss-registry-scope', pkg:'Nine private feeds, four ecosystems', eco:'nuget', dir:'/src', sev:'Critical', cvss:9.1, dep:'transitive', reach:'yes',
+    patch:'via Pipelino.Contracts@5.1.0', breaking:false, pace:3, tier:300, c:'reg', boss:true,
+    note:'BOSS. Half the estate resolves through private feeds. Dependabot succeeds on the public half and silently fails on the rest, so the dashboard looks great.',
+    ans:'auto',
+    sub:{ q:'What is the operational failure here?',
+      o:['Silent resolution failures mean your coverage number is wrong, and nothing alerts you to that',
+         'Private feeds cannot be scanned by Dependabot under any configuration',
+         'Dependabot secrets expire every 90 days and must be rotated',
+         'The advisory database does not cover packages from private feeds'],
+      a:0,
+      w:'A tool that fails quietly is worse than one that fails loudly. Dependabot logs resolution errors per repository — if nobody watches those logs, your reported coverage is a number about the repositories that happened to work.' },
+    why:'Route it correctly and then go and read the failure logs, because the cards you are not being dealt are the dangerous ones.' },
+
+  { id:'q-risk-accept', pkg:'legacy-soap-client@2.0.1', eco:'nuget', dir:'/src/Integrations', sev:'High', cvss:7.4, dep:'direct', reach:'yes',
+    patch:'none — vendor is out of business', breaking:false, pace:3, tier:300, c:'dismiss',
+    note:'Reachable, no patch, no maintainer, and it talks to one customer\'s ordering system that is being decommissioned in five months.',
+    ans:'dismiss', reason:'no_bandwidth',
+    why:'"No bandwidth" says the risk is real and unfunded, which is exactly what a risk register needs to hear. "Risk is tolerable" would be a claim about the risk; this is a claim about your capacity, and it is the true one. Put the decommission date in the comment.' },
+
+  { id:'q-shared-internal', pkg:'@pipelino/http-client@1.8.2', eco:'npm', dir:'/', sev:'High', cvss:7.5, dep:'direct', reach:'yes',
+    patch:'1.8.6', breaking:false, pace:3, tier:300, c:'trans',
+    note:'Your own internal library, consumed by 60 services. The flaw is in the retry logic. You patch the library; the 60 services still pin 1.8.2.',
+    ans:'auto',
+    why:'Publishing the fix is step one of two. Until consumers take it, the fix exists and the exposure does not change — which is why an internal package needs the same alerting and the same nagging as any third-party one.' },
+
+  { id:'q-false-confidence', pkg:'Zero open alerts across 12 repositories', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:3, tier:300, c:'policy',
+    note:'Leadership is delighted. Four of the twelve repositories have no manifest Dependabot understands, two use a private feed it cannot authenticate to, and one has an ignore rule with a wildcard.',
+    ans:'ignore',
+    sub:{ q:'What is the first metric to replace "open alerts" with?',
+      o:['Coverage: how many repositories are actually being resolved and scanned successfully',
+         'Mean time to remediate, measured across all open alerts',
+         'Number of security update pull requests merged per week',
+         'Percentage of pull requests passing the dependency review gate'],
+      a:0,
+      w:'Every other number is meaningless until you know the denominator. Coverage first, then latency, then volume — reporting remediation speed for a scanner that is only looking at half the estate is how a dashboard becomes a liability.' },
+    why:'The wildcard ignore rule is the one you can fix today. The rest is a coverage project, and it starts by admitting the number was wrong.',
+    yml:{ ignore:{ name:'*', ut:'version-update:semver-major' } } }
+
+  ];
+
+
+  /* =====================================================================
+   * TIER 500 — ARCHITECT. Estate-level design: where the control belongs,
+   * what it costs, what it couples, and what breaks when it is wrong.
+   * ================================================================== */
+  var BANK_500 = [
+
+  { id:'a-enforce-vs-autonomy', pkg:'Enablement across 6 organisations, 900 repos', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:500, c:'policy',
+    note:'Central security wants alerts, security updates and the review gate on everywhere. Three product groups have opted out because the gate blocks their release train weekly.',
+    ans:'group',
+    sub:{ q:'What makes an estate-wide control survive contact with product teams?',
+      o:['Enforce detection centrally, delegate enforcement thresholds, and give teams a funded exception path',
+         'Apply the strictest configuration everywhere and remove the ability to opt out',
+         'Let each team choose its own configuration and report on the differences',
+         'Enable everything in audit mode indefinitely and never enforce'],
+      a:0,
+      w:'Detection is not negotiable and costs teams nothing; enforcement is where the pain is, so that is where you delegate and where you fund exceptions. A control teams cannot live with gets disabled, and a disabled control reports nothing.' },
+    why:'Security configurations applied at organisation level, with new repositories enrolled by default, is the mechanism. The argument about thresholds is the actual work.' },
+
+  { id:'a-gate-coupling', pkg:'fail-on-severity: moderate, org-wide', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:500, c:'review',
+    note:'The gate now blocks any pull request that adds a moderate-or-worse dependency. Deployment frequency dropped 40% in six weeks and three teams added a bypass label.',
+    ans:'block',
+    sub:{ q:'What did the threshold actually couple together?',
+      o:['Your ability to ship anything at all to the release cadence of every upstream maintainer',
+         'Your build time to the size of the dependency graph',
+         'Your alert volume to the number of open pull requests',
+         'Your licence policy to your severity policy'],
+      a:0,
+      w:'A gate at moderate means an unrelated feature cannot merge because some transitive package has an open moderate. You have made your delivery throughput a function of other people\'s release schedules — and the bypass label is the system telling you so.' },
+    why:'The gate is the right control in the right place. The threshold is a throughput decision disguised as a security one, and it belongs in the same conversation as your deployment metrics.',
+    yml:{ review:{ sev:'high' } } },
+
+  { id:'a-registry-topology', pkg:'Design: proxy every ecosystem through one internal feed', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:1, tier:500, c:'reg',
+    note:'Proposal: an internal artifact feed that upstreams to npm, PyPI, NuGet and Maven, caching every package the estate has ever pulled.',
+    ans:'auto',
+    sub:{ q:'What does the proxy give you that scanning alone cannot?',
+      o:['A single chokepoint for allow-listing, immutability and availability when an upstream package is yanked',
+         'Automatic patching of vulnerable packages as they pass through',
+         'Complete removal of the need for a dependency review gate',
+         'Advisory coverage for packages with no public advisory'],
+      a:0,
+      w:'The proxy is a control plane: you decide what may enter, you keep a copy so a yanked or deleted upstream package cannot break your builds, and you get one place to answer "who pulled this". It costs you an availability dependency and a cache to operate — price both.' },
+    why:'Route the alert, then argue the topology. Every package your estate uses passing one door is worth more than any single detection you can buy.' },
+
+  { id:'a-dep-confusion', pkg:'Internal package names published publicly by an attacker', eco:'npm', dir:'/', sev:'Critical', cvss:9.8, dep:'direct', reach:'yes',
+    patch:'n/a', breaking:false, pace:2, tier:500, c:'reg',
+    note:'Your internal packages are named @pipelino/core, @pipelino/http-client. Someone registered pipelino-core on the public registry with a post-install script and a very high version number.',
+    ans:'block',
+    sub:{ q:'What structurally prevents dependency confusion?',
+      o:['Scoped names you own, plus a registry configuration that never falls back to public for that scope',
+         'Pinning every internal package to an exact version in the lock file',
+         'A dependency review gate configured to fail on critical',
+         'Publishing your internal packages publicly as placeholders'],
+      a:0,
+      w:'The attack works because a resolver is allowed to look in two places and prefer the higher version. Own the scope and forbid the fallback and the ambiguity disappears. Placeholder publishing is a mitigation for names you cannot scope — it leaks your internal package names as the price.' },
+    why:'Block it at the gate today. The design fix is resolution policy, and it belongs in the proxy configuration, not in 900 manifests.',
+    yml:{ review:{ sev:'critical' } } },
+
+  { id:'a-provenance', pkg:'Design: require build provenance on every release', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:500, c:'policy',
+    note:'After a compromised action dumped runner memory across the industry, the platform team proposes signed provenance attestations for every artifact you publish.',
+    ans:'group',
+    sub:{ q:'What question does provenance answer that a lock file does not?',
+      o:['Which workflow, at which commit, on which runner produced this exact artifact',
+         'Whether the artifact contains any known vulnerable components',
+         'Whether the artifact\'s dependencies were resolved from trusted registries',
+         'Whether the artifact was reviewed by a human before release'],
+      a:0,
+      w:'A lock file describes inputs. Provenance describes the build itself, so a consumer can verify that what they downloaded really came from your pipeline and not from someone with your publish token. The two controls answer different halves of "can I trust this".' },
+    why:'Not a triage decision. It is the control that makes the answer to the next supply chain compromise "prove it" instead of "we think so".',
+    yml:{ group:'github-actions', pattern:'*' } },
+
+  { id:'a-exception-lifecycle', pkg:'340 dismissed alerts, oldest 3 years', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:500, c:'dismiss',
+    note:'Dismissals across the estate: 41% "risk is tolerable", 30% "no bandwidth", 22% "vulnerable code is not used". Nobody has reviewed one since it was written.',
+    ans:'dismiss', reason:'tolerable',
+    why:'A dismissal is a decision with a shelf life, and every one of those reasons can stop being true — code gets called, bandwidth appears, a moderate gets re-scored. Without a review cadence and an owner, your dismissal log is not a risk register, it is a graveyard. Re-triage on a schedule, and make "no bandwidth" expire by design.' },
+
+  { id:'a-ecosystem-choice', pkg:'Design review: adopt a 400-dependency framework', eco:'npm', dir:'/apps/web', sev:'None', cvss:0, dep:'direct (new)', reach:'n/a',
+    patch:'n/a', breaking:false, pace:2, tier:500, c:'policy',
+    note:'Two candidate frameworks. One pulls 400 transitive packages from 180 maintainers. The other pulls 40 from 12. Feature parity is close enough.',
+    ans:'block',
+    sub:{ q:'How do you price the difference in a design review?',
+      o:['As ongoing triage load and attack surface — every package is a maintainer you now trust and an advisory you may have to answer',
+         'As install time and bundle size, which are the measurable costs',
+         'As licence risk, since more packages means more licence combinations',
+         'As build reproducibility risk from a larger lock file'],
+      a:0,
+      w:'Dependency count is a recurring operational cost, paid in triage cycles forever. Ten times the packages is roughly ten times the advisories you have to read, and ten times the chance that one of those maintainer accounts is the one that gets compromised.' },
+    why:'This is the cheapest moment the decision will ever be. Blocking at the gate for a licence or severity reason is routine; blocking for dependency budget is the architect\'s call, and it needs to be argued before the code is written.',
+    yml:{ review:{ sev:'high' } } },
+
+  { id:'a-blast-radius-internal', pkg:'@pipelino/auth-sdk@2.x — used by 214 services', eco:'npm', dir:'/', sev:'Critical', cvss:9.6, dep:'direct', reach:'yes',
+    patch:'2.9.4', breaking:false, pace:2, tier:500, c:'trans',
+    note:'A critical flaw in your own shared authentication library. 214 services consume it. 60 are on 2.4, 90 on 2.7, the rest on 2.9.',
+    ans:'auto',
+    sub:{ q:'What does version fragmentation across 214 consumers cost you here?',
+      o:['You must backport the fix across three lines, or force 150 services to upgrade under incident pressure',
+         'Dependabot will open 214 pull requests, exceeding the pull request limit',
+         'The advisory database will not cover an internal package',
+         'The dependency graph cannot resolve internal packages transitively'],
+      a:0,
+      w:'Fragmentation converts one fix into a migration programme, at the exact moment you have no time for one. The architectural answer is upstream: a supported-version policy with a short support window, enforced continuously — so that on the bad day everyone is within one or two versions of the fix.' },
+    why:'Publish the fix immediately, then live with the consequences of your version policy. This is the card that decides whether your next critical is an afternoon or a fortnight.' },
+
+  { id:'a-transitive-depth', pkg:'Estate: median dependency depth 7, max 14', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'transitive', reach:'n/a',
+    patch:'n/a', breaking:false, pace:3, tier:500, c:'trans',
+    note:'Most of your alert volume is transitive, at depth four or deeper, where you have no direct control and every fix depends on someone else releasing first.',
+    ans:'ignore',
+    sub:{ q:'What is the realistic architectural response to deep transitive exposure?',
+      o:['Accept that overrides and lock file control are your only levers, and invest in the ability to apply them fast and safely',
+         'Flatten the dependency tree by vendoring deep transitives into the repository',
+         'Set an organisation policy limiting dependency depth',
+         'Route all deep transitive alerts to the dismissal queue by default'],
+      a:0,
+      w:'You cannot legislate other people\'s dependency trees. What you can own is the speed and safety of forcing a resolution: overrides, central package management, a test suite you trust and a rollback path. That capability is the control, not any single fix.' },
+    why:'Ignore rules scoped to depth are unmanageable and become permanent holes. The lever is your ability to force a version, on demand, without breaking the build.',
+    yml:{ ignore:{ name:'*', ut:'version-update:semver-major' } } },
+
+  { id:'a-boss-org-model', pkg:'Reorganisation: 6 orgs into 1 enterprise', eco:'policy', dir:'/', sev:'Critical', cvss:9.1, dep:'n/a', reach:'yes',
+    patch:'n/a', breaking:false, pace:3, tier:500, c:'policy', boss:true,
+    note:'BOSS. Consolidating six organisations under one enterprise. Each has its own alert policy, its own dismissal culture, its own gate thresholds, and three have their own private feeds.',
+    ans:'group',
+    sub:{ q:'What has to be decided at enterprise scope rather than per organisation?',
+      o:['The floor — what every repository detects, and what may never be silenced — with organisations free to be stricter',
+         'The exact fail-on-severity threshold, so every team ships under identical rules',
+         'The dismissal reasons that are permitted, so the audit trail is consistent',
+         'The private feed topology, since Dependabot secrets are enterprise-scoped'],
+      a:0,
+      w:'Set a floor, not a ceiling. A single enterprise-wide threshold is either too loose for the payments team or too tight for the internal tools team, and it will be bypassed by whichever one it fails. Universal detection plus local enforcement is the only shape that holds at this size.' },
+    why:'Route the critical, then win the governance argument — because the governance argument is what decides whether the next critical is even seen.',
+    yml:{ group:'enterprise-baseline', applies:'security-updates', pattern:'*' } },
+
+  { id:'a-measure-what', pkg:'Board asks: "are we secure in our supply chain?"', eco:'policy', dir:'/', sev:'None', cvss:0, dep:'n/a', reach:'n/a',
+    patch:'n/a', breaking:false, pace:3, tier:500, c:'policy',
+    note:'You have alert counts, dismissal counts, merged pull request counts and a coverage percentage. None of them answers the question as asked.',
+    ans:'dismiss', reason:'inaccurate',
+    why:'The honest reframing is a pair: what fraction of the estate is actually observed, and how long does a reachable critical survive once it is known. Volume metrics measure how much software exists; those two measure whether the control works. Answering the question as asked, with a number that does not mean what the board thinks it means, is the failure mode.' },
+
+  { id:'a-vendor-risk', pkg:'Acquisition due diligence: 4 repos, 1,900 dependencies', eco:'policy', dir:'/', sev:'High', cvss:7.5, dep:'n/a', reach:'unknown',
+    patch:'n/a', breaking:false, pace:3, tier:500, c:'sbom',
+    note:'You are about to acquire a company. You have 72 hours and read access to four repositories. Nobody there has run a dependency scan.',
+    ans:'group',
+    sub:{ q:'What do you actually look at in 72 hours?',
+      o:['Enable the graph, export the SBOM, and rank by reachable criticals plus unmaintained and abandoned packages',
+         'Read the four dependency manifests and check each package by hand',
+         'Run the dependency review gate against the last 90 days of pull requests',
+         'Count total dependencies and compare against your own estate average'],
+      a:0,
+      w:'The inventory comes first because everything else is guesswork without it. Then two rankings: what is exploitable now, and what will never be fixable because nobody maintains it. The second list is the one that becomes your remediation budget after the deal closes.' },
+    why:'Not triage — valuation. Every unmaintained reachable dependency is a line item somebody is going to pay for, and it is cheaper to find it before the signature than after.' }
+
+  ];
+
+  /* `pace` (1 warm-up / 2 working / 3 nasty) orders the pool INSIDE a run.
+     `tier` (100-500) is the skill tier and decides which cards exist at all.
+     Two unrelated axes — do not merge them. */
+  BANK = BANK.concat(BANK_100, BANK_200, BANK_300, BANK_500);
+
+  /* ===================================================================== *
+   * TIER SCALING — the same siege at five different pressures.
+   *   lanes    which routes are even offered (dismiss-vs-ignore is a 300 idea)
+   *   hp       starting release-train health
+   *   crossX   multiplier on how long a card takes to reach the train
+   *   dmgX     multiplier on every point of damage
+   *   waveAdd  cards per wave = min(waveAdd + wave, waveCap)
+   *   subOpts  options shown on a sub-question (min 2)
+   *   reason   whether a correct dismiss also has to pick the right reason
+   *   coach    read the card's own facts back in plain language
+   *            (100 and 200 only — from 300 up you are expected to read them)
+   *   mult     score multiplier
+   * ================================================================== */
+  var TCFG = {
+    100: { lanes: ['auto','group','dismiss'],                     hp: 150, crossX: 2.05, dmgX: 0.55, waveAdd: 2, waveCap: 5, subOpts: 2, reason: false, coach: true,  mult: 0.6  },
+    200: { lanes: ['auto','group','dismiss','block'],             hp: 130, crossX: 1.55, dmgX: 0.75, waveAdd: 2, waveCap: 6, subOpts: 3, reason: false, coach: true,  mult: 0.8  },
+    300: { lanes: ['auto','group','dismiss','ignore','block'],    hp: 110, crossX: 1.22, dmgX: 0.9,  waveAdd: 3, waveCap: 7, subOpts: 4, reason: true,  coach: false, mult: 1.0  },
+    400: { lanes: ['auto','group','dismiss','ignore','block'],    hp: 100, crossX: 1.0,  dmgX: 1.0,  waveAdd: 3, waveCap: 8, subOpts: 4, reason: true,  coach: false, mult: 1.25 },
+    500: { lanes: ['auto','group','dismiss','ignore','block'],    hp:  85, crossX: 0.8,  dmgX: 1.2,  waveAdd: 4, waveCap: 9, subOpts: 5, reason: true,  coach: false, mult: 1.6  }
+  };
+  /** Config for the tier in force right now. Never cached — the tier can change. */
+  function cfg() { return TCFG[Station.tier.get()] || TCFG[400]; }
+
+  /** Fewest cards a tier needs before a siege is worth starting. */
+  var MIN_CARDS = 8;
+
+  /** Cards visible under the current tier selection (respects "show lower too"). */
+  function pool() { return Station.tier.filter(BANK); }
+
+  /** Per-tier high scores, so a Foundation run never competes with an Expert one. */
+  function scoreKey(t, below) {
+    t = t || Station.tier.get();
+    below = (below === undefined) ? Station.tier.below() : below;
+    return GAME_ID + '@' + (below ? '100-' : '') + t;
+  }
+
+  /** The tier badge for the start screen and the report. */
+  function tierPill(t, below) {
+    t = t || Station.tier.get();
+    below = (below === undefined) ? Station.tier.below() : below;
+    return '<span class="tier-pill tier-pill--solid tier-any" data-t="' + t + '"' +
+           ' style="--tier-color:var(--t' + t + ')">' +
+           esc((below ? '≤' : '') + t + ' ' + Station.tier.label(t)) + '</span>';
+  }
+
+  /* ------------------------------------------------------------ helpers -- */
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s).replace(/&(?![a-zA-Z#0-9]+;)/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function show(id) { $(id).classList.remove('is-hidden'); }
+  function hide(id) { $(id).classList.add('is-hidden'); }
+
+  /* ----------------------------------------------------------- run state -- */
+  var S = null, raf = null;
+
+  function newRun() {
+    var deck = pool();
+    var p1 = Station.shuffle(deck.filter(function (c) { return c.pace === 1; }));
+    var p2 = Station.shuffle(deck.filter(function (c) { return c.pace === 2; }));
+    var p3 = Station.shuffle(deck.filter(function (c) { return c.pace === 3; }));
+    S = {
+      tier: Station.tier.get(),
+      below: Station.tier.below(),
+      cfg: cfg(),
+      deck: deck,
+      pool: p1.concat(p2, p3),
+      pi: 0,
+      wave: 0,
+      hp: cfg().hp,
+      hpMax: cfg().hp,
+      score: 0,
+      combo: 0,
+      live: [],          // {card, t0, cross, node}
+      spawnQ: [],        // {card, at}
+      waveStart: 0,
+      paused: false,
+      lastFrame: 0,
+      over: false,
+      routed: 0,
+      right: 0,
+      breaches: 0,
+      breaks: 0,
+      missed: {},
+      built: { ecos: {}, groups: {}, ignores: [], review: { sev: null, lic: [] }, registry: false, bad: {} }
+    };
+  }
+
+  function mult() { return 1 + Math.min(S.combo, 8) * 0.25; }
+
+  function paint() {
+    $('st-score').textContent = S.score;
+    $('st-combo').textContent = '×' + mult().toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    $('st-wave').textContent = S.wave;
+    $('st-left').textContent = S.live.length + S.spawnQ.length;
+    var pct = Math.max(0, S.hp / S.hpMax * 100);
+    $('hpfill').style.width = pct + '%';
+    $('hplabel').textContent = 'RELEASE TRAIN ' + Math.round(pct) + '%';
+    $('hpbar').classList.toggle('is-hurt', pct < 45);
+  }
+
+  /** Every point in or out of the run passes through here, so the tier score
+   *  multiplier is applied in exactly one place. */
+  function addScore(n) { S.score = Math.max(0, S.score + Math.round(n * S.cfg.mult)); }
+
+  function damage(n, kind) {
+    S.hp = Math.max(0, S.hp - Math.round(n * S.cfg.dmgX));
+    var f = $('field');
+    f.classList.add('is-hurt');
+    f.classList.remove('fx-shake'); void f.offsetWidth; f.classList.add('fx-shake');
+    setTimeout(function () { f.classList.remove('is-hurt'); }, 700);
+    Station.sfx.wrong();
+    if (kind === 'breach') S.breaches++; else if (kind === 'break') S.breaks++;
+    paint();
+    if (S.hp <= 0) gameOver('dead');
+  }
+
+  /* -------------------------------------------------------------- waves -- */
+  function startWave() {
+    S.wave++;
+    var C = S.cfg;
+    var count = Math.min(C.waveAdd + S.wave, C.waveCap);
+    var cross = Math.round(Math.max(13000, 30000 - S.wave * 1800) * C.crossX);
+    var stagger = Math.round(Math.max(2400, 5200 - S.wave * 260) * C.crossX);
+
+    var cards = [];
+    /* Bosses come from the tier's own deck. A tier with no boss card written
+       yet simply runs an ordinary wave rather than reaching into another tier. */
+    var bosses = S.deck.filter(function (c) { return c.boss; });
+    var isBoss = (S.wave % 4 === 0) && bosses.length > 0;
+    if (isBoss) {
+      var b = bosses[(S.wave / 4 - 1) % bosses.length];
+      if (b) cards.push(b);
+    }
+    while (cards.length < count && S.pi < S.pool.length) {
+      var c = S.pool[S.pi++];
+      if (c.boss) continue;
+      cards.push(c);
+    }
+    if (!cards.length) { gameOver('cleared'); return; }
+
+    var now = performance.now();
+    S.waveStart = now;
+    S.spawnQ = cards.map(function (card, i) { return { card: card, at: now + i * stagger, cross: cross }; });
+    banner((isBoss ? 'BOSS WAVE ' : 'WAVE ') + S.wave);
+    paint();
+  }
+
+  function banner(text) {
+    var b = document.createElement('div');
+    b.className = 'sg-wave';
+    b.innerHTML = '<b>' + esc(text) + '</b>';
+    document.body.appendChild(b);
+    setTimeout(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 1100);
+  }
+
+  /* --------------------------------------------------------------- loop -- */
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    if (!S || S.over) return;
+    if (S.paused) { S.spawnQ.forEach(function (q) { q.at += 16; }); S.live.forEach(function (l) { l.t0 += 16; }); return; }
+
+    /* rAF stops in a background tab. Without this, coming back to the tab
+       replays the whole gap at once: every queued card spawns in one frame and
+       anything in flight teleports into the train. Absorb the gap instead. */
+    if (S.lastFrame && (now - S.lastFrame) > 400) {
+      var gap = now - S.lastFrame - 16;
+      S.spawnQ.forEach(function (q) { q.at += gap; });
+      S.live.forEach(function (l) { l.t0 += gap; });
+    }
+    S.lastFrame = now;
+
+    // spawn
+    for (var i = S.spawnQ.length - 1; i >= 0; i--) {
+      if (now >= S.spawnQ[i].at) {
+        spawn(S.spawnQ[i].card, now, S.spawnQ[i].cross);
+        S.spawnQ.splice(i, 1);
+      }
+    }
+
+    // advance
+    for (var j = S.live.length - 1; j >= 0; j--) {
+      var L = S.live[j];
+      var p = (now - L.t0) / L.cross;
+      if (p >= 1) {
+        L.node.parentNode && L.node.parentNode.removeChild(L.node);
+        S.live.splice(j, 1);
+        S.combo = 0;
+        S.missed[L.card.c] = (S.missed[L.card.c] || 0) + 1;
+        verdict('breach', 'REACHED THE TRAIN — ' + L.card.pkg,
+          'Un-triaged alerts do not expire; they accumulate. Correct route was to ' + ROUTE_LABEL[L.card.ans] + '. ' + L.card.why);
+        damage(25, 'breach');
+        // damage() can end the run, which empties S.live out from under this loop
+        if (S.over) return;
+        continue;
+      }
+      L.p = p;
+      L.node.style.left = (8 + (1 - p) * 78) + '%';
+      L.node.querySelector('.bar').style.width = Math.round((1 - p) * 100) + '%';
+    }
+    refreshFront();
+    paint();
+
+    if (!S.live.length && !S.spawnQ.length && !S.over) {
+      addScore(250);
+      Station.confetti({ count: 70 });
+      Station.sfx.levelup();
+      Station.toast('Wave ' + S.wave + ' held. +250', 'good');
+      showYmlPeek();
+      startWave();
+    }
+  }
+
+  function spawn(card, now, cross) {
+    // drop into the emptiest lane so cards do not stack on top of each other
+    var lanes = [0, 0, 0];
+    S.live.forEach(function (l) { lanes[l.lane] = (lanes[l.lane] || 0) + 1; });
+    var lane = lanes.indexOf(Math.min(lanes[0], lanes[1], lanes[2]));
+
+    var node = document.createElement('div');
+    node.className = 'sg-mini' + (card.boss ? ' is-boss' : '');
+    node.style.setProperty('--sg-sev', SEV_COLOR[card.sev] || 'var(--ink-soft)');
+    node.style.top = (10 + lane * 48) + 'px';
+    node.style.left = '86%';
+    node.innerHTML = '<span class="p">' + esc(card.pkg.split(' ')[0]) + '</span>' +
+                     '<span class="m">' + esc(card.eco + ' · ' + card.sev) + '</span>' +
+                     '<span class="bar"></span>';
+    $('field').appendChild(node);
+    S.live.push({ card: card, t0: now, cross: cross, node: node, p: 0, lane: lane });
+    Station.sfx.tick();
+  }
+
+  /** Recompute which card is closest to the train and repaint the detail panel.
+   *  Called every frame AND immediately after a route, so the panel never keeps
+   *  showing a card that has already left the field. */
+  function refreshFront() {
+    var frontIdx = -1, frontP = -1;
+    for (var k = 0; k < S.live.length; k++) {
+      if (S.live[k].p > frontP) { frontP = S.live[k].p; frontIdx = k; }
+    }
+    var frontCard = S.live[frontIdx] ? S.live[frontIdx].card : null;
+    if (frontIdx === S.frontIdx && frontCard === S.frontCard) return;
+    S.frontIdx = frontIdx;
+    S.frontCard = frontCard;
+    S.live.forEach(function (l, i) { l.node.classList.toggle('is-front', i === frontIdx); });
+    renderCard(frontCard);
+  }
+
+  /* ------------------------------------------------------- card renderer -- */
+  function renderCard(card) {
+    var host = $('card');
+    if (!card) { host.innerHTML = '<p class="muted" style="margin:0">Line clear. Next wave inbound…</p>'; return; }
+    host.style.setProperty('--sg-sev', SEV_COLOR[card.sev] || 'var(--ink-soft)');
+    host.classList.toggle('is-boss', !!card.boss);
+    var facts = [
+      ['Ecosystem', card.eco], ['Severity', card.sev + (card.cvss ? ' · CVSS ' + card.cvss : '')],
+      ['Dependency', card.dep], ['Vulnerable code reachable', card.reach],
+      ['Patched version', card.patch], ['Breaking fix', card.breaking ? 'yes — major bump' : 'no']
+    ];
+    var h = (card.boss ? '<span class="chip chip--red">BOSS</span> ' : '') +
+            '<h3>' + esc(card.pkg) + '</h3><div class="sg-facts">';
+    facts.forEach(function (f) { h += '<div class="sg-fact"><b>' + f[0] + '</b>' + esc(f[1]) + '</div>'; });
+    h += '</div><p class="sg-note">' + esc(card.note) + '</p>';
+    /* At 100 and 200 the facts panel gets read back in plain language. The
+       whole skill at those tiers is learning to read it, so leaving the learner
+       to infer the pattern from six unlabelled fields is the wrong test. */
+    if (S && S.cfg.coach) h += '<p class="sg-coach">' + esc(coachLine(card)) + '</p>';
+    host.innerHTML = h;
+  }
+
+  /** Turn a card's own facts into the sentence an experienced triager would
+   *  say out loud. Never names the answer — it reads the evidence. */
+  function coachLine(card) {
+    var bits = [];
+    if (card.sev === 'None') bits.push('no advisory attached, so nothing here is a security fix');
+    else bits.push(card.sev.toLowerCase() + ' severity');
+    if (card.reach === 'yes') bits.push('your code reaches it');
+    else if (card.reach === 'no') bits.push('nothing in your code reaches it');
+    else if (card.reach === 'unknown') bits.push('reachability unknown');
+    if (String(card.dep).indexOf('transitive') === 0) bits.push('you did not choose this package directly');
+    if (String(card.dep).indexOf('(new)') > -1) bits.push('it is ARRIVING in an open pull request');
+    if (card.breaking) bits.push('the fix is a breaking major bump');
+    if (/^none/i.test(String(card.patch))) bits.push('there is no patched version to take');
+    return 'Read the facts: ' + bits.join(' · ') + '.';
+  }
+
+  function verdict(kind, title, body) {
+    var cls = kind === 'good' ? 'v-good' : (kind === 'breach' ? 'v-breach' : (kind === 'break' ? 'v-break' : 'v-mis'));
+    $('verdict').innerHTML = '<div class="sg-v ' + cls + ' fx-pop"><b>' + esc(title) + '</b>' + esc(body) + '</div>';
+  }
+
+  /* -------------------------------------------------------------- route -- */
+  /** Show only the lanes this tier offers, and renumber the remaining keys so
+   *  1..n always means "the nth visible lane". Fewer decoys is the difficulty
+   *  lever here: at 100 you choose between three lanes, not five. */
+  function paintRoutes() {
+    var lanes = cfg().lanes;
+    var btns = $('routes').querySelectorAll('.sg-route');
+    var n = 0;
+    for (var i = 0; i < btns.length; i++) {
+      var r = btns[i].getAttribute('data-r');
+      var on = lanes.indexOf(r) !== -1;
+      btns[i].classList.toggle('is-hidden', !on);
+      btns[i].disabled = !on;
+      if (on) {
+        n++;
+        var k = btns[i].querySelector('.k');
+        if (k) k.textContent = r.charAt(0).toUpperCase() + n;
+      }
+    }
+  }
+
+  function route(r) {
+    if (!S || S.over || S.paused) return;
+    if (S.cfg.lanes.indexOf(r) === -1) return;   // lane not offered at this tier
+    var L = S.live[S.frontIdx];
+    if (!L) return;
+    var card = L.card;
+    var correct = (r === card.ans);
+    var distBonus = Math.round((1 - L.p) * 60);
+
+    // remove from field
+    L.node.parentNode && L.node.parentNode.removeChild(L.node);
+    S.live.splice(S.frontIdx, 1);
+    S.routed++;
+    refreshFront();          // hand the panel straight to the next card
+
+    recordYml(card, r, correct);
+
+    if (correct) {
+      if (card.ans === 'dismiss') { askReason(card, distBonus); return; }
+      S.right++; S.combo++;
+      addScore((100 + distBonus) * mult());
+      Station.sfx.correct();
+      verdict('good', 'ROUTED — ' + ROUTE_LABEL[r], card.why);
+      paint();
+      if (card.sub) { askSub(card); }
+      return;
+    }
+
+    // wrong
+    S.combo = 0;
+    S.missed[card.c] = (S.missed[card.c] || 0) + 1;
+    var dr = RANK[r], cr = RANK[card.ans];
+    var kind, title, lead;
+    // A card with no advisory attached (pure version-update noise, a licence
+    // problem, a policy question) can never "breach" — there is nothing to ship.
+    var hasVuln = (card.sev !== 'None');
+    if (hasVuln && dr < cr && (card.ans === 'auto' || card.ans === 'block' || card.ans === 'group')) {
+      kind = 'breach'; title = 'BREACH — you under-reacted';
+      lead = 'You chose to ' + ROUTE_LABEL[r] + '. The vulnerability shipped. Correct: ' + ROUTE_LABEL[card.ans] + '. ';
+      damage(card.boss ? 34 : 25, 'breach');
+    } else if (dr > cr && (r === 'auto' || r === 'block')) {
+      kind = 'break'; title = 'BUILD BROKEN — you over-reacted';
+      lead = 'You chose to ' + ROUTE_LABEL[r] + '. The pipeline is red and nobody is shipping. Correct: ' + ROUTE_LABEL[card.ans] + '. ';
+      damage(12, 'break');
+    } else {
+      kind = 'mis'; title = 'MISROUTED — the audit will notice';
+      lead = 'You chose to ' + ROUTE_LABEL[r] + '. It silences the symptom without matching the situation. Correct: ' + ROUTE_LABEL[card.ans] + '. ';
+      damage(8, 'mis');
+    }
+    verdict(kind, title, lead + card.why);
+    paint();
+    if (card.sub && !S.over) askSub(card);
+  }
+
+  /* --------------------------------------------------------- sub-modals -- */
+  function modal(title, question, opts, correctIdx, why, onDone, bonus) {
+    S.paused = true;
+    var wrap = document.createElement('div');
+    wrap.className = 'sg-sub';
+    var h = '<div class="sg-sub__box"><p class="small" style="letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--mk-purple);margin-bottom:.3rem">' + esc(title) + '</p>' +
+            '<p style="font-weight:700;margin-bottom:.7rem">' + esc(question) + '</p>';
+    opts.forEach(function (o, i) {
+      h += '<button type="button" class="sg-subopt" data-s="' + i + '"><span class="n">' + (i + 1) + '</span><span>' + esc(o) + '</span></button>';
+    });
+    h += '<p class="small" style="margin:.3rem 0 0">Press <span class="kbd">1</span>–<span class="kbd">' + opts.length + '</span>. The march is paused.</p></div>';
+    wrap.innerHTML = h;
+    document.body.appendChild(wrap);
+    S.modal = wrap;
+
+    function answer(i) {
+      if (wrap.dataset.done) return;
+      wrap.dataset.done = '1';
+      var btns = wrap.querySelectorAll('.sg-subopt');
+      for (var b = 0; b < btns.length; b++) {
+        btns[b].disabled = true;
+        if (b === correctIdx) btns[b].classList.add('is-right');
+        else if (b === i) btns[b].classList.add('is-wrong');
+      }
+      var ok = (i === correctIdx);
+      if (ok) { addScore((bonus || 60) * mult()); Station.sfx.correct(); }
+      else { S.combo = 0; Station.sfx.wrong(); }
+      var note = document.createElement('div');
+      note.className = ok ? 'keyfact' : 'trap';
+      note.innerHTML = '<p style="margin:0">' + esc(why) + '</p>';
+      wrap.querySelector('.sg-sub__box').appendChild(note);
+      var cont = document.createElement('button');
+      cont.type = 'button';
+      cont.className = 'btn btn--primary';
+      cont.innerHTML = 'Back to the line → <span class="small">(Enter)</span>';
+      cont.addEventListener('click', close);
+      wrap.querySelector('.sg-sub__box').appendChild(cont);
+      wrap.querySelector('.sg-sub__box').scrollTop = wrap.querySelector('.sg-sub__box').scrollHeight;
+      paint();
+      if (onDone) onDone(ok, i);
+    }
+    function close() {
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      S.modal = null; S.paused = false;
+      if (S.hp <= 0) gameOver('dead');
+    }
+    wrap.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.sg-subopt') : null;
+      if (b && !b.disabled) answer(parseInt(b.getAttribute('data-s'), 10));
+    });
+    wrap._answer = answer;
+    wrap._close = close;
+    wrap._count = opts.length;
+  }
+
+  /**
+   * Cut an option list down to the number this tier offers. The correct answer
+   * always survives; decoys are dropped at random and the survivors shuffled,
+   * so the answer never lands in a predictable slot.
+   * @returns {{o:string[],a:number}}
+   */
+  function trimOpts(opts, correctIdx, n) {
+    if (n >= opts.length) return { o: opts.slice(), a: correctIdx };
+    var right = opts[correctIdx], decoys = [];
+    for (var i = 0; i < opts.length; i++) if (i !== correctIdx) decoys.push(opts[i]);
+    var keep = Station.shuffle(decoys).slice(0, Math.max(1, n - 1));
+    keep.push(right);
+    keep = Station.shuffle(keep);
+    return { o: keep, a: keep.indexOf(right) };
+  }
+
+  function askReason(card, distBonus) {
+    /* Picking the RIGHT dismissal reason is an audit-quality skill, not a
+       beginner one. Below 300 a correct dismiss simply scores. */
+    if (!S.cfg.reason) {
+      S.right++; S.combo++;
+      addScore((100 + distBonus) * mult());
+      Station.sfx.correct();
+      verdict('good', 'DISMISSED — ' + ROUTE_LABEL.dismiss, card.why);
+      paint();
+      if (card.sub) askSub(card);
+      return;
+    }
+    var idx = REASONS.map(function (r) { return r.k; }).indexOf(card.reason);
+    modal('Dismissal reason', 'You are closing this alert. Which reason goes on the record?',
+      REASONS.map(function (r) { return r.t; }), idx, card.why,
+      function (ok) {
+        if (ok) { S.right++; S.combo++; addScore((100 + distBonus) * mult()); verdict('good', 'DISMISSED — reason recorded', card.why); }
+        else { S.missed.dismiss = (S.missed.dismiss || 0) + 1; verdict('mis', 'WRONG REASON ON THE RECORD', 'The routing was right; the justification was not. ' + card.why); damage(8, 'mis'); }
+        paint();
+      }, 80);
+  }
+
+  function askSub(card) {
+    var v = trimOpts(card.sub.o, card.sub.a, S.cfg.subOpts);
+    modal(card.boss ? 'Boss — configuration' : 'Configuration', card.sub.q, v.o, v.a, card.sub.w,
+      function (ok) {
+        if (!ok) S.missed[card.c] = (S.missed[card.c] || 0) + 1;
+        else if (card.c === 'reg') S.built.registry = true;
+      }, card.boss ? 120 : 60);
+  }
+
+  /* ------------------------------------------------------- yml assembly -- */
+  /** Pull a usable package name out of a card headline such as
+   *  "PR #510 adds webpack-dev-middleware@5.3.3" or "parent → tar@4.4.18". */
+  function pkgName(p) {
+    var toks = String(p).trim().split(/\s+/);
+    var t = toks[toks.length - 1];
+    var at = t.lastIndexOf('@');
+    if (at > 0) t = t.slice(0, at);          // strip @version, keep a leading @scope
+    return t.replace(/[,;]$/, '');
+  }
+
+  function recordYml(card, chosen, correct) {
+    var b = S.built;
+    if (card.eco && card.eco !== 'policy') {
+      b.ecos[card.eco] = b.ecos[card.eco] || { dir: card.dir || '/' };
+    }
+    if (chosen === 'group') {
+      var gname = (card.yml && card.yml.group) || (card.eco + '-grouped');
+      var g = b.groups[gname] = b.groups[gname] || { eco: card.eco, patterns: [], applies: (card.yml && card.yml.applies) || null };
+      var pat = (card.yml && card.yml.pattern) || pkgName(card.pkg);
+      if (g.patterns.indexOf(pat) === -1) g.patterns.push(pat);
+      if (!correct) b.bad['group:' + gname] = true;
+    } else if (chosen === 'ignore') {
+      var rule = (card.yml && card.yml.ignore) || { name: pkgName(card.pkg) };
+      b.ignores.push({ eco: card.eco, name: rule.name, vers: rule.vers, ut: rule.ut, bad: !correct });
+    } else if (chosen === 'block') {
+      var rv = (card.yml && card.yml.review) || {};
+      var order = { low: 1, moderate: 2, high: 3, critical: 4 };
+      var s = rv.sev || (card.sev || '').toLowerCase();
+      if (s && order[s] && (!b.review.sev || order[s] < order[b.review.sev])) b.review.sev = s;
+      if (rv.lic) rv.lic.split(',').forEach(function (l) { l = l.trim(); if (l && b.review.lic.indexOf(l) === -1) b.review.lic.push(l); });
+      if (!correct) b.bad['review'] = true;
+    }
+  }
+
+  function ymlText() {
+    var b = S.built, out = [];
+    out.push(['c-cmd', 'version: 2']);
+    if (b.registry) {
+      out.push(['', 'registries:']);
+      out.push(['', '  pantry-nuget:']);
+      out.push(['', '    type: nuget-feed']);
+      out.push(['c-str', '    url: https://pkgs.dev.azure.com/ilpipelino/_packaging/pantry/nuget/v3/index.json']);
+      out.push(['c-dim', '    username: ${{secrets.AZDO_USER}}   # Dependabot secrets, NOT Actions secrets']);
+      out.push(['c-dim', '    password: ${{secrets.AZDO_PAT}}']);
+    }
+    out.push(['', 'updates:']);
+    var ecos = Object.keys(b.ecos);
+    if (!ecos.length) out.push(['c-dim', '  # you never grouped or ignored anything — nothing to configure']);
+    ecos.forEach(function (e) {
+      out.push(['c-flag', '  - package-ecosystem: "' + e + '"']);
+      out.push(['', '    directory: "' + b.ecos[e].dir + '"']);
+      out.push(['', '    schedule:']);
+      out.push(['', '      interval: "weekly"']);
+      out.push(['', '    open-pull-requests-limit: 10']);
+      if (b.registry && e === 'nuget') out.push(['', '    registries: [ pantry-nuget ]']);
+
+      var gs = Object.keys(b.groups).filter(function (g) { return b.groups[g].eco === e; });
+      if (gs.length) {
+        out.push(['', '    groups:']);
+        gs.forEach(function (g) {
+          var G = b.groups[g];
+          out.push(['', '      ' + g + ':' + (b.bad['group:' + g] ? '   # ⚠ at least one card was mis-routed into this group' : '')]);
+          if (G.applies) out.push(['', '        applies-to: ' + G.applies]);
+          out.push(['c-str', '        patterns: [ ' + G.patterns.map(function (p) { return '"' + p + '"'; }).join(', ') + ' ]']);
+        });
+      }
+      var igs = b.ignores.filter(function (i) { return i.eco === e; });
+      if (igs.length) {
+        out.push(['', '    ignore:']);
+        igs.forEach(function (i) {
+          out.push([i.bad ? 'c-bad' : '', '      - dependency-name: "' + i.name + '"' + (i.bad ? '   # ⚠ this rule silences security updates you needed' : '')]);
+          if (i.vers) out.push(['', '        versions: [ "' + i.vers + '" ]']);
+          if (i.ut) out.push(['', '        update-types: [ "' + i.ut + '" ]']);
+        });
+      }
+    });
+    var lines = out.map(function (o) {
+      return o[0] ? '<span class="' + o[0] + '">' + esc(o[1]) + '</span>' : esc(o[1]);
+    }).join('\n');
+
+    var review = '';
+    if (b.review.sev || b.review.lic.length) {
+      var r = [];
+      r.push(['c-dim', '# .github/workflows/dependency-review.yml']);
+      r.push(['c-flag', 'on: [pull_request]']);
+      r.push(['', 'jobs:']);
+      r.push(['', '  review:']);
+      r.push(['', '    runs-on: ubuntu-latest']);
+      r.push(['', '    steps:']);
+      r.push(['c-cmd', '      - uses: actions/dependency-review-action@v4']);
+      r.push(['', '        with:']);
+      if (b.review.sev) r.push(['c-str', '          fail-on-severity: ' + b.review.sev]);
+      if (b.review.lic.length) r.push(['c-str', '          deny-licenses: ' + b.review.lic.join(', ')]);
+      r.push(['c-dim', '          # fail-on-scopes: runtime   <- excludes devDependencies by design']);
+      if (b.bad['review']) r.push(['c-bad', '          # ⚠ you sent something here that the gate was never going to catch']);
+      review = r.map(function (o) { return o[0] ? '<span class="' + o[0] + '">' + esc(o[1]) + '</span>' : esc(o[1]); }).join('\n');
+    }
+    return { yml: lines, review: review };
+  }
+
+  function showYmlPeek() {
+    Station.toast('dependabot.yml updated — ' + Object.keys(S.built.groups).length +
+      ' group(s), ' + S.built.ignores.length + ' ignore rule(s)', 'info', 2600);
+  }
+
+  /* ---------------------------------------------------------- game over -- */
+  function gameOver(reason) {
+    /* A tier change tears the run down; nothing to report if it already went. */
+    if (!S || S.over) return;
+    S.over = true;
+    S.paused = true;
+    if (S.modal && S.modal.parentNode) { S.modal.parentNode.removeChild(S.modal); S.modal = null; }
+    S.live.forEach(function (l) { l.node.parentNode && l.node.parentNode.removeChild(l.node); });
+    S.live = []; S.spawnQ = [];
+    hide('scr-game');
+
+    /* Scores are banked per tier. A Foundation siege and an Expert siege are
+       not the same test, so they never share a leaderboard. */
+    var key = scoreKey(S.tier, S.below);
+    var prevBest = Station.score.best(key);
+    var isBest = Station.score.save(key, S.score);
+    var delta = S.score - prevBest;
+    Station.xp.add(Math.max(5, Math.round(S.score / 30)), 'Supply Chain Siege: ' + S.score);
+    if (S.wave >= 4) Station.progress.complete(MODULE_ID);
+    if (isBest) Station.confetti();
+
+    var acc = S.routed ? Math.round(S.right / S.routed * 100) : 0;
+    var t = ymlText();
+
+    var missKeys = Object.keys(S.missed).sort(function (a, b) { return S.missed[b] - S.missed[a]; });
+    var missHtml;
+    if (!missKeys.length) {
+      missHtml = '<div class="keyfact"><p style="margin:0">Nothing got past you and nothing got over-escalated. That is a triage rotation people would actually want to be on.</p></div>';
+    } else {
+      missHtml = '<h3>What got through</h3><ul class="sg-miss-list">';
+      missKeys.forEach(function (k) {
+        var c = CONCEPT[k] || { label: k, href: '../whiteboards/ghas-supply-chain.html' };
+        missHtml += '<li><strong>' + esc(c.label) + '</strong> — cost you ' + S.missed[k] + '×. <a href="' + c.href + '">Open the whiteboard →</a></li>';
+      });
+      missHtml += '</ul>';
+    }
+
+    var deltaLine;
+    if (isBest) deltaLine = '<span class="sg-delta-line" style="color:var(--mk-green)">★ NEW PERSONAL BEST — by ' + (prevBest ? delta : S.score) + '</span>';
+    else if (delta === 0) deltaLine = '<span class="sg-delta-line" style="color:var(--mk-orange)">Exactly your best. Break the tie.</span>';
+    else deltaLine = '<span class="sg-delta-line" style="color:var(--mk-orange)">' + Math.abs(delta) + ' short of your best (' + prevBest + ') — about two clean cards.</span>';
+
+    $('scr-over').innerHTML =
+      '<h2 style="margin-top:0">' + (reason === 'dead'
+        ? 'THE TRAIN IS DOWN. Wave ' + S.wave + ' overran you.'
+        : 'Deck cleared after ' + S.wave + ' waves. Nothing left to triage at this tier.') + '</h2>' +
+      '<p class="center" style="margin:-.4rem 0 1rem">' + tierPill(S.tier, S.below) +
+        ' <span class="small">score banked against tier ' + esc(String(S.tier)) +
+        (S.below ? ' and below' : '') + ' only</span></p>' +
+      '<div class="stat-strip">' +
+        '<div class="stat" style="--stat-color:var(--mk-green)"><b>' + S.score + '</b><span>Score</span></div>' +
+        '<div class="stat" style="--stat-color:var(--mk-red)"><b>' + S.wave + '</b><span>Waves</span></div>' +
+        '<div class="stat" style="--stat-color:var(--mk-blue)"><b>' + acc + '%</b><span>Routed right</span></div>' +
+        '<div class="stat" style="--stat-color:var(--mk-orange)"><b>' + S.breaches + '</b><span>Breaches</span></div>' +
+        '<div class="stat" style="--stat-color:var(--mk-purple)"><b>' + S.breaks + '</b><span>Build breaks</span></div>' +
+        '<div class="stat" style="--stat-color:var(--ghas)"><b>' + S.routed + '</b><span>Alerts triaged</span></div>' +
+      '</div>' +
+      '<p class="center">' + deltaLine + '</p>' +
+      '<h3>The dependabot.yml you actually built</h3>' +
+      '<p class="small">Assembled from every group and ignore rule you created this run. Lines marked ⚠ came from a mis-route — that is what your config would look like in production.</p>' +
+      '<pre class="cli sg-yml">' + t.yml + '</pre>' +
+      (t.review ? '<h3>…and the gate you configured</h3><pre class="cli sg-yml">' + t.review + '</pre>'
+                : '<div class="gotcha"><p style="margin:0">You never used the dependency review gate. That means nothing stopped a bad dependency from <em>arriving</em> — you only ever reacted to what was already in the graph.</p></div>') +
+      missHtml +
+      '<div class="row" style="justify-content:center;margin-top:1.4rem">' +
+        '<button class="btn btn--primary btn--lg" id="btn-again" type="button">↻ Hold the line again <span class="small">(Enter)</span></button>' +
+        '<a class="btn btn--ghost" href="../index.html#unlock" class="locked">Study the board</a>' +
+        '<a class="btn btn--ghost" href="../index.html">← Hub</a>' +
+      '</div>';
+    show('scr-over');
+    $('scr-over').scrollIntoView({ block: 'start' });
+    $('btn-again').addEventListener('click', start);
+  }
+
+  /* ---------------------------------------------------------- tier gate -- */
+  /** The tier nearest to `t` that has enough cards to run. @returns {number|null} */
+  function nearestPlayable(t) {
+    var counts = Station.tier.counts(BANK);
+    var order = [100, 200, 300, 400, 500].sort(function (a, b) {
+      return Math.abs(a - t) - Math.abs(b - t) || a - b;
+    });
+    for (var i = 0; i < order.length; i++) {
+      if (order[i] !== t && counts[order[i]] >= MIN_CARDS) return order[i];
+    }
+    return null;
+  }
+
+  /** Repaint the start screen: deck size, per-tier best, and the thin-tier gate. */
+  function syncStart() {
+    var deck = pool();
+    var t = Station.tier.get();
+    var C = cfg();
+    var ok = deck.length >= MIN_CARDS;
+
+    $('btn-start').disabled = !ok;
+    $('btn-start').classList.toggle('is-hidden', !ok);
+    paintRoutes();
+
+    var gate = $('tier-gate');
+    if (ok) {
+      gate.innerHTML = '';
+      gate.classList.add('is-hidden');
+      var best = Station.score.best(scoreKey());
+      $('start-best').innerHTML = tierPill() + ' ' +
+        (best ? 'Your best defence at this tier: <strong>' + best + '</strong> · '
+              : 'No score at this tier yet · ') +
+        deck.length + ' alert card' + (deck.length === 1 ? '' : 's') + ' · ' +
+        C.lanes.length + ' lanes · ' + C.hp + ' HP · ×' + C.mult + ' scoring';
+      return;
+    }
+
+    var near = nearestPlayable(t);
+    $('start-best').innerHTML = '';
+    gate.classList.remove('is-hidden');
+    gate.className = 'tier-empty tier-any';
+    gate.innerHTML =
+      '<b>Only ' + deck.length + ' alert card' + (deck.length === 1 ? '' : 's') +
+      ' written at tier ' + t + ' so far</b>' +
+      '<p>A siege needs at least ' + MIN_CARDS + ' to make a wave. ' +
+      (near ? 'Tier ' + near + ' (' + esc(Station.tier.label(near)) + ') is ready now.'
+            : 'Try switching the tier from the picker above.') + '</p>' +
+      (near ? '<p style="margin-top:.8rem"><button class="btn btn--primary" type="button" ' +
+              'id="btn-gate-switch">Switch to tier ' + near + '</button></p>' : '');
+    var sw = $('btn-gate-switch');
+    if (sw) sw.addEventListener('click', function () { Station.tier.set(near); });
+  }
+
+  /* --------------------------------------------------------------- start -- */
+  function start() {
+    if (pool().length < MIN_CARDS) { toStart(); return; }
+    hide('scr-start'); hide('scr-over'); show('scr-game');
+    clearField();
+    newRun();
+    paintRoutes();
+    renderCard(null);
+    $('verdict').innerHTML = '';
+    paint();
+    startWave();
+    if (!raf) raf = requestAnimationFrame(loop);
+    $('scr-game').scrollIntoView({ block: 'start' });
+  }
+
+  function clearField() {
+    var f = $('field');
+    var minis = f.querySelectorAll('.sg-mini');
+    for (var i = 0; i < minis.length; i++) minis[i].parentNode.removeChild(minis[i]);
+  }
+
+  /** Abandon whatever is in flight and return to a freshly painted start screen.
+   *  This is what a mid-siege tier change does — a half-finished wave under one
+   *  tier's HP, lanes and multiplier must never be scored under another's. */
+  function toStart() {
+    if (S) { S.over = true; S.paused = true; }
+    if (S && S.modal && S.modal.parentNode) { S.modal.parentNode.removeChild(S.modal); }
+    S = null;
+    clearField();
+    $('verdict').innerHTML = '';
+    hide('scr-game'); hide('scr-over');
+    syncStart();
+    show('scr-start');
+  }
+
+  /* ---------------------------------------------------------------- wire -- */
+  /* station.js is deferred, so it has not executed yet while this inline script
+     is parsed. Wait for DOMContentLoaded — deferred scripts run before it. */
+  function boot() {
+    Station.mountHud({ title: 'Supply Chain Siege', cert: 'ghas', back: '../index.html' });
+
+    /* One-time carry-over: scores banked before tiers existed were all Expert
+       runs, so they become the tier-400 best rather than being orphaned. */
+    var legacy = Station.score.best(GAME_ID);
+    if (legacy) Station.score.save(GAME_ID + '@400', legacy);
+
+    Station.tier.mountPicker('#tier-picker-host', {
+      compact: true,
+      heading: 'Skill tier',
+      label: 'Skill tier for this siege'
+    });
+
+    /* Changing tier mid-siege changes the deck, the lanes, the HP and the
+       leaderboard. Abandon the run rather than finish it under the wrong ones. */
+    document.addEventListener('station:tier', function () {
+      if (S && !S.over) Station.toast('Tier changed — siege abandoned.', 'info');
+      toStart();
+    });
+
+    syncStart();
+
+    $('btn-start').addEventListener('click', start);
+    $('routes').addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.sg-route') : null;
+      if (b) route(b.getAttribute('data-r'));
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      var k = e.key;
+
+      if (S && S.modal) {
+        var w = S.modal;
+        if (w.dataset.done && k === 'Enter') { e.preventDefault(); w._close(); return; }
+        if (!w.dataset.done && k >= '1' && k <= '9') {
+          var si = parseInt(k, 10) - 1;
+          if (si < w._count) { e.preventDefault(); w._answer(si); }
+        }
+        return;
+      }
+
+      if (!S || S.over) {
+        if (k === 'Enter') {
+          if ($('btn-again')) { e.preventDefault(); start(); }
+          else if (!$('scr-start').classList.contains('is-hidden')) { e.preventDefault(); start(); }
+        }
+        return;
+      }
+      if ($('scr-game').classList.contains('is-hidden')) return;
+
+      /* Letters always mean the same lane. Numbers mean the nth lane that is
+         actually on offer, which is not the same list at every tier. */
+      var map = { a: 'auto', g: 'group', d: 'dismiss', i: 'ignore', b: 'block' };
+      var open = S.cfg.lanes;
+      var lower = k.toLowerCase();
+      if (map[lower] && open.indexOf(map[lower]) !== -1) { e.preventDefault(); route(map[lower]); return; }
+      if (k >= '1' && k <= '9') {
+        var li = parseInt(k, 10) - 1;
+        if (li < open.length) { e.preventDefault(); route(open[li]); }
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else { boot(); }
+
+}());
+</script>
+
+<style>
+  a.locked{
+    opacity:.72; text-decoration:none; cursor:pointer;
+    border-bottom:1px dashed currentColor;
+  }
+  a.locked::after{ content:" 🔒"; font-size:.85em; }
+  .demo-strip{
+    max-width:980px; margin:0 auto 1rem; padding:.65rem .9rem; border-radius:10px;
+    font-size:.85rem; line-height:1.45; display:flex; gap:.7rem; align-items:center;
+    flex-wrap:wrap;
+    border:1px solid var(--mk-green);
+    background:color-mix(in srgb, var(--mk-green) 9%, transparent);
+    color:var(--ink-soft);
+  }
+  .demo-strip b{color:var(--ink)}
+  .demo-strip a{color:var(--mk-blue); font-weight:600}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(!document.querySelector('meta[name="viewport"]')){
+    var mv=document.createElement('meta');
+    mv.name='viewport'; mv.content='width=device-width, initial-scale=1';
+    (document.head||document.documentElement).appendChild(mv);
+  }
+  // Study material is not published here. Any link into it becomes an upgrade prompt.
+  var GATED=/\/(whiteboards|drills|labs|tracks)\//;
+  function sweep(root){
+    var as=(root||document).querySelectorAll?(root||document).querySelectorAll('a[href]'):[];
+    for(var i=0;i<as.length;i++){
+      var a=as[i], h=a.getAttribute('href')||'';
+      if(a.dataset.gateDone) continue;
+      a.dataset.gateDone='1';
+      if(!GATED.test(h)) continue;
+      a.setAttribute('href','../index.html#unlock');
+      a.classList.add('locked');
+      a.setAttribute('title','Part of the full study library — see what is included');
+    }
+  }
+  function boot(){
+    sweep(document);
+    new MutationObserver(function(m){for(var i=0;i<m.length;i++)sweep(m[i].target);})
+      .observe(document.body,{childList:true,subtree:true});
+    var host=document.querySelector('.page')||document.body;
+    var s=document.createElement('div');
+    s.className='demo-strip no-print';
+    s.innerHTML='<span><b>Free forever.</b> Every game, every skill level, no account. '+
+      'The whiteboards, flashcards and exam simulator are part of the full library.</span>'+
+      '<a href="../index.html">← All games</a>';
+    host.insertBefore(s,host.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
+</body>
+</html>

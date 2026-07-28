@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certification Station — learn Azure and GitHub by playing</title>
+<meta name="description" content="Eight free browser games that drill the Azure and GitHub certification exams: AZ-104, AZ-305, AZ-400 and GH-500. No account, no install.">
+<meta property="og:title" content="Certification Station">
+<meta property="og:description" content="Eight free games that drill AZ-104, AZ-305, AZ-400 and GH-500. No account, no install.">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="assets/css/station.css">
+<script src="assets/js/station.js" defer></script>
+<style>
+  .wrap{max-width:1040px;margin:0 auto;padding:0 1.1rem 4rem}
+
+  .top{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+       flex-wrap:wrap;padding:1.4rem 0 .4rem}
+  .brand{font-family:var(--font-hand);font-size:1.35rem;font-weight:700;letter-spacing:-.01em}
+  .top .parent{font-size:.76rem;color:var(--ink-soft)}
+  .top .parent a{color:var(--mk-green);font-weight:600;text-decoration:none}
+
+  .hero{padding:2.2rem 0 1.2rem;text-align:center}
+  .hero h1{font-family:var(--font-hand);font-size:clamp(2.3rem,7.5vw,4.4rem);
+           line-height:1.02;margin:0 0 .5rem;text-wrap:balance}
+  .hero .sub{font-size:clamp(1rem,2.6vw,1.22rem);color:var(--ink-soft);
+             max-width:44ch;margin:0 auto 1rem;line-height:1.55;text-wrap:pretty}
+  .exams{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.1rem}
+  .free-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .9rem;
+    border-radius:999px;font-size:.83rem;font-weight:700;
+    border:1px solid var(--mk-green);color:var(--mk-green);
+    background:color-mix(in srgb,var(--mk-green) 10%,transparent)}
+
+  .g-grid{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));
+          margin:.4rem 0 1rem}
+  .g-tile{display:flex;flex-direction:column;gap:.3rem;padding:1rem;border-radius:14px;
+    text-decoration:none;color:inherit;background:var(--board-2);
+    border:1px solid var(--board-grid);transition:transform .14s,border-color .14s,box-shadow .14s}
+  .g-tile:hover{transform:translateY(-3px) rotate(-.35deg);border-color:var(--mk-blue);
+    box-shadow:0 10px 24px rgba(0,0,0,.13)}
+  .g-tile:focus-visible{outline:2px solid var(--mk-blue);outline-offset:3px}
+  .g-exam{align-self:flex-start;font-size:.62rem}
+  .g-name{font-family:var(--font-hand);font-size:1.25rem;font-weight:700;line-height:1.15}
+  .g-hook{font-size:.86rem;color:var(--ink-soft);line-height:1.45;flex:1}
+  .g-go{font-size:.8rem;font-weight:700;color:var(--mk-blue)}
+
+  .sec{margin:2.6rem 0 .8rem;display:flex;align-items:baseline;gap:.7rem;flex-wrap:wrap}
+  .sec h2{font-family:var(--font-hand);font-size:1.75rem;margin:0}
+  .sec .note{font-size:.83rem;color:var(--ink-soft)}
+
+  .t-row{display:grid;gap:.55rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .t-chip{padding:.75rem .8rem;border-radius:11px;border:1px solid var(--board-grid);
+    border-left:4px solid var(--tc);background:var(--board-2);display:flex;
+    flex-direction:column;gap:.12rem}
+  .t-chip b{font-family:var(--font-mono);font-size:1.05rem;color:var(--tc)}
+  .t-chip span{font-weight:700;font-size:.88rem}
+  .t-chip em{font-style:normal;font-size:.76rem;color:var(--ink-soft)}
+
+  .lock-grid{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+  .lock-card{position:relative;padding:1.1rem;border-radius:14px;background:var(--board-2);
+    border:1px dashed var(--board-grid)}
+  .lock-card h3{font-family:var(--font-hand);font-size:1.2rem;margin:.35rem 0 .35rem}
+  .lock-card p{font-size:.86rem;color:var(--ink-soft);line-height:1.5;margin:0}
+  .lock-ico{font-size:1.5rem}
+
+  .price-grid{display:grid;gap:.8rem;grid-template-columns:repeat(auto-fit,minmax(232px,1fr))}
+  .price{padding:1.2rem;border-radius:14px;border:1px solid var(--board-grid);
+    background:var(--board-2);display:flex;flex-direction:column;gap:.5rem}
+  .price.feature{border-color:var(--mk-blue);border-width:2px}
+  .price h3{font-family:var(--font-hand);font-size:1.3rem;margin:0}
+  .price .amt{font-family:var(--font-mono);font-size:1.9rem;font-weight:700;line-height:1}
+  .price .amt small{font-size:.8rem;font-weight:400;color:var(--ink-soft)}
+  .price ul{margin:.2rem 0 0;padding-left:1.1rem;font-size:.85rem;color:var(--ink-soft);
+    line-height:1.65}
+
+  .feedback{margin-top:2.6rem;padding:1.3rem;border-radius:14px;
+    border:2px solid var(--mk-orange);
+    background:color-mix(in srgb,var(--mk-orange) 8%,transparent)}
+  .feedback h2{font-family:var(--font-hand);margin:0 0 .4rem;font-size:1.5rem}
+  .feedback p{margin:0 0 .7rem;font-size:.92rem;line-height:1.55}
+
+  footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--board-grid);
+    font-size:.78rem;color:var(--ink-soft);line-height:1.7}
+  footer a{color:var(--mk-green);text-decoration:none;font-weight:600}
+  @media (prefers-reduced-motion:reduce){.g-tile{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <span class="brand">🖊️ Certification Station</span>
+    <span class="parent">a <a href="https://goodfela.com">Good Fela Holdings</a> product</span>
+  </div>
+
+  <header class="hero">
+    <h1>Learn Azure by playing,<br>not by re-reading.</h1>
+    <p class="sub">Eight browser games that drill the exact things the certification exams
+      actually test — lookalike-service traps, wrong defaults, and scope rules.</p>
+    <div class="exams">
+      <span class="chip chip--az104">AZ-104</span>
+      <span class="chip chip--az305">AZ-305</span>
+      <span class="chip chip--az400">AZ-400</span>
+      <span class="chip chip--ghas">GH-500</span>
+    </div>
+    <span class="free-badge">● All 8 games free — no account, no install</span>
+  </header>
+
+  <div class="g-grid">
+      <a class="g-tile" href="games/service-showdown.html">
+        <span class="g-exam chip">AZ-305</span>
+        <span class="g-name">Service Showdown</span>
+        <span class="g-hook">Four lookalike services. One requirement. Seconds to choose.</span>
+        <span class="g-go">Play →</span>
+      </a>
+      <a class="g-tile" href="games/subnet-sprint.html">
+        <span class="g-exam chip">AZ-104</span>
+        <span class="g-name">Subnet Sprint</span>
+        <span class="g-hook">CIDR maths against a clock — and Azure reserves five addresses, not two.</span>
+        <span class="g-go">Play →</span>
+      </a>
+      <a class="g-tile" href="games/rbac-roulette.html">
+        <span class="g-exam chip">AZ-104</span>
+        <span class="g-name">RBAC Roulette</span>
+        <span class="g-hook">Least privilege under pressure. Over-permission and the alarm goes off.</span>
+        <span class="g-go">Play →</span>
+      </a>
+      <a class="g-tile" href="games/blast-radius.html">
+        <span class="g-exam chip">AZ-305</span>
+        <span class="g-name">Blast Radius</span>
+        <span class="g-hook">Place the policy. Watch inheritance ripple down the hierarchy.</span>
+        <span class="g-go">Play →</span>
+      </a>
+      <a class="g-tile" href="games/pizza-rush.html">
+        <span class="g-exam chip">AZ-400</span>
+        <span class="g-name">Pizza Rush</span>
+        <span class="g-hook">Build the pipeline before the orders pile up. Miss a gate, fail the inspection.</span>
+        <span class="g-go">Play →</span>
+      </a>
+      <a class="g-tile" href="games/dr-dilemma.html">
+        <span class="g-exam chip">AZ-305</span>
+        <span class="g-name">DR Dilemma</span>
+        <span class="g-hook">Buy resilience against a budget while the disasters escalate.</span>
+        <span class="g-go">Play →</span>
+      </a>
+      <a class="g-tile" href="games/secret-sweeper.html">
+        <span class="g-exam chip">GH-500</span>
+        <span class="g-name">Secret Sweeper</span>
+        <span class="g-hook">Find the leaked credential in the diff before it ships.</span>
+        <span class="g-go">Play →</span>
+      </a>
+      <a class="g-tile" href="games/supply-chain-siege.html">
+        <span class="g-exam chip">GH-500</span>
+        <span class="g-name">Supply Chain Siege</span>
+        <span class="g-hook">Dependabot tower defence. Triage the alerts or take the breach.</span>
+        <span class="g-go">Play →</span>
+      </a>
+  </div>
+
+  <div class="sec">
+    <h2>Pick your level</h2>
+    <span class="note">Every game plays at all five. Set it on the game's start screen.</span>
+  </div>
+  <div class="t-row">
+        <div class="t-chip" style="--tc:var(--t100)">
+          <b>100</b><span>Foundation</span><em>Never opened the portal</em>
+        </div>
+        <div class="t-chip" style="--tc:var(--t200)">
+          <b>200</b><span>Practitioner</span><em>You can click around</em>
+        </div>
+        <div class="t-chip" style="--tc:var(--t300)">
+          <b>300</b><span>Professional</span><em>You ship to production</em>
+        </div>
+        <div class="t-chip" style="--tc:var(--t400)">
+          <b>400</b><span>Expert</span><em>Exam-grade discrimination</em>
+        </div>
+        <div class="t-chip" style="--tc:var(--t500)">
+          <b>500</b><span>Architect</span><em>The layer above the exam</em>
+        </div>
+  </div>
+  <p style="margin-top:.7rem;font-size:.86rem;color:var(--ink-soft);line-height:1.55">
+    A Foundation card and an Expert card about the same service are
+    <b>different questions</b>, not the same question worded more simply. Foundation asks
+    what a consistency level controls. Expert asks which one you pick for a like-counter
+    where ordering does not matter.
+  </p>
+
+  <div class="sec" id="unlock">
+    <h2>The rest of the library</h2>
+    <span class="note">Not published here — this page is the free tier.</span>
+  </div>
+  <div class="lock-grid">
+        <div class="lock-card">
+          <span class="lock-ico" aria-hidden="true">🖊️</span>
+          <h3>16 whiteboards</h3>
+          <p>One giant hand-drawn diagram per topic, decision trees to a named service, and an "if the exam says ___, answer ___" cue-card table on every board.</p>
+        </div>
+        <div class="lock-card">
+          <span class="lock-ico" aria-hidden="true">🎴</span>
+          <h3>1,130 flashcards</h3>
+          <p>Spaced repetition with SM-2 scheduling. Every card carries the one-sentence discriminator that decides between two lookalikes — that field is the whole point.</p>
+        </div>
+        <div class="lock-card">
+          <span class="lock-ico" aria-hidden="true">⏱️</span>
+          <h3>Exam simulator</h3>
+          <p>143 scenario items with the formats that actually hurt: multi-select, click-to-order sequencing, and the locked yes/no series you cannot go back through.</p>
+        </div>
+        <div class="lock-card">
+          <span class="lock-ico" aria-hidden="true">🧪</span>
+          <h3>16 hands-on labs</h3>
+          <p>Real deployments against your own Azure subscription and GitHub org — az CLI, Bicep, Terraform, Actions with OIDC. Every lab has a teardown script so nothing bleeds cost.</p>
+        </div>
+  </div>
+
+  <div class="sec" id="pricing">
+    <h2>Pricing</h2>
+    <span class="note">⚠️ Draft — these numbers are a starting point, not a decision. Tell me what you would actually pay.</span>
+  </div>
+  <div class="price-grid">
+    <div class="price">
+      <h3>Free</h3>
+      <div class="amt">$0</div>
+      <ul>
+        <li>All 8 games, all five levels</li>
+        <li>Forever, no account</li>
+      </ul>
+    </div>
+    <div class="price feature">
+      <h3>One exam</h3>
+      <div class="amt">$19 <small>/ month</small></div>
+      <ul>
+        <li>Everything for a single cert</li>
+        <li>Whiteboards, flashcards, exam sim</li>
+        <li>Hands-on labs</li>
+      </ul>
+    </div>
+    <div class="price">
+      <h3>All access</h3>
+      <div class="amt">$39 <small>/ month</small></div>
+      <ul>
+        <li>Every exam, every tier</li>
+        <li>New certs as they land</li>
+        <li>Study-reminder scenarios</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="feedback">
+    <h2>This is a preview. Be blunt.</h2>
+    <p>It is early and I am collecting opinions before building the paid side. What would
+      make you actually pay for this? What is missing? Which game is boring?</p>
+    <a class="btn btn--primary"
+       href="mailto:hello@goodfela.com?subject=Certification%20Station%20feedback">
+       Send feedback</a>
+  </div>
+
+  <footer>
+    © 2026 Good Fela Holdings LLC ·
+    <a href="https://goodfela.com">goodfela.com</a><br>
+    Not affiliated with or endorsed by Microsoft or GitHub. AZ-104, AZ-305 and AZ-400 are
+    Microsoft certifications; GH-500 is a GitHub certification. Study material is independent
+    and unofficial.
+  </footer>
+
+</div>
+</body>
+</html>

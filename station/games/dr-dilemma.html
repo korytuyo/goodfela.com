@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DR Dilemma — AZ-305 · Certification Station</title>
+<link rel="stylesheet" href="../assets/css/station.css">
+<script src="../assets/js/station.js" defer></script>
+<style>
+  /* ---------------------------------------------------------- DR Dilemma */
+  .dr-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:.55rem; margin:.4rem 0 .85rem; }
+  .dr-cell { text-align:center; padding:.45rem .35rem; background:var(--board-2);
+             border:2.5px solid var(--board-edge); box-shadow:var(--shadow-2);
+             border-radius:255px 15px 225px 15px / 15px 225px 15px 255px; }
+  .dr-cell b { display:block; font-family:var(--font-hand); font-size:1.4rem; line-height:1.1; color:var(--dr-c,var(--ink)); }
+  .dr-cell span { font-size:.6rem; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-soft); }
+
+  .dr-budget { height:16px; border-radius:999px; border:2px solid var(--board-edge);
+               background:color-mix(in srgb,var(--ink) 10%,transparent); overflow:hidden; }
+  .dr-budget i { display:block; height:100%; background:linear-gradient(90deg,var(--mk-green),var(--mk-teal));
+                 transition:width .35s cubic-bezier(.2,.8,.3,1); }
+  .dr-budget.is-tight i { background:linear-gradient(90deg,var(--mk-orange),var(--mk-red)); }
+
+  .dr-meters { display:grid; gap:.5rem; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); margin:.7rem 0 .2rem; }
+  .dr-meter { border:2.5px solid var(--m-c); border-radius:11px; padding:.4rem .6rem;
+              background:color-mix(in srgb,var(--m-c) 8%,var(--board-2)); }
+  .dr-meter h5 { margin:0; font-size:.63rem; letter-spacing:.14em; text-transform:uppercase; color:var(--m-c); font-weight:800; }
+  .dr-meter p { margin:.1rem 0 0; font-size:.95rem; font-weight:700; }
+  .dr-meter small { display:block; color:var(--ink-soft); font-size:.72rem; font-weight:400; }
+
+  .dr-shop { display:grid; gap:.4rem; grid-template-columns:repeat(auto-fill,minmax(158px,1fr)); }
+  .dr-buy {
+    position:relative; text-align:left; font-family:var(--font-ui);
+    padding:.4rem .45rem .45rem; min-height:76px;
+    border:2px solid var(--board-edge); border-radius:10px; background:var(--board-2);
+    transition:transform .1s ease, border-color .12s ease, background .12s ease;
+  }
+  .dr-buy b { display:block; font-size:.75rem; line-height:1.15; }
+  .dr-buy span.d { display:block; font-size:.66rem; color:var(--ink-soft); line-height:1.25; margin-top:.15rem; }
+  .dr-buy .c { position:absolute; top:3px; right:5px; font-family:var(--font-mono); font-size:.66rem; font-weight:800; color:var(--mk-green); }
+  .dr-buy .k { position:absolute; bottom:3px; right:5px; font-family:var(--font-mono); font-size:.56rem; color:var(--ink-soft); }
+  .dr-buy:hover:not(:disabled) { transform:translateY(-2px); border-color:var(--b-c); }
+  .dr-buy.is-own { border-color:var(--mk-green); background:color-mix(in srgb,var(--mk-green) 16%,var(--board-2)); }
+  .dr-buy.is-own .c::before { content:"✓ "; }
+  .dr-buy:disabled { opacity:.42; cursor:not-allowed; }
+
+  .dr-group-h { margin:.85rem 0 .35rem; font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; font-weight:800; color:var(--g-c); }
+
+  .dr-veil { position:fixed; inset:0; z-index:1100; display:flex; align-items:center; justify-content:center;
+             padding:1rem; background:color-mix(in srgb,var(--board) 78%,transparent);
+             backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); overflow-y:auto; }
+  .dr-veil > div { width:min(700px,100%); max-height:100%; overflow-y:auto; background:var(--board-2);
+                   border:3px solid var(--v-c,var(--ink)); border-radius:255px 18px 225px 18px / 18px 225px 18px 255px;
+                   box-shadow:var(--shadow-3); padding:1.1rem 1.15rem 1.25rem; }
+  .dr-veil h2 { margin-top:0; color:var(--v-c,var(--ink)); }
+  .dr-scene { display:block; margin:0 auto .5rem; width:min(300px,70%); height:auto; }
+
+  .dr-opts { display:grid; gap:.45rem; margin:.7rem 0; }
+  .dr-opt { text-align:left; font-family:var(--font-ui); font-size:.92rem; font-weight:600;
+            padding:.5rem .7rem; border:2.5px solid var(--board-edge); border-radius:10px;
+            background:var(--board-2); }
+  .dr-opt:hover { border-color:var(--mk-blue); }
+  .dr-opt em { font-style:normal; font-family:var(--font-mono); font-weight:800; color:var(--ink-soft); margin-right:.5em; }
+  .dr-opt.is-right { border-color:var(--mk-green); background:color-mix(in srgb,var(--mk-green) 14%,var(--board-2)); }
+  .dr-opt.is-wrong { border-color:var(--mk-red); background:color-mix(in srgb,var(--mk-red) 14%,var(--board-2)); }
+
+  .dr-tags { display:flex; gap:.35rem; flex-wrap:wrap; margin:.45rem 0; }
+  .dr-tags span { font-size:.72rem; font-weight:700; padding:.16em .55em; border-radius:7px; border:2px solid currentColor; }
+  .dr-ok   { color:var(--mk-green); }
+  .dr-no   { color:var(--mk-red); }
+  .dr-huh  { color:var(--mk-orange); }
+
+  .dr-vs { width:100%; font-size:.86rem; }
+  .dr-vs th { font-size:.66rem; }
+  .dr-recap { display:grid; gap:.5rem; margin:.6rem 0; }
+  .dr-recap a { display:block; text-decoration:none; padding:.5rem .65rem; background:var(--board-2);
+                border:2px solid var(--board-edge); border-left:6px solid var(--mk-red); border-radius:4px 10px 10px 4px; }
+  .dr-recap a:hover { border-color:var(--mk-red); }
+  .dr-recap b { display:block; font-size:.92rem; }
+  .dr-recap span { font-size:.82rem; color:var(--ink-soft); }
+
+  details.dr-drills summary { cursor:pointer; font-family:var(--font-hand); font-size:1.25rem; padding:.3rem 0; list-style:none; }
+  details.dr-drills summary::-webkit-details-marker { display:none; }
+  details.dr-drills summary::before { content:"▸ "; color:var(--mk-orange); }
+  details.dr-drills[open] summary::before { content:"▾ "; }
+
+  .dr-threat { display:inline-block; font-weight:800; font-size:.7rem; letter-spacing:.14em;
+               text-transform:uppercase; padding:.2em .7em; border-radius:999px;
+               border:2.5px solid currentColor; }
+  @media (max-width:480px) { .dr-shop { grid-template-columns:repeat(auto-fill,minmax(135px,1fr)); } .dr-buy .k { display:none; } }
+</style>
+</head>
+<body>
+<main class="page page--wide">
+
+  <!-- ============================================================ TITLE -->
+  <section id="dr-title">
+    <div class="row" style="gap:1rem;align-items:center">
+      <svg viewBox="0 0 120 120" width="104" height="104" role="img" aria-label="A shield over two datacenters">
+        <path d="M60 8 L104 24 v38 c0 28-20 42-44 50 C36 104 16 90 16 62 V24 Z"
+              fill="color-mix(in srgb,var(--mk-blue) 18%,var(--board-2))"
+              stroke="var(--mk-blue)" stroke-width="5" stroke-linejoin="round"/>
+        <rect x="30" y="44" width="24" height="30" rx="3" fill="var(--board-2)" stroke="var(--mk-ink)" stroke-width="3.5"/>
+        <rect x="66" y="44" width="24" height="30" rx="3" fill="var(--board-2)" stroke="var(--mk-ink)" stroke-width="3.5"/>
+        <path d="M34 52 h16 M34 60 h16 M70 52 h16 M70 60 h16" stroke="var(--ink-soft)" stroke-width="3" stroke-linecap="round"/>
+        <path d="M54 59 h12" stroke="var(--mk-green)" stroke-width="4" stroke-linecap="round" stroke-dasharray="3 4"/>
+        <path d="M40 84 l14 12 l26-28" fill="none" stroke="var(--mk-green)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div style="flex:1 1 320px;min-width:0">
+        <h1 class="hand" style="margin-bottom:.1rem">DR Dilemma</h1>
+        <p class="lede" style="margin-bottom:.4rem">
+          You own an architecture, a budget, and an RTO/RPO somebody signed. The disasters escalate:
+          a VM, then a zone, then a region, then ransomware, then the bad deploy that quietly corrupted
+          six hours of data. Buy the right resilience. Do not buy all of it.
+        </p>
+        <div class="row">
+          <span class="chip chip--az305">AZ-305</span>
+          <span class="chip chip--red" id="dr-ndis">— disasters</span>
+          <span class="chip chip--blue" id="dr-nquiz">— requirement checks</span>
+          <span class="chip chip--green" id="dr-best">★ best —</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-top:1.1rem">
+      <div class="marker-box mk-blue">
+        <span class="box-title">The loop</span>
+        <p style="font-size:.95rem;margin:0">
+          A threat class is announced. Spend from a fixed budget. Face the wave.
+          Own one thing that actually mitigates it and you live.
+        </p>
+      </div>
+      <div class="marker-box mk-red">
+        <span class="box-title">The lesson most people fail</span>
+        <p style="font-size:.95rem;margin:0">
+          <strong>Replication propagates corruption and ransomware. Backup does not.</strong>
+          Half these waves exist to make you feel that in your wallet.
+        </p>
+      </div>
+      <div class="marker-box mk-green">
+        <span class="box-title">The scorecard</span>
+        <p style="font-size:.95rem;margin:0">
+          At the end you get the <strong>cheapest correct architecture</strong> printed next to
+          what you actually built. Over-engineering is a wrong answer on this exam.
+        </p>
+      </div>
+    </div>
+
+    <!-- the tier control: picks the scenario pool AND the difficulty -->
+    <div class="marker-box mk-purple" id="dr-tierbox" style="margin-top:1.1rem">
+      <span class="box-title">How senior is the pager?</span>
+      <div id="dr-tier-host"></div>
+      <p class="small" id="dr-tierline" style="margin:.55rem 0 0"></p>
+    </div>
+    <div id="dr-tier-empty"></div>
+
+    <div class="row" style="margin-top:1.1rem">
+      <button class="btn btn--primary btn--lg" id="dr-start">🛡️ Take the on-call pager</button>
+      <a class="btn btn--ghost" href="../index.html#unlock" class="locked">AZ-305 track</a>
+      <a class="btn btn--ghost" href="../index.html">← Hub</a>
+    </div>
+    <p class="small" style="margin-top:.5rem">
+      Keyboard: <span class="kbd">1</span>–<span class="kbd">0</span> /
+      <span class="kbd">Q</span>…<span class="kbd">D</span> buy · <span class="kbd">Enter</span> face the wave ·
+      <span class="kbd">1</span>–<span class="kbd">4</span> answer a requirement check ·
+      <span class="kbd">Esc</span> stand down.
+    </p>
+
+    <details class="dr-drills" id="dr-drills-title" style="margin-top:1.4rem"></details>
+  </section>
+
+  <!-- ============================================================= PLAY -->
+  <section id="dr-play" class="is-hidden" style="margin-top:.2rem">
+    <div class="marker-box mk-purple" id="dr-brief" style="margin-top:0"></div>
+    <div class="dr-strip" id="dr-strip"></div>
+    <div class="dr-budget" id="dr-budgetwrap"><i id="dr-budgetbar"></i></div>
+    <div class="dr-meters" id="dr-meters"></div>
+
+    <div class="marker-box mk-orange" id="dr-incoming"></div>
+
+    <div class="row row--between" style="margin:.6rem 0">
+      <button class="btn btn--primary btn--lg" id="dr-face">Face the wave ⏎</button>
+      <span class="small" id="dr-hint"></span>
+    </div>
+
+    <div id="dr-shop"></div>
+
+    <p style="margin-top:.9rem"><button class="btn btn--ghost btn--sm" id="dr-quit">Esc — stand down</button></p>
+  </section>
+
+  <!-- ============================================================= OVER -->
+  <section id="dr-over" class="is-hidden"></section>
+  <div id="dr-veil-host"></div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  'use strict';
+  var S = window.Station;
+  S.mountHud({ title: 'DR Dilemma', cert: 'az305', back: '../index.html' });
+
+  var GAME_ID = 'dr-dilemma';
+  var WB = '../whiteboards/';
+  var BCDR = 'az305-bcdr', DATA = 'az305-data-platform', TREE = 'az305-decision-trees', GOV = 'az305-identity-governance';
+
+  /* =====================================================================
+   * TIER MECHANICS — the pager is not equally heavy at every tier.
+   * Everything keys off Station.tier.get() (the SELECTED tier); it has
+   * nothing to do with Station.level(), which is the learner's XP level.
+   *   budget : multiplier on the scenario's credit budget
+   *   strikes: how much board trust you start with
+   *   mult   : final score multiplier — higher tiers are worth more
+   *   over   : points lost per credit spent above the optimal architecture
+   *   hint   : name the shop aisle that answers the incoming wave
+   *   shop   : which defences are even on sale (fewer decoys low down)
+   * ================================================================== */
+  var SHOP_100 = ['lrs','zrs','gzrs','avset','avzone','backup','blobver','lock','pitr','tm','runbook'];
+  var SHOP_200 = SHOP_100.concat(['ragzrs','asr','failgroup','activegeo','cosmosmw','cosmospitr','frontdoor','warm']);
+  var SHOP_ALL = null; /* null = the whole catalogue */
+
+  var TIER_CFG = {
+    100: { budget:1.60, strikes:5, mult:0.60, over:20, hint:true,  shop:SHOP_100 },
+    200: { budget:1.35, strikes:4, mult:0.80, over:30, hint:true,  shop:SHOP_200 },
+    300: { budget:1.15, strikes:3, mult:1.00, over:40, hint:false, shop:SHOP_ALL },
+    400: { budget:1.00, strikes:3, mult:1.25, over:45, hint:false, shop:SHOP_ALL },
+    500: { budget:0.85, strikes:2, mult:1.60, over:55, hint:false, shop:SHOP_ALL }
+  };
+
+  function cfg()      { return TIER_CFG[S.tier.get()] || TIER_CFG[400]; }
+  function scoreKey() { return GAME_ID + '@' + S.tier.get(); }
+  /** The scenarios written for the selected tier. */
+  function scenariosFor() { return S.tier.filter(SCENARIOS); }
+
+  /* =====================================================================
+   * DEFENCE CATALOG — what you can buy, what it actually covers
+   * scope: none | instance | data | zone | region | route
+   * rto/rpo in minutes (null = contributes nothing to that number)
+   * ================================================================== */
+  var DEF = {
+    lrs:        { n:'LRS storage',                 c:1,  s:'instance', rto:1,    rpo:0,    corr:false, d:'3 copies, one datacenter. The default.' },
+    zrs:        { n:'ZRS storage',                 c:3,  s:'zone',     rto:1,    rpo:0,    corr:false, d:'Synchronous across 3 zones in the region.' },
+    gzrs:       { n:'GZRS storage',                c:6,  s:'region',   rto:60,   rpo:15,   corr:false, d:'ZRS locally + async geo copy. Customer-initiated failover.' },
+    ragzrs:     { n:'RA-GZRS storage',             c:8,  s:'region',   rto:15,   rpo:15,   corr:false, d:'GZRS plus READ access to the secondary. Reads only.' },
+    avset:      { n:'Availability set',            c:1,  s:'instance', rto:5,    rpo:0,    corr:false, d:'Fault + update domains. Inside one zone.' },
+    avzone:     { n:'Zone-redundant compute',      c:4,  s:'zone',     rto:5,    rpo:0,    corr:false, d:'Instances spread across 3 availability zones.' },
+    asr:        { n:'Azure Site Recovery',         c:7,  s:'region',   rto:60,   rpo:5,    corr:false, d:'Continuous VM replication to a second region + test failover.' },
+    backup:     { n:'Azure Backup (vaulted)',      c:3,  s:'data',     rto:480,  rpo:1440, corr:true,  d:'Recovery points outside the resource. Restore = hours.' },
+    immutable:  { n:'Immutable vault + MUA',       c:4,  s:'data',     rto:480,  rpo:1440, corr:true,  d:'Write-once recovery points, soft delete, multi-user auth, long retention.' },
+    crossrestore:{n:'Cross-region restore',        c:3,  s:'region',   rto:720,  rpo:1440, corr:true,  d:'Restore backups into the paired region. Must be enabled in advance.' },
+    lock:       { n:'Delete locks + soft delete',  c:1,  s:'data',     rto:30,   rpo:0,    corr:true,  d:'Stops the destructive API call in the first place.' },
+    pitr:       { n:'SQL point-in-time restore',   c:2,  s:'data',     rto:120,  rpo:5,    corr:true,  d:'Rewind the database to any second in the retention window.' },
+    failgroup:  { n:'SQL auto-failover group',     c:6,  s:'region',   rto:60,   rpo:5,    corr:false, d:'Geo-replica + read-write listener + automatic failover policy.' },
+    activegeo:  { n:'Active geo-replication',      c:4,  s:'region',   rto:120,  rpo:5,    corr:false, d:'Readable secondary. Manual failover, no listener.' },
+    cosmosmw:   { n:'Cosmos multi-region write',   c:8,  s:'region',   rto:1,    rpo:1,    corr:false, d:'Write anywhere, globally distributed. Conflict resolution required.' },
+    cosmospitr: { n:'Cosmos continuous backup',    c:3,  s:'data',     rto:120,  rpo:5,    corr:true,  d:'Point-in-time restore for Cosmos containers.' },
+    blobver:    { n:'Blob versioning + soft del.', c:2,  s:'data',     rto:60,   rpo:1,    corr:true,  d:'Every overwrite keeps a version. Lives inside the account.' },
+    tm:         { n:'Traffic Manager',             c:2,  s:'route',    rto:null, rpo:null, corr:false, d:'DNS-based global routing. Failover waits on TTL.' },
+    frontdoor:  { n:'Azure Front Door',            c:4,  s:'route',    rto:null, rpo:null, corr:false, d:'Anycast L7 edge. Reroutes without waiting for DNS.' },
+    warm:       { n:'Warm standby region',         c:6,  s:'region',   rto:30,   rpo:15,   corr:false, d:'Second region deployed and scaled down. Capacity is held.' },
+    aa:         { n:'Active/active 2nd region',    c:10, s:'region',   rto:1,    rpo:1,    corr:false, d:'Both regions serving. The most expensive answer available.' },
+    chaos:      { n:'Chaos Studio game day',       c:2,  s:'none',     rto:null, rpo:null, corr:false, d:'Inject the fault on purpose, on a Tuesday, and measure.' },
+    runbook:    { n:'Tested DR runbook',           c:1,  s:'none',     rto:null, rpo:null, corr:false, d:'Written, rehearsed, and known to be current.' }
+  };
+
+  var SHOP_GROUPS = [
+    { n:'Storage redundancy',      c:'var(--mk-teal)',   ids:['lrs','zrs','gzrs','ragzrs','blobver'] },
+    { n:'Compute redundancy',      c:'var(--mk-blue)',   ids:['avset','avzone','asr','warm','aa'] },
+    { n:'Database resilience',     c:'var(--mk-purple)', ids:['pitr','activegeo','failgroup','cosmosmw','cosmospitr'] },
+    { n:'Backup & anti-tamper',    c:'var(--mk-green)',  ids:['backup','immutable','crossrestore','lock'] },
+    { n:'Routing & readiness',     c:'var(--mk-orange)', ids:['tm','frontdoor','chaos','runbook'] }
+  ];
+
+  var KEYS = '1234567890QWERTYUIOPASD';
+  var KEY_OF = {}, ID_OF_KEY = {};
+  (function () {
+    var i = 0;
+    SHOP_GROUPS.forEach(function (g) { g.ids.forEach(function (id) { KEY_OF[id] = KEYS[i]; ID_OF_KEY[KEYS[i]] = id; i++; }); });
+  }());
+
+  var RANK = { none:0, route:0, instance:1, data:1, zone:2, region:3 };
+  /* region-scope defences whose failover still needs somebody to redirect traffic */
+  var NEEDS_ROUTE = { asr:1, warm:1, aa:1, gzrs:1, ragzrs:1, activegeo:1, crossrestore:1 };
+
+  /* =====================================================================
+   * DISASTER BANK — 38 cards
+   * ================================================================== */
+  var THREATS = {
+    INSTANCE:{ c:'var(--mk-teal)',   t:'INSTANCE' },
+    ZONE:    { c:'var(--mk-blue)',   t:'ZONE' },
+    REGION:  { c:'var(--mk-purple)', t:'REGION' },
+    RANSOM:  { c:'var(--mk-pink)',   t:'RANSOMWARE' },
+    DATA:    { c:'var(--mk-orange)', t:'DATA INTEGRITY' },
+    HUMAN:   { c:'var(--mk-red)',    t:'HUMAN / PROCESS' }
+  };
+
+  var CARDS = {
+    d01:{ tier:400, th:'INSTANCE', h:'Planned host maintenance',
+      s:'Azure reboots the host your single application server sits on. Twelve minutes of hard downtime, at lunch.',
+      saves:['avset','avzone','asr','warm','aa'], useless:['backup','lrs','zrs','immutable'],
+      why:'Availability sets spread instances across fault and update domains inside one datacenter — planned maintenance is precisely the case they exist for. Backup is a time machine, not an uptime mechanism.',
+      c:'Availability set = uptime, not recovery', b:TREE },
+
+    d02:{ tier:400, th:'DATA', h:'The disk that will not boot',
+      s:'A botched driver install corrupts the OS disk. The VM boots to a blue screen and stays there.',
+      saves:['backup','immutable','crossrestore'], useless:['zrs','gzrs','ragzrs','asr','avzone','aa'],
+      why:'Every replication product mirrors the corrupted disk faithfully — ASR would fail you over to an identical blue screen in a different region. Only a restore point from before the change helps.',
+      c:'Replication mirrors damage; backup rewinds it', b:BCDR },
+
+    d03:{ tier:400, th:'INSTANCE', h:'Rack fire',
+      s:'A rack loses power and cooling. Your storage account happens to live on it.',
+      saves:['zrs','gzrs','ragzrs','aa'], useless:['lrs','avset','backup'],
+      why:'LRS keeps three copies inside a single datacenter — that is the entire blast radius it protects against. ZRS spreads synchronously across three availability zones.',
+      c:'LRS vs ZRS blast radius', b:DATA },
+
+    d04:{ tier:400, th:'ZONE', h:'Zone 2 goes dark',
+      s:'Availability Zone 2 loses utility power for four hours. Your whole compute tier was pinned to zone 2 by an ARM template written in 2022.',
+      saves:['avzone','asr','warm','aa'], useless:['avset','lrs','backup','immutable'],
+      why:'Availability sets live inside one zone — fault domains are racks, not zones. And zonal pinning is the default trap: "zone-redundant" is a deliberate choice, never what you get by omission.',
+      c:'Zone redundancy vs availability set', b:TREE },
+
+    d05:{ tier:400, th:'ZONE', h:'Zone failure mid-transaction',
+      s:'The zone hosting your storage account fails while writes are in flight.',
+      saves:['zrs','gzrs','ragzrs','aa'], useless:['lrs','avset','backup'],
+      why:'ZRS writes synchronously to three zones before acknowledging, so a zone loss costs you nothing — no failover, no RPO. That synchronous ack is what you are paying the premium for.',
+      c:'ZRS is synchronous; geo is not', b:DATA },
+
+    d06:{ tier:400, th:'REGION', h:'The region is dark',
+      s:'Not degraded. Dark. The status page is a wall of red and the ETA is "investigating".',
+      saves:['gzrs','ragzrs','asr','failgroup','activegeo','cosmosmw','warm','aa'],
+      useless:['zrs','avzone','avset','lrs'],
+      why:'Zone redundancy is intra-region. When the region goes, ZRS goes with it. Everything that saves you here keeps a copy of your data or your compute in a DIFFERENT region — that is the only property that matters now.',
+      c:'Zone redundancy does nothing for a region outage', b:BCDR },
+
+    d07:{ tier:400, th:'REGION', h:'"Microsoft will fail us over"',
+      s:'The region is down. You are waiting for Microsoft to fail your geo-redundant storage account over to the pair. Nothing is happening.',
+      saves:['runbook','chaos','aa','cosmosmw','failgroup'], useless:['gzrs','ragzrs','backup'],
+      why:'Storage account failover is <strong>customer-initiated</strong>. Microsoft only initiates it in a declared regional disaster, on its own timetable, and after failover the account is LRS in the new region until you re-enable geo. If your plan is "they will do it", you do not have a plan.',
+      c:'Customer-managed vs Microsoft-managed failover', b:BCDR },
+
+    d08:{ tier:400, th:'RANSOM', h:'Ransomware, replicated',
+      s:'Ransomware encrypts every blob using your own service principal. GZRS dutifully replicated the encryption to the secondary region in under a minute.',
+      saves:['immutable','blobver'], useless:['gzrs','ragzrs','zrs','asr','cosmosmw','failgroup','aa','backup'],
+      why:'Replication is a mirror, not a safety net — it copies the encryption at wire speed and it does it faster than you can react. Versioning keeps the pre-encryption version; an immutable vault with multi-user authorisation keeps a copy the attacker&#39;s credentials cannot rewrite.',
+      c:'Replication propagates ransomware', b:BCDR },
+
+    d09:{ tier:400, th:'RANSOM', h:'The vault itself',
+      s:'The attacker escalated to Owner, stopped protection with "delete backup data", then deleted the Recovery Services vault.',
+      saves:['immutable','lock'], useless:['backup','crossrestore','gzrs','asr'],
+      why:'Soft delete plus <strong>multi-user authorisation</strong> on the vault means one compromised identity cannot destroy your recovery points. A backup without MUA is exactly as strong as the weakest Owner in the subscription.',
+      c:'Immutable vault + MUA + soft delete', b:BCDR },
+
+    d10:{ tier:400, th:'DATA', h:'Six hours of NULLs',
+      s:'A bad deploy wrote NULLs across the customer table for six hours before anyone noticed. The application never threw an error.',
+      saves:['pitr','backup','cosmospitr'],
+      useless:['failgroup','activegeo','cosmosmw','ragzrs','gzrs','asr','zrs','aa'],
+      why:'Auto-failover groups replicate committed transactions — including the bad ones, in milliseconds. This is the single most-tested idea in the BCDR domain: <strong>replication-only strategies do not survive corruption</strong>. Only point-in-time restore rewinds.',
+      c:'Corruption survives replication, not backup', b:BCDR },
+
+    d11:{ tier:400, th:'HUMAN', h:'The typo in the environment name',
+      s:'An engineer deleted a production blob container. The script was correct; the variable pointed at prod.',
+      saves:['blobver','backup','immutable','lock'], useless:['zrs','gzrs','ragzrs','asr','aa'],
+      why:'Deletion is a valid, authorised operation, so every replication product replicates it. Soft delete gives you a window, versioning gives you history, and a lock stops the call outright.',
+      c:'Accidental deletion is not a replication problem', b:DATA },
+
+    d12:{ tier:400, th:'HUMAN', h:'destroy, approved',
+      s:'Someone ran the destroy plan against the prod workspace. The state file agreed with them and the pipeline had permission.',
+      saves:['lock','backup','immutable','runbook'], useless:['gzrs','asr','failgroup','aa','ragzrs'],
+      why:'A delete lock stops the API call before the contractor knocks the building down. Everything else on the board faithfully reproduces a demolition you authorised.',
+      c:'Resource locks as a BCDR control', b:GOV },
+
+    d13:{ tier:400, th:'REGION', h:'SQL region loss, no app change allowed',
+      s:'The SQL region is gone. You need under a minute of data loss AND the application&#39;s connection string to keep working — nobody is redeploying config during an outage.',
+      saves:['failgroup','cosmosmw','aa'], useless:['activegeo','backup','gzrs','asr','pitr'],
+      why:'Active geo-replication gives a readable secondary, but failover is manual and there is no listener — every application must be re-pointed. The <strong>auto-failover group adds the read-write listener</strong> and the automatic policy. That endpoint is the entire reason the exam prefers it.',
+      c:'Failover group vs active geo-replication', b:DATA },
+
+    d14:{ tier:400, th:'REGION', h:'Single write region',
+      s:'Cosmos DB is configured with one write region and several read regions. The write region just failed.',
+      saves:['cosmosmw','aa'], useless:['ragzrs','gzrs','backup','failgroup'],
+      why:'Multi-region READS do not make writes available. Either enable multi-region writes, or enable service-managed failover so Cosmos promotes a read region — read replicas alone leave you read-only during the outage.',
+      c:'Cosmos multi-region write vs read', b:DATA },
+
+    d15:{ tier:400, th:'REGION', h:'The 24-hour TTL',
+      s:'Failover worked perfectly. Your customers are still hitting the dead region, because the DNS TTL is 24 hours and half the world&#39;s resolvers ignore it anyway.',
+      saves:['frontdoor'], useless:['tm','gzrs','asr','warm'],
+      why:'Traffic Manager is a DNS resolver: failover is only as fast as the TTL your clients honour. Front Door is anycast with the TCP connection terminated at the edge, so it reroutes in flight — and gives you WAF, caching and path-based routing that Traffic Manager cannot.',
+      c:'Front Door vs Traffic Manager failover speed', b:TREE },
+
+    d16:{ tier:300, th:'REGION', h:'No quota in the secondary',
+      s:'You initiated failover. The secondary region has no quota for your VM SKU and the deployment fails, twice.',
+      saves:['warm','aa','chaos'], useless:['asr','gzrs','ragzrs','runbook','backup'],
+      why:'ASR does not reserve capacity — it allocates at failover time, competing with every other customer failing over from the same region. A warm standby (or a capacity reservation) holds the seats. A game day is how you discover this on a Tuesday instead of at 3am.',
+      c:'Secondary-region capacity is not reserved', b:BCDR },
+
+    d17:{ tier:300, th:'REGION', h:'Pristine backups, 14-hour restore',
+      s:'Your backups are perfect. Restoring 14 TB takes fourteen hours. The RTO somebody signed says one hour.',
+      saves:['asr','warm','aa','failgroup','cosmosmw','ragzrs'], useless:['backup','immutable','crossrestore','lock'],
+      why:'Backup gives you an RPO. It rarely gives you the RTO, because restore time scales with data volume. Tight RTO means something already running or already replicated — backup is the floor of a strategy, not the strategy.',
+      c:'Backup sets RPO; it rarely meets RTO', b:BCDR },
+
+    d18:{ tier:400, th:'REGION', h:'Read access is not write access',
+      s:'The region is down. RA-GZRS is happily serving reads from the secondary. Every single write is failing.',
+      saves:['aa','cosmosmw','failgroup'], useless:['ragzrs','gzrs','zrs'],
+      why:'The RA in RA-GZRS is <em>Read Access</em>. Writes require an account failover, which is customer-initiated and leaves the account as LRS in the new region afterwards. Read availability is a genuine feature; it is not write availability.',
+      c:'RA-GZRS gives reads, not writes', b:DATA },
+
+    d19:{ tier:400, th:'HUMAN', h:'Nobody has ever tested this',
+      s:'The failover has never been executed. The runbook references a subscription that was renamed in 2024 and a person who left in 2023.',
+      saves:['chaos','runbook'], useless:['asr','gzrs','aa','failgroup','warm'],
+      why:'An untested DR plan has an unknown RTO, and for audit purposes an unknown RTO is no RTO. Chaos Studio (or a scheduled game day, or an ASR test failover) is what converts a document into a measured number you can put in a contract.',
+      c:'Untested DR has no RTO', b:BCDR },
+
+    d20:{ tier:300, th:'HUMAN', h:'The certificate expired',
+      s:'At 00:00 the TLS certificate expired. Nothing failed over, because nothing failed — the site is simply untrusted in every browser on earth.',
+      saves:['runbook','chaos'], useless:['aa','gzrs','asr','warm','failgroup'],
+      why:'Not every outage is an infrastructure outage, and no amount of geo-redundancy fixes an expired certificate. This is monitoring and automation: auto-rotation from Key Vault plus an expiry alert with a human on the other end.',
+      c:'Availability failures that redundancy cannot fix', b:GOV },
+
+    d21:{ tier:500, th:'REGION', h:'The vault your app needs to boot',
+      s:'The region is gone. The application will not start in the secondary because it cannot read Key Vault.',
+      saves:['runbook','chaos','aa','warm'], useless:['gzrs','backup','asr'],
+      why:'Key Vault replicates to the paired region automatically, but during failover the replica is <strong>read-only</strong> until Microsoft completes it — you can read secrets, you cannot rotate or write them. Know which of your dependencies are zonal, which are regional, and which are global.',
+      c:'Regional vs zonal vs global service behaviour', b:TREE },
+
+    d22:{ tier:400, th:'REGION', h:'The cluster was regional',
+      s:'The AKS cluster&#39;s region failed. The cluster is a regional resource, so the cluster is gone with it.',
+      saves:['warm','aa'], useless:['asr','gzrs','backup','failgroup'],
+      why:'AKS control planes are regional and are not replicated for you, and ASR does not cover AKS. Multi-region Kubernetes means a second cluster plus a global router in front of both — a second depot of food trucks, not a bigger one.',
+      c:'AKS multi-region needs a second cluster', b:TREE },
+
+    d23:{ tier:400, th:'RANSOM', h:'Forty days of dwell time',
+      s:'Forensics says the malware was dormant for forty days. Your retention policy is thirty. All three of your most recent restore points contain it.',
+      saves:['immutable'], useless:['backup','blobver','pitr','cosmospitr','asr'],
+      why:'<strong>Retention is a security control.</strong> A 30-day policy against a 40-day dwell time restores you straight back into the incident. Long-term retention on immutable storage — and a tested restore that proves which point is clean — is the only answer here.',
+      c:'Retention length vs attacker dwell time', b:BCDR },
+
+    d24:{ tier:400, th:'REGION', h:'Twelve minutes of writes, gone',
+      s:'You failed the storage account over successfully. The last twelve minutes of writes do not exist. Finance would like a word.',
+      saves:['aa','cosmosmw','failgroup'], useless:['gzrs','ragzrs','asr'],
+      why:'Geo-replication for storage is <strong>asynchronous</strong> and Microsoft publishes no RPO SLA for it. If the requirement says "zero data loss", asynchronous geo-replication is by definition not a solution — you need synchronous (ZRS, in-region) or multi-region write.',
+      c:'Async geo-replication has no RPO SLA', b:DATA },
+
+    d25:{ tier:500, th:'HUMAN', h:'The suspended subscription',
+      s:'A billing failure suspended the subscription. Every resource in it went dark simultaneously — including the secondary region, which was in the same subscription.',
+      saves:['runbook','chaos'], useless:['aa','gzrs','asr','warm','failgroup'],
+      why:'Region is not the only blast radius. Subscription, tenant and management group are failure domains too, and a second region inside the same subscription shares every one of them. Governance is part of BCDR.',
+      c:'Blast radius beyond the region', b:GOV },
+
+    d26:{ tier:300, th:'REGION', h:'Audit wants evidence',
+      s:'Audit asks you to prove failover works — this quarter, with evidence, and without disturbing production.',
+      saves:['asr','chaos','warm','aa'], useless:['backup','gzrs','runbook','immutable'],
+      why:'ASR test failover builds the workload in an isolated network without stopping replication or touching production. It is the evidence generator. Doing it quarterly is what turns "we believe" into "we measured on the 14th".',
+      c:'ASR test failover as audit evidence', b:BCDR },
+
+    d27:{ tier:400, th:'HUMAN', h:'The account, not the data',
+      s:'Somebody deleted the storage account itself. Not a container. Not a blob. The account.',
+      saves:['lock','backup','immutable'], useless:['blobver','zrs','gzrs','ragzrs'],
+      why:'Blob versioning and soft delete live <em>inside</em> the account — delete the account and they go with it. Locks stop the call; a vaulted backup lives outside the account&#39;s blast radius entirely. Where the safety net lives matters as much as that it exists.',
+      c:'In-resource vs out-of-resource protection', b:DATA },
+
+    d28:{ tier:400, th:'ZONE', h:'The database in one zone',
+      s:'Your Business Critical SQL database is zonal. That zone just failed, and the replicas were all in it.',
+      saves:['avzone','failgroup','activegeo','aa'], useless:['backup','lrs','avset','pitr'],
+      why:'Zone-redundant configuration is a switch on the database and it is off by default on most tiers. It is the cheapest protection against the second-most-likely failure mode, and it is the one people forget to turn on.',
+      c:'Zone-redundant config is opt-in', b:DATA },
+
+    d29:{ tier:400, th:'RANSOM', h:'You failed over into the malware',
+      s:'You executed the ASR failover. The replicated VMs came up in the secondary region, encrypted, exactly as they were.',
+      saves:['immutable','backup'], useless:['asr','gzrs','aa','warm','failgroup','blobver'],
+      why:'ASR replicates continuously with shallow recovery points — it is a <em>disaster</em> tool, not a corruption tool. Backup is your time machine; ASR is your teleporter. Most architectures need both and the exam wants you to say why.',
+      c:'ASR vs Azure Backup — different problems', b:BCDR },
+
+    d30:{ tier:400, th:'HUMAN', h:'The grace period',
+      s:'The region degraded at 02:00. Automatic failover fired at 03:00, because the failover group&#39;s grace period is one hour and nobody knew.',
+      saves:['chaos','runbook','aa','cosmosmw'], useless:['failgroup','activegeo','asr'],
+      why:'Auto-failover groups deliberately wait out a grace period so a blip does not cost you committed data. Shorten it and you fail over on a network hiccup; lengthen it and your RTO grows. That number is a business decision — and the exam expects you to know it is tunable.',
+      c:'Failover group grace period is an RTO input', b:DATA },
+
+    d31:{ tier:300, th:'DATA', h:'Reporting is crushing the primary',
+      s:'Month-end reporting queries are saturating the production database and transactional latency has doubled.',
+      saves:['activegeo','failgroup','ragzrs','cosmosmw'], useless:['backup','zrs','immutable','asr'],
+      why:'Readable secondaries do double duty: DR target <em>and</em> read scale-out. That is the cost justification the exam wants you to spot — the geo-replication you were buying for BCDR also pays for itself in offloaded reads.',
+      c:'Readable secondaries as read scale-out', b:DATA },
+
+    d32:{ tier:400, th:'REGION', h:'The vault was in the dead region',
+      s:'The region is gone — and so is the Recovery Services vault holding every backup you own.',
+      saves:['crossrestore','aa'], useless:['backup','lock','immutable','blobver'],
+      why:'A vault is a regional resource. <strong>Cross-region restore</strong> (on a GRS vault) is what lets you restore into the paired region while the primary is down — and it is a setting you enable in advance. You cannot switch it on during the outage.',
+      c:'Cross-region restore must be pre-enabled', b:BCDR },
+
+    d33:{ tier:300, th:'HUMAN', h:'The bill and the latency',
+      s:'You went active/active. Write latency doubled because every write crosses regions, and the bill tripled. The stated RTO was thirty minutes.',
+      saves:['warm','frontdoor','tm'], useless:['aa'],
+      why:'Active/active is the most expensive pattern on the board and it imports data-consistency problems you did not have. If the RTO tolerates 15–30 minutes, warm standby meets the requirement for a fraction of the cost. The exam&#39;s favourite trap is offering active/active when the stated RTO is measured in hours.',
+      c:'Match the pattern to the stated RTO, not to fear', b:TREE },
+
+    d34:{ tier:300, th:'DATA', h:'Archive tier rehydration',
+      s:'Your long-term backups are in archive tier. Rehydration is quoted at up to fifteen hours. The incident started ninety minutes ago.',
+      saves:['chaos','runbook','warm','aa'], useless:['immutable','backup','crossrestore'],
+      why:'Archive is the cheapest storage and the slowest restore — standard rehydration is measured in hours. <strong>Storage tier is an RTO decision wearing a cost decision&#39;s clothes.</strong> Keep the recent points hot and archive only the compliance tail.',
+      c:'Access tier as an RTO constraint', b:DATA },
+
+    d35:{ tier:400, th:'DATA', h:'The nightly backup at 02:00',
+      s:'The only protection is a nightly full backup that runs at 02:00. The failure happened at 01:50.',
+      saves:['pitr','blobver','cosmospitr','gzrs','failgroup','aa','ragzrs'], useless:['backup','immutable','crossrestore'],
+      why:'A nightly backup is an RPO of up to twenty-four hours by definition, no matter how fast the restore is. If the business says "we can lose fifteen minutes", nightly full backups are the wrong instrument and no amount of tuning fixes that.',
+      c:'Backup frequency IS your RPO', b:BCDR },
+
+    d36:{ tier:500, th:'HUMAN', h:'Locked out of both regions',
+      s:'A Conditional Access policy change locked out every administrator, in every region, at the same instant.',
+      saves:['runbook','chaos'], useless:['aa','gzrs','asr','warm','failgroup','cosmosmw'],
+      why:'Microsoft Entra ID (formerly Azure AD) is a global service, which makes it a global blast radius. Break-glass accounts — cloud-only, excluded from Conditional Access, monitored, credentials split — are the DR control here, and the exam expects at least two of them.',
+      c:'Identity is a global failure domain', b:GOV },
+
+    d37:{ tier:400, th:'DATA', h:'Crash-consistent is not good enough',
+      s:'You restored the VM. The database on it refuses to start: the recovery point was crash-consistent, taken mid-transaction.',
+      saves:['pitr','cosmospitr','chaos'], useless:['asr','blobver','zrs'],
+      why:'Crash-consistent means "the power went out". App-consistent points flush the application&#39;s buffers first (VSS on Windows, pre/post scripts on Linux). For databases, use the database&#39;s own backup and PITR — never restore a database from a VM snapshot and expect it to open.',
+      c:'Crash- vs app-consistent recovery points', b:BCDR },
+
+    d38:{ tier:300, th:'HUMAN', h:'The first time will be the real time',
+      s:'You have never deliberately injected a fault. Your first zone failure will also be your first zone failover.',
+      saves:['chaos'], useless:['aa','gzrs','asr','backup','warm','runbook'],
+      why:'Chaos Studio runs controlled experiments against a stated steady-state hypothesis. The value is not the fault — it is finding the missing quota, the stale runbook and the hardcoded connection string before a real outage finds them for you.',
+      c:'Chaos engineering validates the design', b:BCDR },
+
+    /* ================================================================ 100
+     * FOUNDATION — what each protection IS, and the one distinction the
+     * whole domain rests on: things that break vs things that change.
+     * ============================================================== */
+    d101:{ tier:100, th:'INSTANCE', h:'One server, one reboot',
+      s:'You have exactly one virtual machine. Azure needs to reboot the physical host it sits on, and your application goes down with it.',
+      saves:['avset','avzone'], useless:['backup','lrs'],
+      why:'<strong>Redundancy</strong> means having more than one of something. An availability set — or instances spread across zones — runs your application on machines that are not on the same hardware, so one going away is not an outage. A backup would eventually get you a machine back, hours later. Those are different jobs.',
+      c:'Redundancy keeps you up; backup gets you back', b:TREE },
+
+    d102:{ tier:100, th:'DATA', h:'The file that got overwritten',
+      s:'Somebody saved the wrong version of a document over the right one. The file still exists. Its contents are simply wrong.',
+      saves:['blobver','backup'], useless:['zrs','gzrs'],
+      why:'A <strong>backup</strong> is a copy taken at a point in time and kept somewhere else, so you can go back to how things were. A <strong>replica</strong> is a live mirror — it copied the overwrite the instant you made it. This single difference is the most important idea in the entire domain.',
+      c:'Backup vs replica, in one sentence', b:BCDR },
+
+    d103:{ tier:100, th:'ZONE', h:'The building lost power',
+      s:'An availability zone is a separate datacenter building with its own power and cooling. One of them just lost utility power for three hours.',
+      saves:['zrs','avzone'], useless:['lrs','avset','backup'],
+      why:'An <strong>availability zone</strong> is a physically separate datacenter inside the same Azure region. Zone-redundant means your data or your instances exist in more than one of those buildings, so losing one building is survivable.',
+      c:'What an availability zone is', b:TREE },
+
+    d104:{ tier:100, th:'REGION', h:'The whole region is gone',
+      s:'Not a rack. Not one building. The entire Azure region — every zone in it — is unavailable.',
+      saves:['gzrs'], useless:['zrs','avzone','lrs','avset'],
+      why:'A <strong>region</strong> is a geographic area containing several zones. Anything that only spreads across zones is inside the region and goes down with it. Surviving a region loss means holding a copy in a <em>different</em> region — that is what the G in GZRS is for: geo.',
+      c:'Region vs zone', b:BCDR },
+
+    d105:{ tier:100, th:'HUMAN', h:'Someone deleted it',
+      s:'Something that should not have been deleted was deleted. Nothing failed. Somebody with permission clicked delete.',
+      saves:['blobver','backup','lock'], useless:['zrs','gzrs','avzone'],
+      why:'Deletion is a legitimate, authorised operation, so every replica faithfully deletes its copy too. <strong>Soft delete</strong> gives you a grace period, versioning keeps the previous version, and a lock stops the delete happening at all.',
+      c:'Deletion is not a hardware problem', b:DATA },
+
+    d106:{ tier:100, th:'DATA', h:'The database has the wrong numbers in it',
+      s:'A bug wrote incorrect values into the database yesterday afternoon. Everything is running perfectly. The data is just wrong.',
+      saves:['pitr','backup'], useless:['zrs','gzrs','lrs'],
+      why:'<strong>Point-in-time restore</strong> rewinds a database to a moment before the damage. Replication cannot help — it copied the wrong numbers as fast as they were written. Corruption is a problem about <em>time</em>, and only a time machine fixes it.',
+      c:'Point-in-time restore, and what it is for', b:DATA },
+
+    d107:{ tier:100, th:'INSTANCE', h:'A drive failed',
+      s:'A physical disk in the datacenter failed. This happens constantly, all day, everywhere, and you are not supposed to notice.',
+      saves:['lrs','zrs','gzrs'], useless:['runbook','tm'],
+      why:'Even the cheapest option, <strong>LRS</strong>, keeps three copies of your data inside one datacenter — that is what makes a dead drive a non-event. Every other redundancy option is the same idea at a bigger scale, protecting against a bigger thing going wrong.',
+      c:'What LRS already gives you', b:DATA },
+
+    d108:{ tier:100, th:'HUMAN', h:'Nobody knows what to do',
+      s:'Something has failed. Three people are on a call. Nobody is sure who decides, what to click, or in what order.',
+      saves:['runbook'], useless:['zrs','gzrs','backup','avzone'],
+      why:'A <strong>runbook</strong> is the written, rehearsed list of steps for a specific failure. Technology nobody knows how to operate under pressure is technology you do not really have. The plan is part of the architecture, not paperwork about it.',
+      c:'The recovery plan is part of the design', b:BCDR },
+
+    d109:{ tier:100, th:'REGION', h:'Customers are still going to the dead one',
+      s:'Your second region is up and serving. Customers are still trying to reach the failed one, because that is the address they were given.',
+      saves:['tm'], useless:['gzrs','backup','zrs'],
+      why:'Having a second region is not the same as sending anybody to it. Something has to answer “where should this request go?” — that is routing, and Traffic Manager is the DNS-based version of it. Copies of your data are useless if traffic never arrives at them.',
+      c:'You also have to redirect the traffic', b:TREE },
+
+    d110:{ tier:100, th:'DATA', h:'Restoring takes time',
+      s:'The backup is perfect. Restoring it will take about four hours, and the business is asking when you will be back.',
+      saves:['zrs','avzone','gzrs'], useless:['backup','blobver','lock'],
+      why:'Two different numbers describe recovery. <strong>RTO</strong> is how long you are down; <strong>RPO</strong> is how much data you lose. A backup usually gives you a decent RPO and a slow RTO. Something already running gives you a fast RTO. Most real designs need both kinds of thing.',
+      c:'RTO and RPO answer different questions', b:BCDR },
+
+    d111:{ tier:100, th:'HUMAN', h:'The backup nobody has ever restored',
+      s:'You have taken backups every night for two years. You have never once restored one.',
+      saves:['runbook'], useless:['backup','blobver'],
+      why:'A backup you have never restored is a belief, not a capability. Restores fail for boring reasons — a missing key, a wrong permission, a format nothing can read any more. Practise the restore on a schedule, and write down how long it actually took.',
+      c:'An untested backup is not a backup', b:BCDR },
+
+    d112:{ tier:100, th:'ZONE', h:'Everything ended up in zone 1',
+      s:'Your virtual machines, your storage and your database all happen to be in availability zone 1. Nobody decided that; it is just what happened.',
+      saves:['avzone','zrs'], useless:['avset','lrs','backup'],
+      why:'Zone redundancy is something you <em>choose</em>. If nobody chooses, resources land wherever the platform puts them, and often that is together. “Where does this actually run?” is a question worth asking about every resource you own.',
+      c:'Zone placement is a deliberate choice', b:TREE },
+
+    d113:{ tier:100, th:'HUMAN', h:'The wrong container',
+      s:'A cleanup script pointed at the wrong storage container and emptied it. It was doing exactly what it had been told to do.',
+      saves:['backup','blobver','lock'], useless:['gzrs','zrs','avzone'],
+      why:'Automation is faster and more thorough than a person, including when it is wrong. Locks stop the destructive call; soft delete and versioning give you a way back afterwards. The speed of automation is an argument for guard rails, not a substitute for them.',
+      c:'Guard rails for automation', b:DATA },
+
+    d114:{ tier:100, th:'REGION', h:'Where is the second copy?',
+      s:'Somebody asks a simple question in a meeting: if this region disappeared right now, where is the second copy of our data?',
+      saves:['gzrs'], useless:['lrs','zrs','avset','avzone'],
+      why:'Geo-redundant storage keeps a copy in a <em>different</em> region, hundreds of kilometres away. Locally redundant and zone-redundant both keep every copy inside one region. If you cannot name the second region, you do not have one.',
+      c:'Where the second copy lives', b:DATA },
+
+    d115:{ tier:100, th:'INSTANCE', h:'Two of everything',
+      s:'The application runs on one server. It has been asked to survive that server being unavailable, without losing any data.',
+      saves:['avset','avzone'], useless:['backup','pitr','lock'],
+      why:'This is the shape of every availability answer: <strong>more than one</strong>, spread across something that can fail independently. Restoring from a backup is a <em>recovery</em> answer, and recovery always takes longer than already having a spare running.',
+      c:'Availability = more than one, spread apart', b:TREE },
+
+    d116:{ tier:100, th:'HUMAN', h:'It broke at 3am and nobody was told',
+      s:'The failure started at 03:00. You found out at 09:00, from a customer’s email.',
+      saves:['runbook'], useless:['gzrs','zrs','backup','tm'],
+      why:'Detection is the first part of recovery and the part people forget to design. Your RTO clock starts when the failure begins, not when somebody notices. An alert, and a named person for it to reach, are genuine DR controls.',
+      c:'Detection time is part of your RTO', b:GOV },
+
+    /* ================================================================ 200
+     * PRACTITIONER — the settings themselves. Where the toggle is, what
+     * the default is, and the normal workflow for turning it on.
+     * ============================================================== */
+    d201:{ tier:200, th:'ZONE', h:'You left the default',
+      s:'The storage account was created with the redundancy dropdown untouched. The zone it landed in has just gone down.',
+      saves:['zrs','gzrs','ragzrs'], useless:['lrs','runbook','tm'],
+      why:'New storage accounts default to <strong>LRS</strong> — every copy inside a single datacenter. Zone protection is one dropdown away (ZRS), and it is the first setting worth reviewing on anything that matters. A default is a decision somebody else made for you.',
+      c:'The storage redundancy default is LRS', b:DATA },
+
+    d202:{ tier:200, th:'REGION', h:'The database that never left the region',
+      s:'Your Azure SQL database is single-region. The region is unavailable and the application cannot reach its data at all.',
+      saves:['activegeo','failgroup','cosmosmw'], useless:['pitr','backup','zrs'],
+      why:'<strong>Active geo-replication</strong> creates a readable secondary in another region; an <strong>auto-failover group</strong> wraps that with a listener endpoint and an automatic policy. Both are a few clicks on the database, and neither is on by default.',
+      c:'Geo-replication for Azure SQL', b:DATA },
+
+    d203:{ tier:200, th:'REGION', h:'Twenty VMs, one region',
+      s:'Twenty Azure VMs, one region, no replication configured. The region is gone and there is nothing to fail over to.',
+      saves:['asr','warm'], useless:['backup','blobver','lock'],
+      why:'<strong>Azure Site Recovery</strong> continuously replicates the VMs’ disks to a second region and gives you a failover button plus a non-disruptive test failover. You enable it per VM or per vault and choose the target region and network mapping up front.',
+      c:'Enabling ASR replication', b:BCDR },
+
+    d204:{ tier:200, th:'DATA', h:'Soft delete was never switched on',
+      s:'A blob was deleted last Tuesday. You go looking for the soft-delete recovery and discover the feature was never enabled.',
+      saves:['blobver','backup'], useless:['zrs','gzrs','asr'],
+      why:'Blob soft delete and versioning are toggles in the storage account’s <strong>Data protection</strong> blade. They protect from the moment you turn them on and not one second earlier — which is why they belong on your account creation checklist, not in your incident response.',
+      c:'Data protection settings are opt-in', b:DATA },
+
+    d205:{ tier:200, th:'DATA', h:'Eight days ago, seven days of retention',
+      s:'You need to rewind an Azure SQL database to eight days ago. The point-in-time retention setting says seven.',
+      saves:['backup'], useless:['pitr','activegeo','failgroup'],
+      why:'Azure SQL point-in-time restore has a configurable retention window — seven days by default, up to thirty-five on most tiers. Beyond that you need <strong>long-term retention</strong> backups, which are a separate policy on the database. Know your window before you need it.',
+      c:'PITR retention window vs long-term retention', b:DATA },
+
+    d206:{ tier:200, th:'REGION', h:'A copy you cannot touch',
+      s:'Your storage is geo-redundant and the primary region is unavailable. The application cannot read anything at all.',
+      saves:['ragzrs'], useless:['gzrs','zrs','backup'],
+      why:'Plain GZRS keeps a copy in the secondary region, but nothing can touch it until a failover. <strong>RA-</strong> adds read access through a separate <em>-secondary</em> endpoint — which your application has to be written to call. The copy existing and the copy being usable are two settings.',
+      c:'RA- adds a read endpoint you must call', b:DATA },
+
+    d207:{ tier:200, th:'REGION', h:'The connection string still points at the old one',
+      s:'You failed the database over to the secondary region. Every application still has the original server name in its connection string.',
+      saves:['failgroup','cosmosmw'], useless:['activegeo','backup','pitr'],
+      why:'An <strong>auto-failover group</strong> publishes a stable read-write listener name that always resolves to whichever region is currently primary. Applications connect to the listener and never learn that anything moved.',
+      c:'The failover group listener endpoint', b:DATA },
+
+    d208:{ tier:200, th:'REGION', h:'The router kept sending traffic anyway',
+      s:'One region is returning 503 to every request. Your global router is still happily sending customers to it.',
+      saves:['frontdoor','tm'], useless:['gzrs','asr','warm'],
+      why:'Both Front Door and Traffic Manager use <strong>health probes</strong> to decide which origins are eligible. If the probe path returns 200 while the application is broken, the router believes it. Point the probe at something that actually exercises the app.',
+      c:'Health probes drive routing decisions', b:TREE },
+
+    d209:{ tier:200, th:'ZONE', h:'The checkbox at creation time',
+      s:'The App Service plan was created without zone redundancy. A zone failed and every instance was in it.',
+      saves:['avzone','asr','warm'], useless:['avset','lrs','backup'],
+      why:'Zone redundancy on an App Service plan — and on most PaaS tiers — is a checkbox at creation time, it usually requires a minimum instance count, and on several services it cannot be added afterwards. Decide it while you are creating the resource.',
+      c:'Zone redundancy is a creation-time choice', b:TREE },
+
+    d210:{ tier:200, th:'DATA', h:'Three thousand documents, gone',
+      s:'A script deleted a few thousand documents from a Cosmos DB container about an hour ago.',
+      saves:['cosmospitr','backup'], useless:['cosmosmw','gzrs','asr'],
+      why:'Cosmos DB offers <strong>continuous backup</strong> with point-in-time restore down to the second inside the retention window. It is a mode you select on the account, and it is what you want on any container people write scripts against.',
+      c:'Cosmos continuous backup mode', b:DATA },
+
+    d211:{ tier:200, th:'REGION', h:'Scaled to zero',
+      s:'You have a second region deployed but scaled to zero instances. Bringing it up during the incident takes twenty-five minutes.',
+      saves:['warm'], useless:['backup','runbook','lock'],
+      why:'A <strong>warm standby</strong> keeps the second region deployed and scaled down, so failover is a scale-up and a traffic switch rather than a deployment. Cold means you build it during the incident, and building things during incidents goes badly.',
+      c:'Warm standby: deployed, scaled down', b:BCDR },
+
+    d212:{ tier:200, th:'HUMAN', h:'The button nobody has pressed',
+      s:'ASR is replicating happily. Nobody has ever pressed the test failover button, and the DR document is eighteen months old.',
+      saves:['runbook'], useless:['asr','gzrs','warm','backup'],
+      why:'ASR includes a <strong>test failover</strong> that builds the workload in an isolated network without stopping replication or touching production. It exists so “does this work?” is a Tuesday afternoon question. Run it, write down the number, put the number in the plan.',
+      c:'Test failover is a routine, not an event', b:BCDR },
+
+    d213:{ tier:200, th:'HUMAN', h:'The wrong subscription',
+      s:'A colleague deleted a resource group in the wrong subscription. Everything inside it went with the click.',
+      saves:['lock','backup'], useless:['zrs','gzrs','asr','blobver'],
+      why:'A <strong>CanNotDelete</strong> lock on a resource group or a resource makes the API refuse the call regardless of the caller’s permissions. It costs one credit and one minute, and it is the cheapest control on this entire board.',
+      c:'Resource locks, and where to put them', b:GOV },
+
+    d214:{ tier:200, th:'INSTANCE', h:'Both on the same rack',
+      s:'Two VMs behind a load balancer, both placed on the same rack, and a single host update took them both out at once.',
+      saves:['avset','avzone'], useless:['backup','lrs','pitr'],
+      why:'An <strong>availability set</strong> spreads VMs across fault domains (racks) and update domains inside one datacenter. Availability <strong>zones</strong> spread them across separate datacenters. Zones are the stronger guarantee; sets are what you use where zones are unavailable.',
+      c:'Availability sets vs availability zones', b:TREE },
+
+    d215:{ tier:200, th:'REGION', h:'The museum region',
+      s:'You failed over to the secondary region. The application version running there is four releases old, because nothing ever deployed to it.',
+      saves:['warm','runbook'], useless:['asr','gzrs','backup'],
+      why:'A standby region has to be part of your normal deployment pipeline or it quietly becomes a museum. Either replicate the machines (ASR) or deploy to both regions from the same release — but decide which, write it down, and check it on a schedule.',
+      c:'Keeping the standby current', b:BCDR },
+
+    d216:{ tier:200, th:'HUMAN', h:'Restored over the top',
+      s:'You restored the VM successfully — on top of the running production VM, overwriting it.',
+      saves:['runbook'], useless:['backup','blobver','asr'],
+      why:'Azure Backup lets you restore to a new VM, to the original, or to disks you attach yourself. Which one you pick during an incident should have been decided calmly beforehand. Restore <em>options</em> belong in the runbook; they are not a 4am decision.',
+      c:'Restore options belong in the runbook', b:BCDR },
+
+    /* ================================================================ 300
+     * PROFESSIONAL — the limits, the bill, and the moment the pattern you
+     * chose stops being the right one at your new size.
+     * ============================================================== */
+    d301:{ tier:300, th:'ZONE', h:'The region without zones',
+      s:'Your design says zone-redundant everything. The region the business insists on does not offer availability zones for two of the services you use.',
+      saves:['gzrs','asr','warm','aa','failgroup'], useless:['zrs','avzone','avset'],
+      why:'Availability zones are not universal — support varies by region, by service, and by SKU. Check zone availability per service per region <em>before</em> the design review, because the fallback is usually a second region and that is a different budget with a different RPO.',
+      c:'Zone support varies by region and SKU', b:TREE },
+
+    d302:{ tier:300, th:'DATA', h:'The backup line on the invoice',
+      s:'Daily full backups with 365-day retention on 8 TB of data. Finance has circled the vault line in red and would like an explanation.',
+      saves:['backup','immutable','crossrestore'], useless:['aa','warm','asr','cosmosmw'],
+      why:'Backup cost is protected instances × protected size × retention × storage tier. Incrementals after the first full, a short operational window with a long-term retention tail, and archive tier for the compliance years are the three levers. Retention is a cost decision as much as a security one — price it deliberately rather than defaulting to “keep everything”.',
+      c:'The backup cost model and its levers', b:BCDR },
+
+    d303:{ tier:300, th:'REGION', h:'The secondary costs what the primary costs',
+      s:'You added a geo-replica for the Azure SQL database. The bill went up by roughly the price of a second production database, because that is exactly what it is.',
+      saves:['activegeo','failgroup','pitr','backup'], useless:['aa','cosmosmw'],
+      why:'A geo-secondary must run at the same service tier as the primary, continuously, whether or not you ever fail over. That is the honest price of a minutes-level RTO. If the requirement tolerates hours, restore-based recovery is dramatically cheaper — check the stated number before you buy the replica.',
+      c:'Geo-replica pricing vs the stated RTO', b:DATA },
+
+    d304:{ tier:300, th:'REGION', h:'The RU bill after multi-region write',
+      s:'You enabled multi-region writes on Cosmos DB across three regions. Throughput cost went up roughly threefold and nobody had modelled it.',
+      saves:['cosmosmw','failgroup','aa'], useless:['backup','immutable'],
+      why:'Provisioned throughput is charged per region, and multi-region write adds a write-cost multiplier on top of that. It buys local write latency and a near-zero regional RTO. If you only need <em>reads</em> to be local and writes can cross a region, multi-region read is a fraction of the price.',
+      c:'Cosmos multi-region write cost model', b:DATA },
+
+    d305:{ tier:300, th:'RANSOM', h:'The retention you cannot shorten',
+      s:'You set an immutable vault policy to seven years on everything, including 40 TB of scratch data. Immutability means exactly what it says: you cannot shorten it.',
+      saves:['immutable','lock'], useless:['gzrs','asr','aa'],
+      why:'That is immutability working as designed — a policy you can relax is not a defence against an attacker holding your credentials. Scope immutable long-term retention to the data that genuinely needs it, lock it deliberately, and keep operational recovery points on a normal policy.',
+      c:'Immutable policies are a one-way door', b:BCDR },
+
+    d306:{ tier:300, th:'REGION', h:'A switch with one position',
+      s:'You put a global edge router in front of a single-region API. It added latency, a second WAF to manage and a cost line — and it still cannot fail anything over, because there is nowhere to fail over to.',
+      saves:['warm','aa','asr'], useless:['frontdoor','tm'],
+      why:'A router only helps if there is a second place to send traffic. Front Door is a global L7 edge with WAF and caching; Application Gateway is its regional equivalent; Traffic Manager is DNS. Buying the router before you build the second region is buying a switch with one position.',
+      c:'Routers need somewhere to route to', b:TREE },
+
+    d307:{ tier:300, th:'REGION', h:'Replication cannot keep up',
+      s:'Replication health is amber, then red. The workload writes far more per hour than the link can move, and the recovery points are hours behind.',
+      saves:['warm','aa','failgroup','cosmosmw'], useless:['asr','runbook','chaos'],
+      why:'ASR has published <strong>churn limits</strong> per disk and per VM, plus supported disk types and sizes. Exceed them and your RPO degrades silently — the feature keeps running, it just stops meeting the number you promised. Very high write rates usually mean application-level or database-level replication instead.',
+      c:'ASR churn limits degrade RPO silently', b:BCDR },
+
+    d308:{ tier:300, th:'REGION', h:'After the failover you are LRS',
+      s:'You completed a customer-initiated storage account failover. The account is now serving from the secondary region — as a single, locally redundant copy.',
+      saves:['aa','cosmosmw','failgroup','warm'], useless:['gzrs','ragzrs'],
+      why:'Account failover converts the account to LRS in the new region. Until you re-enable geo-replication you have no geo protection at all, and re-establishing it copies the entire account again, with the time and egress that implies. Failover is not a free toggle — it has a recovery-after-the-recovery cost.',
+      c:'Post-failover you are unprotected and paying to re-seed', b:DATA },
+
+    d309:{ tier:300, th:'DATA', h:'The report that was wrong by four minutes',
+      s:'Finance runs a reconciliation against the readable secondary. It disagrees with the primary, because the secondary is asynchronous and lags.',
+      saves:['aa','cosmosmw'], useless:['activegeo','ragzrs','failgroup'],
+      why:'A readable geo-secondary is asynchronous — seconds to minutes behind, and the lag is not constant. Excellent for dashboards that tolerate staleness; wrong for anything that must reconcile to the penny. Knowing which of your reads may be stale is a data-design decision that DR inherits.',
+      c:'Async secondaries serve stale reads', b:DATA },
+
+    d310:{ tier:300, th:'RANSOM', h:'Fourteen days was not long enough',
+      s:'Soft delete is on with a fourteen-day window. The tampering began twenty-one days ago and was only noticed this morning.',
+      saves:['immutable','backup'], useless:['blobver','lock','gzrs'],
+      why:'Every recovery window is a bet on your detection time. Soft-delete windows are measured in days; attacker dwell time is routinely measured in weeks. Set the window from your <em>measured</em> mean time to detect, not from the default, and keep a long immutable tail for the day detection is slow.',
+      c:'Recovery windows must exceed detection time', b:BCDR },
+
+    d311:{ tier:300, th:'REGION', h:'The standby you never sized',
+      s:'You failed over to the warm region. It came up — at a third of the capacity — and fell over under real load within four minutes.',
+      saves:['aa','chaos','runbook'], useless:['warm','asr','gzrs'],
+      why:'Warm standby is only as good as the capacity you can actually obtain when you scale it. Reserve the capacity, or accept degraded service and say so in the plan. Then load-test the failover target at production scale, because “it started” and “it can serve” are two different claims.',
+      c:'Standby capacity must be reserved and tested', b:BCDR },
+
+    d312:{ tier:300, th:'REGION', h:'The TTL trade',
+      s:'You cut the DNS TTL to thirty seconds so failover would be fast. Query volume — and the bill attached to it — went up by two orders of magnitude.',
+      saves:['frontdoor','aa'], useless:['tm','gzrs'],
+      why:'DNS TTL is a straight trade: low TTL means faster failover and far more queries, high TTL means cheap and slow. If you find yourself tuning TTL to hit an RTO, you have just discovered the reason an anycast edge that reroutes in flight exists.',
+      c:'TTL is a cost/RTO trade you can buy out of', b:TREE },
+
+    d313:{ tier:300, th:'ZONE', h:'Two zones, three needed',
+      s:'The zone-redundant deployment will not create. The region has three zones, but the SKU you need only has capacity in two of them.',
+      saves:['asr','warm','gzrs','aa'], useless:['avzone','zrs','avset'],
+      why:'Zone redundancy generally requires the resource to be creatable across three zones, and zonal capacity for a specific SKU is not guaranteed. Capacity is a design constraint, not an implementation detail — check SKU-by-zone availability early and have the cross-region fallback costed before you need it.',
+      c:'Zonal SKU capacity is a real constraint', b:TREE },
+
+    d314:{ tier:300, th:'DATA', h:'One file, whole machine',
+      s:'A user needs one 40 MB spreadsheet back. Your only rehearsed recovery path restores the entire 2 TB virtual machine.',
+      saves:['backup','blobver'], useless:['asr','gzrs','aa','warm'],
+      why:'Azure Backup supports <strong>file-level recovery</strong> by mounting the recovery point as a drive — minutes instead of hours, and no new VM. The overwhelming majority of restore requests are small. Design the common case, not only the catastrophe.',
+      c:'File-level recovery vs full restore', b:BCDR },
+
+    d315:{ tier:300, th:'INSTANCE', h:'The SLA you actually bought',
+      s:'The contract says 99.99%. The design is a single virtual machine with premium disks, and somebody has just read the SLA table out loud in the review.',
+      saves:['avzone','aa','failgroup'], useless:['avset','backup','lrs'],
+      why:'Roughly: a single VM with premium SSD carries 99.9%, an availability set 99.95%, instances across availability zones 99.99%. The number you may promise is set by the architecture, not by the contract — and every serial dependency drags the composite down from there.',
+      c:'The VM SLA ladder', b:TREE },
+
+    d316:{ tier:300, th:'HUMAN', h:'The backup window that closed',
+      s:'The nightly backup now takes eleven hours. It overruns into business hours, where it slows the database enough to generate complaints of its own.',
+      saves:['pitr','cosmospitr','backup'], useless:['asr','gzrs','aa'],
+      why:'Backup is load. As data grows, full-backup windows collide with the working day. Move to incremental or differential with periodic fulls, use the platform’s built-in continuous backup where it exists, and treat the backup window as a capacity-planning input you actively monitor.',
+      c:'The backup window is a capacity problem', b:BCDR },
+
+    /* ================================================================ 500
+     * ARCHITECT — the failures that are not about a product. Correlation,
+     * composition, sequencing, and the organisation around the system.
+     * ============================================================== */
+    d501:{ tier:500, th:'HUMAN', h:'Both regions, one control plane',
+      s:'The review asks what the two regions actually have in common. The answer turns out to be one subscription, one policy assignment, one deployment pipeline and one identity tenant.',
+      saves:['runbook','chaos'], useless:['aa','gzrs','asr','warm','failgroup'],
+      why:'Geographic separation is only one axis of correlation. A shared control plane — subscription, management group, policy, pipeline, tenant — is a single failure domain wearing two regions as a disguise. Enumerate the shared dependencies explicitly; the ones nobody thinks to list are the ones that take you down.',
+      c:'Correlated failure through the control plane', b:GOV },
+
+    d502:{ tier:500, th:'REGION', h:'The nines you can honestly promise',
+      s:'The contract under discussion says 99.99%. The request path is edge → app tier → database → a third-party payment API whose published SLA is 99.9%.',
+      saves:['aa','frontdoor','cosmosmw'], useless:['backup','asr','warm'],
+      why:'Serial dependencies multiply, so the composite can never exceed the weakest link — a 99.9% third party caps you at 99.9% unless you design around it with caching, queueing, graceful degradation or a second provider. The architectural answer to “can we promise four nines” is usually “not on this dependency graph”, and the useful follow-up is which dependency to remove from the critical path.',
+      c:'Composite SLA is bounded by the weakest serial link', b:TREE },
+
+    d503:{ tier:500, th:'REGION', h:'The order of the failover',
+      s:'Every component can fail over. Executed in the wrong order they deadlock: the app starts before the database is promoted, caches poison, and the router sends live traffic into a half-built region.',
+      saves:['runbook','chaos'], useless:['asr','gzrs','aa','failgroup','warm'],
+      why:'Failover is a distributed transaction executed by humans under stress. Dependency order, health gates between steps and an explicit abort criterion <em>are</em> the design. Each component being individually recoverable does not compose into a recoverable system; that composition has to be designed and rehearsed.',
+      c:'Failover sequencing is a design artefact', b:BCDR },
+
+    d504:{ tier:500, th:'REGION', h:'Everything came back at once',
+      s:'The failure is fixed. The system will not stabilise: every client retries simultaneously, caches are empty, and the database is saturated serving cold traffic it normally never sees.',
+      saves:['chaos','runbook','aa'], useless:['gzrs','asr','backup','warm'],
+      why:'This is a <strong>metastable failure</strong> — the trigger is gone but the system cannot climb back to a healthy state under full load. Recovery needs a design of its own: load shedding, jittered backoff, staged traffic restoration, cache warming. A DR plan that implicitly assumes an idle system is a plan for a system nobody uses.',
+      c:'Metastable failure and staged recovery', b:BCDR },
+
+    d505:{ tier:500, th:'HUMAN', h:'The pair is in the wrong country',
+      s:'Data residency says the data may not leave the country. The service you depend on replicates to a paired region across the border, and the pairing is not something you get to choose.',
+      saves:['runbook','backup','immutable'], useless:['gzrs','ragzrs','crossrestore'],
+      why:'Region pairing is fixed by the platform, and several geographies are effectively single-region for residency purposes. Where pairing conflicts with residency, geo-redundant options are off the table entirely and your recovery story becomes in-region zone redundancy plus customer-managed backup into a compliant location. That constraint reshapes the whole design, so find it in week one.',
+      c:'Residency can eliminate geo-redundancy as an option', b:BCDR },
+
+    d506:{ tier:500, th:'HUMAN', h:'One tenant took down all of them',
+      s:'A single customer’s workload saturated the shared database tier and every other tenant went down with it. No infrastructure failed at any point.',
+      saves:['aa','warm','chaos'], useless:['gzrs','backup','asr','failgroup'],
+      why:'Blast radius is a design variable, not a property of the platform. <strong>Cell-based architecture</strong> — partitioning tenants into independent stacks with their own capacity and their own failure boundary — turns a total outage into a partial one, and the same boundary becomes your progressive-deployment unit. You pay for it in operational complexity and per-cell overhead.',
+      c:'Cell partitioning as a blast-radius control', b:TREE },
+
+    d507:{ tier:500, th:'HUMAN', h:'The RTO nobody could execute',
+      s:'The technical RTO is fifteen minutes. Detecting the incident took forty, finding somebody authorised to declare a disaster took another thirty, and making the decision took twenty more.',
+      saves:['runbook','chaos'], useless:['aa','asr','failgroup','cosmosmw','warm'],
+      why:'The organisation’s recovery time is detect + decide + execute, and the technology only owns the last term. Pre-authorise the declaration, name the decision-maker and their deputy, define the objective criteria that trigger failover, and automate detection. Otherwise you have bought a fifteen-minute failover bolted to a ninety-minute organisation.',
+      c:'Organisational RTO dominates technical RTO', b:GOV },
+
+    d508:{ tier:500, th:'REGION', h:'Active/active made it less available',
+      s:'Both regions serve writes. A network partition between them left two divergent copies of the truth, and reconciling them took longer than any outage in the company’s history.',
+      saves:['warm','frontdoor','runbook'], useless:['aa','cosmosmw'],
+      why:'Active/active trades an availability problem for a consistency problem. Under partition you either stop accepting writes or accept divergence and reconcile afterwards — and reconciliation of real business data is slow, manual and contested. Active/passive with a fast, rehearsed promotion is <em>more</em> available than active/active whenever your data model cannot merge.',
+      c:'The consistency cost of multi-writer designs', b:TREE },
+
+    d509:{ tier:500, th:'DATA', h:'At-least-once, twice',
+      s:'The regional failover replayed the message queue. Several thousand customers were charged twice, and finance found out before you did.',
+      saves:['runbook','chaos','pitr'], useless:['aa','gzrs','asr','cosmosmw'],
+      why:'Most messaging is at-least-once, and failover is precisely the condition that manufactures duplicates. Idempotency keys and a deduplication window are DR requirements, not messaging niceties. Recovery mechanisms with financially visible side effects have to be designed at the application layer, because no infrastructure product will do it for you.',
+      c:'Idempotency is a recovery requirement', b:BCDR },
+
+    d510:{ tier:500, th:'HUMAN', h:'The environment nobody could rebuild',
+      s:'The region is gone and everything in it with it. The plan says “redeploy” — but a third of the configuration only ever existed as clicks somebody made in 2022.',
+      saves:['runbook','chaos','crossrestore'], useless:['gzrs','asr','aa'],
+      why:'Your real recovery mechanism for a total loss is infrastructure as code plus a data restore. Drift between the code and reality is undetected recovery debt: invisible until the day it is fatal. Continuous drift detection and a periodic rebuild-from-scratch exercise are what keep the plan true instead of merely written.',
+      c:'IaC is the control-plane recovery mechanism', b:GOV }
+  };
+
+  /* =====================================================================
+   * REQUIREMENT CHECKS — 14 quiz cards
+   * ================================================================== */
+  var QUIZ = {
+    q01:{ tier:400, h:'Composite SLA, in series',
+      s:'Your request path is App Service (99.95%) → Azure SQL (99.99%). The app needs both to be up. What is the composite SLA?',
+      o:['99.99%','99.95%','99.94%','99.97%'], a:2,
+      why:'Dependencies in series MULTIPLY: 0.9995 × 0.9999 = 0.99940. Every serial component lowers the composite, which is why "which design meets 99.9%?" is really "count the serial dependencies".',
+      c:'SLA composition — series multiplies', b:TREE },
+    q02:{ tier:400, h:'Composite SLA, in parallel',
+      s:'Two independent instances of a 99.9% component, behind a load balancer, either one can serve the request. Composite availability?',
+      o:['99.9%','99.99%','99.9999%','99.95%'], a:2,
+      why:'Redundant paths multiply the FAILURE probabilities: 0.001 × 0.001 = 0.000001 → 99.9999%. Series multiplies uptime, parallel multiplies downtime. That one sentence answers most SLA-composition questions on the exam.',
+      c:'SLA composition — parallel multiplies failure', b:TREE },
+    q03:{ tier:400, h:'GZRS vs GRS',
+      s:'What does GZRS give you that plain GRS does not?',
+      o:['Read access to the secondary','Zone redundancy within the primary region','A contractually lower RPO','Automatic failover'], a:1,
+      why:'GZRS = ZRS in the primary region plus asynchronous geo-replication to the secondary. "RA-" is the prefix that adds read access. Neither adds automatic failover — that is always customer-initiated.',
+      c:'GRS vs GZRS vs RA-GZRS', b:DATA },
+    q04:{ tier:400, h:'Geo-replication behaviour',
+      s:'Documented behaviour of geo-replication for Azure Storage is:',
+      o:['Synchronous, RPO of zero','Asynchronous, RPO typically minutes, with no RPO SLA','Synchronous, but only within the paired region','Asynchronous with a contractual 15-minute RPO'], a:1,
+      why:'Asynchronous, and Microsoft publishes no RPO SLA for it. If a requirement says "zero data loss", geo-redundant storage cannot be the answer on its own — you need synchronous replication or multi-region write.',
+      c:'Storage geo-replication is async, unSLA&#39;d', b:DATA },
+    q05:{ tier:400, h:'One-hour RTO for IaaS',
+      s:'A one-hour RTO for a full region failover of a fleet of IaaS VMs. Cheapest sufficient option?',
+      o:['Azure Backup with cross-region restore','Azure Site Recovery','Active/active second region','GZRS on the VM disks'], a:1,
+      why:'Backup restores at hours-per-terabyte; active/active meets an RTO of seconds but massively overshoots and overspends. ASR replicates continuously and fails over in minutes — the cheapest thing that actually meets one hour.',
+      c:'Cheapest sufficient pattern for a stated RTO', b:BCDR },
+    q06:{ tier:400, h:'What pairing actually guarantees',
+      s:'A paired region gives you, by definition:',
+      o:['Automatic failover of your resources','Sequential platform updates and prioritised regional recovery','Synchronous replication of your data','Guaranteed support from every Azure service'], a:1,
+      why:'Pairing means updates never roll to both at once, recovery is prioritised in a multi-region event, and there is physical separation with data residency in the same geography. It fails nothing over for you, and not every service uses the pair.',
+      c:'Paired region semantics', b:BCDR },
+    q07:{ tier:400, h:'Which does NOT stop ransomware?',
+      s:'Which of these does nothing to protect you from ransomware encrypting your data?',
+      o:['Immutable vault with multi-user authorisation','Blob versioning with soft delete','RA-GZRS geo-replication','Long-term retention backups'], a:2,
+      why:'Replication is a mirror. Anything the attacker&#39;s credentials can do to the primary shows up on the secondary within seconds. Only immutability, separated credentials and history help.',
+      c:'Replication vs backup against ransomware', b:BCDR },
+    q08:{ tier:400, h:'Failover group vs geo-replication',
+      s:'The deciding feature of an auto-failover group over active geo-replication is:',
+      o:['A materially lower RPO','The read-write listener endpoint plus automatic failover policy','Support for more secondaries','Lower cost'], a:1,
+      why:'Both use the same asynchronous replication and give a readable secondary. The failover group adds the listener — so applications never change their connection string — and the automatic policy with its grace period. That is why it wins whenever the requirement says "no application change".',
+      c:'The listener endpoint is the differentiator', b:DATA },
+    q09:{ tier:300, h:'What zone redundancy buys',
+      s:'A zone-redundant deployment protects you against:',
+      o:['Region-wide failure','Datacenter (zone) failure within one region','Data corruption','Accidental deletion'], a:1,
+      why:'Zones are physically separate datacenters inside one region with independent power, cooling and networking. They do nothing for a region-wide event, and nothing whatsoever for logical damage.',
+      c:'Zone redundancy scope', b:TREE },
+    q10:{ tier:400, h:'24 hours is a cheap number',
+      s:'Cheapest architecture that meets RTO 24 hours / RPO 24 hours for an internal batch workload:',
+      o:['Backup only, with cross-region restore enabled','GZRS plus a warm standby region','ASR replication to a second region','Active/active across two regions'], a:0,
+      why:'Match the pattern to the STATED numbers, not to your instincts. A 24-hour RTO is a restore, and a restore is the cheapest thing on the menu. Over-engineering is scored as a wrong answer on this exam.',
+      c:'Cheapest sufficient pattern', b:TREE },
+    q11:{ tier:400, h:'What multi-region write buys',
+      s:'Cosmos DB multi-region writes primarily buy you:',
+      o:['A lower RPO for backups','Write availability and local write latency in every region','Protection from accidental deletes','Strong consistency globally'], a:1,
+      why:'Multi-region writes give near-zero RTO/RPO for a regional failure plus local write latency, at the cost of conflict resolution and a much higher RU bill. They do nothing for logical corruption — that is continuous backup / PITR.',
+      c:'Cosmos multi-region write trade-offs', b:DATA },
+    q12:{ tier:400, h:'Front Door or Traffic Manager',
+      s:'For fast regional failover of an HTTPS application, the honest difference is:',
+      o:['They are identical; Front Door is just newer','Traffic Manager is faster because DNS is lightweight','Front Door reroutes at the anycast edge; Traffic Manager depends on DNS TTL and client caching','Traffic Manager terminates TLS at the edge'], a:2,
+      why:'Traffic Manager is a DNS resolver — failover is only as fast as the TTL your clients honour, and many do not. Front Door terminates the connection at the edge and reroutes in flight, plus it does WAF, caching and path-based routing.',
+      c:'Front Door vs Traffic Manager', b:TREE },
+    q13:{ tier:400, h:'Five-minute RPO for Azure SQL',
+      s:'Requirement: RPO of five minutes for an Azure SQL database, surviving a region loss. Cheapest sufficient:',
+      o:['Nightly full backup','Point-in-time restore alone','Active geo-replication or an auto-failover group','Active/active multi-region write'], a:2,
+      why:'Azure SQL geo-replication is asynchronous but continuous — lag is measured in seconds, comfortably inside five minutes. PITR protects against corruption but not against the region disappearing; nightly backup is a 24-hour RPO.',
+      c:'Matching an RPO to a replication technology', b:DATA },
+    q14:{ tier:400, h:'Seven years, provably unaltered',
+      s:'"Restore any single deleted file for up to seven years, and prove the backup cannot be altered." You buy:',
+      o:['GZRS','An immutable vault with long-term retention','Azure Site Recovery','Active/active second region'], a:1,
+      why:'Retention length and immutability are the requirement words. Nothing in a replication product addresses either — a mirror has no history and no write-once guarantee.',
+      c:'Retention and immutability are backup properties', b:BCDR },
+
+    /* ---- 100 FOUNDATION: three options, plain vocabulary ---------------- */
+    q101:{ tier:100, h:'What does RTO mean?',
+      s:'Every recovery conversation uses two letters-and-a-letter. This is the first one.',
+      o:['How much data you can afford to lose','How long you can afford to be down','How many copies of your data exist'], a:1,
+      why:'<strong>RTO — Recovery Time Objective</strong> — is about time: how long the service may be unavailable. Its partner, RPO, is about data. Almost every design decision in this game is really an argument about one of those two numbers.',
+      c:'RTO is time', b:BCDR },
+    q102:{ tier:100, h:'What does RPO mean?',
+      s:'And this is the second one.',
+      o:['How much data you can afford to lose','How long recovery takes','How often you test the plan'], a:0,
+      why:'<strong>RPO — Recovery Point Objective</strong> — is about data: how much recent work you can accept losing. If you back up nightly, your RPO is up to twenty-four hours no matter how fast the restore runs.',
+      c:'RPO is data', b:BCDR },
+    q103:{ tier:100, h:'Backup or replica?',
+      s:'You want to be able to go back to how things were an hour ago. Which one lets you do that?',
+      o:['A replica in another region','A backup taken an hour ago','More copies in the same datacenter'], a:1,
+      why:'A replica is a live mirror of <em>now</em>. A backup is a snapshot of <em>then</em>. Only the snapshot lets you travel backwards, and that is why every serious design owns both.',
+      c:'Backups go back in time; replicas do not', b:BCDR },
+    q104:{ tier:100, h:'What is an availability zone?',
+      s:'Somebody says the design is “zone redundant”. What does that actually mean physically?',
+      o:['A separate physical datacenter within one Azure region','A completely different Azure region','A second copy on the same server'], a:0,
+      why:'Zones are physically separate datacenters inside one region, with independent power, cooling and networking, close enough together for synchronous replication. Regions are separate geographies, far apart, and replication between them is asynchronous.',
+      c:'Zone versus region, defined', b:TREE },
+    q105:{ tier:100, h:'Nightly backup — what is your RPO?',
+      s:'Your only protection is a backup that runs once every night. How much work can you lose?',
+      o:['A few minutes','Up to a day','None at all'], a:1,
+      why:'Your RPO can never be better than the gap between protections. Nightly means up to twenty-four hours of work at risk. If the business cannot accept that, the backup <em>schedule</em> is the thing that has to change — restore speed will not help.',
+      c:'Backup frequency sets your RPO', b:BCDR },
+    q106:{ tier:100, h:'Which failure does redundancy NOT fix?',
+      s:'Redundancy is powerful and it has one very large blind spot.',
+      o:['A failed disk','A failed datacenter','Somebody deleting the data on purpose'], a:2,
+      why:'Redundancy protects you from things <em>breaking</em>. It does nothing about things being changed or removed on purpose, because those are valid operations and every copy performs them faithfully. That gap is the entire job of backup, versioning and locks.',
+      c:'Redundancy does not protect against intent', b:BCDR },
+
+    /* ---- 200 PRACTITIONER: the settings and defaults -------------------- */
+    q201:{ tier:200, h:'The default redundancy',
+      s:'You create a new storage account and change nothing in the redundancy dropdown. What do you get?',
+      o:['LRS','ZRS','GRS','RA-GRS'], a:0,
+      why:'The default is locally redundant storage — three copies inside one datacenter. It is the cheapest and the narrowest option on the list, and every other choice is a deliberate upgrade you have to make.',
+      c:'Storage redundancy default', b:DATA },
+    q202:{ tier:200, h:'Which one is synchronous?',
+      s:'One of these acknowledges the write only after every copy is durable. Which?',
+      o:['Geo-replication to the paired region','Zone-redundant storage within a region','Azure Backup','Azure Site Recovery'], a:1,
+      why:'ZRS writes to three zones and only then acknowledges — synchronous, so losing a zone costs zero data. Anything crossing regions is asynchronous, because of physics, which is why every geo option has an RPO greater than zero.',
+      c:'In-region is synchronous, cross-region is not', b:DATA },
+    q203:{ tier:200, h:'What does the “RA-” prefix add?',
+      s:'RA-GZRS costs more than GZRS. What is the extra money buying?',
+      o:['A lower RPO','Read access to the copy in the secondary region','Automatic failover','Immutable storage'], a:1,
+      why:'RA- means Read Access: your application gets a secondary endpoint it can read from. It does not change how replication works, does not lower the RPO, and does not fail anything over for you.',
+      c:'RA- means read access, nothing else', b:DATA },
+    q204:{ tier:200, h:'Where do you enable blob soft delete?',
+      s:'You want a grace period after a blob is deleted. Where is that switch?',
+      o:['On the subscription','In the storage account’s Data protection settings','In a Recovery Services vault','Only through Azure Policy'], a:1,
+      why:'Soft delete and versioning are storage account settings, under Data protection. They apply from the moment they are on — and they live <em>inside</em> the account, which matters a great deal later, when somebody deletes the account itself.',
+      c:'Where data protection settings live', b:DATA },
+    q205:{ tier:200, h:'What does Azure Site Recovery replicate?',
+      s:'A colleague calls ASR “our backup”. Correct them.',
+      o:['Database transactions only','Whole virtual machines, continuously, to another region','Blob containers','Configuration, but not data'], a:1,
+      why:'ASR continuously replicates a VM’s disks to a second region and can fail the whole machine over, with a test failover for rehearsal. It is a disaster-recovery tool for machines — not a backup, and not a database tool.',
+      c:'What ASR actually does', b:BCDR },
+    q206:{ tier:200, h:'Failover group versus geo-replication, plainly',
+      s:'Both replicate an Azure SQL database to another region. What does the failover group add?',
+      o:['They are the same feature under two names','A listener endpoint plus an automatic failover policy','Synchronous replication','A lower price'], a:1,
+      why:'Both replicate asynchronously and give you a readable secondary. The failover group adds the stable read-write listener — so applications never change their connection string — and the automatic policy with its grace period. That listener is the whole reason to pick it.',
+      c:'What a failover group adds', b:DATA },
+
+    /* ---- 300 PROFESSIONAL: numbers, limits and the bill ----------------- */
+    q301:{ tier:300, h:'Which configuration carries 99.99%?',
+      s:'The SLA table is open on the screen and somebody wants the four-nines row.',
+      o:['A single VM with premium SSD','Two or more VMs in an availability set','Two or more VMs across availability zones','A VM with a daily backup'], a:2,
+      why:'Roughly: single VM on premium disks 99.9%, availability set 99.95%, instances across availability zones 99.99%. Backup does not appear in the availability SLA at all — it is a recovery mechanism, and the SLA table has nothing to say about it.',
+      c:'The VM SLA ladder', b:TREE },
+    q302:{ tier:300, h:'Cheapest that meets a four-hour RTO',
+      s:'A 3 TB IaaS workload must be back within four hours of losing its region. Cheapest sufficient option?',
+      o:['Active/active across two regions','Azure Site Recovery to a second region','Backup with cross-region restore','Warm standby with reserved capacity'], a:1,
+      why:'A 3 TB restore rarely finishes inside four hours once you include building the machines. Active/active and warm standby both clear the bar and overshoot it expensively. ASR replicates continuously and fails over in tens of minutes — the cheapest thing that actually meets the stated number.',
+      c:'Cheapest sufficient, with the restore maths done', b:BCDR },
+    q303:{ tier:300, h:'What state are you in after a storage account failover?',
+      s:'You initiated the failover, it completed, and the account is serving from the secondary region. Now what?',
+      o:['It stays geo-redundant automatically','It is LRS in the new region until you re-enable geo-replication','Microsoft fails it back for you within 24 hours','Nothing changes except the endpoint'], a:1,
+      why:'Failover leaves the account locally redundant in the secondary. Until you re-enable geo-replication — which re-copies the whole account, with the time and egress that implies — a second failure has nowhere to go.',
+      c:'The state you are in after failover', b:DATA },
+    q304:{ tier:300, h:'Why does a geo-secondary cost so much?',
+      s:'Finance wants to know what the second database is for, given nobody has ever failed over to it.',
+      o:['Egress charges, mostly','It runs at the same service tier as the primary, continuously','It is billed per failover event','It doubles your backup retention'], a:1,
+      why:'A geo-secondary is a second production-sized database running all the time, whether or not you ever use it. That is the honest price of a minutes-level RTO. If the requirement tolerates hours, restore-based recovery is dramatically cheaper and you should say so.',
+      c:'Standby capacity is paid for continuously', b:DATA },
+    q305:{ tier:300, h:'A soft-delete window should be set from:',
+      s:'The default is fourteen days. What number should you actually use?',
+      o:['Whatever the service default is','Your measured mean time to detect an incident','The compliance retention period','The size of the data'], a:1,
+      why:'A recovery window shorter than your detection time protects nothing at all. Measure how long problems actually take to notice, set the window comfortably beyond it, and keep a longer immutable tail for the case where detection was slow.',
+      c:'Detection time drives window length', b:BCDR },
+    q306:{ tier:300, h:'When is a global anycast edge the wrong buy?',
+      s:'Front Door is excellent and it is not always the answer. When is it not?',
+      o:['When the application is HTTPS','When there is only one region to route to','When you need a web application firewall','When traffic is global'], a:1,
+      why:'A router with one destination cannot fail anything over. Front Door earns its cost when there is a second origin, a WAF requirement, or caching to be gained. Buying it before the second region exists is buying a switch with one position.',
+      c:'What a global router actually buys', b:TREE },
+
+    /* ---- 500 ARCHITECT: composition, cost per nine, failure modes ------- */
+    q501:{ tier:500, h:'What bounds this composite?',
+      s:'Two regions in parallel (99.9% each) behind a global router (99.99%), both reading and writing one globally distributed database (99.999%). What sets the ceiling?',
+      o:['The database, because it has the highest number','The router and the database, in series with the parallel pair','The parallel pair alone — redundancy removes the other terms','Nothing; parallelism makes it effectively 100%'], a:1,
+      why:'Redundant paths multiply <em>failure</em> (0.001 × 0.001 → 99.9999%), and that result is then multiplied in series with every shared component. Shared dependencies get no parallel benefit — they sit on the path for both legs, which is exactly why the router and the database dominate the answer.',
+      c:'Series and parallel in one composite', b:TREE },
+    q502:{ tier:500, h:'The marginal cost of a nine',
+      s:'Moving a design from 99.9% to 99.99% availability typically:',
+      o:['Costs about ten percent more','Roughly multiplies the resilience spend, to buy back about 43 minutes a month','Is free once zone redundancy is enabled','Is a licensing change'], a:1,
+      why:'Each nine removes an order of magnitude of downtime and tends to cost an order of magnitude more, because it forces redundancy into layers that were previously single. The architect’s job is to make the business state what an hour of downtime actually costs, and then buy exactly the nine that clears that number.',
+      c:'Cost per nine, and how to argue about it', b:TREE },
+    q503:{ tier:500, h:'A cell-based architecture primarily buys you:',
+      s:'You are proposing to partition four hundred tenants into independent stacks. What is the argument?',
+      o:['Lower cost','A bounded blast radius that doubles as a deployment unit','Stronger consistency','Automatic failover'], a:1,
+      why:'Cells partition tenants into independent stacks so a failure — or a bad release — affects one cell instead of everybody. The same boundary becomes your progressive-deployment unit. You pay for it in operational complexity and per-cell overhead, and that trade is the entire discussion.',
+      c:'What cells buy and what they cost', b:TREE },
+    q504:{ tier:500, h:'Active/active is LESS available when:',
+      s:'There is a real case where two live regions are worse than one live and one warm. Which?',
+      o:['Traffic is global','The data model cannot merge divergent writes','You are using a global router','The regions are far apart'], a:1,
+      why:'Under a network partition a multi-writer system either refuses writes or diverges and needs reconciliation. If your business data cannot be merged automatically, that reconciliation is a longer and far worse outage than a clean promotion of a passive region. Choose active/active for latency and scale — not reflexively for availability.',
+      c:'When multi-writer reduces availability', b:TREE }
+  };
+
+  /* =====================================================================
+   * SCENARIOS — the run you are handed
+   * ================================================================== */
+  var SCENARIOS = [
+    { tier:400, n:'Il Pipelino online ordering',
+      s:'App Service front end, Azure SQL behind it. Every order the restaurant takes flows through this. The CTO signed an SLA and did not read it first.',
+      budget:24, rto:60, rpo:15, scope:'region', corr:true,
+      deck:['d01','q01','d04','d28','d06','q07','d10','d08','d19'],
+      optimal:['avzone','failgroup','pitr','blobver','runbook'],
+      note:'Zone-redundant compute handles the instance and zone waves; the auto-failover group is the only region answer that also keeps the connection string working. PITR and versioning cover corruption and ransomware. A tested runbook is one credit.' },
+
+    { tier:400, n:'Nightly analytics archive',
+      s:'A finance data archive. Nobody reads it for weeks at a time. Legal reads it once every seven years and expects it to be untouched.',
+      budget:17, rto:1440, rpo:1440, scope:'region', corr:true,
+      deck:['d03','q10','d27','d02','d32','d11','q14','d23','d26'],
+      optimal:['zrs','immutable','crossrestore','chaos'],
+      note:'A 24-hour RTO is a restore, so you never buy replication compute. Immutability covers deletion, the account delete and the 40-day dwell time in one purchase; cross-region restore is the only thing that survives losing the vault&#39;s region.' },
+
+    { tier:400, n:'Regulated payments API',
+      s:'Card payments. The requirement document says zero data loss and "seconds, not minutes" — and the auditor has a copy.',
+      budget:27, rto:15, rpo:1, scope:'region', corr:true,
+      deck:['q02','d06','d13','d18','d15','d24','d16','d09','q13'],
+      optimal:['cosmosmw','frontdoor','chaos','lock'],
+      note:'An RPO of one minute rules out every asynchronous option — geo-redundant storage and failover groups included. Multi-region write is the only pattern that meets it, Front Door is the only router fast enough to matter, and MUA/locks stop the vault attack.' },
+
+    { tier:400, n:'Lift-and-shift ERP on IaaS',
+      s:'Twelve-year-old ERP, moved to Azure VMs unchanged. It cannot be re-architected, it cannot be containerised, and the vendor support contract expires if you touch it.',
+      budget:22, rto:240, rpo:60, scope:'region', corr:true,
+      deck:['d01','d37','d17','d29','q05','d06','d16','d21','d33'],
+      optimal:['warm','backup','tm','chaos'],
+      note:'A four-hour RTO is far too tight for a 14 TB restore and far too loose to justify active/active. Warm standby is one credit cheaper than ASR here <em>and</em> it holds capacity in the secondary — which is the wave that kills people who bought ASR. Backup is still mandatory, because replication happily brings the malware with it. Traffic Manager is enough routing when the RTO is measured in hours, and a game day is what turns a crash-consistent restore surprise into a Tuesday.' },
+
+    { tier:400, n:'Telemetry lake + Cosmos',
+      s:'Device telemetry landing in a data lake, hot state in Cosmos DB. Write-heavy, globally distributed devices, and a data science team that deletes things.',
+      budget:20, rto:240, rpo:60, scope:'region', corr:true,
+      deck:['d05','q03','d14','d34','d35','d08','q11','d31','d12'],
+      optimal:['zrs','cosmosmw','blobver','runbook'],
+      note:'Multi-region write answers the Cosmos region loss and doubles as read scale-out. Versioning is the cheap corruption and ransomware answer for the lake, and ZRS covers the zone wave synchronously with no RPO at all.' },
+
+    { tier:400, n:'Seed-stage startup, one engineer',
+      s:'Eleven customers, one engineer, and a board that will ask about resilience exactly once. The budget is not a negotiation.',
+      budget:14, rto:1440, rpo:1440, scope:'zone', corr:true,
+      deck:['d01','d03','d04','d20','q10','d11','d38','d36','q09'],
+      optimal:['zrs','avzone','lock','chaos'],
+      note:'The stated requirement is <strong>zone</strong> scope with a 24-hour RTO, so every region-scale product on this board is over-buying and scores against you. Zone redundancy on storage and compute covers three of the four disasters; a one-credit delete lock beats a two-credit versioning purchase for the deletion wave; and a single game day answers the certificate, the identity lockout and the never-tested-anything cards at once. Ten credits, requirement met, four in the bank.' },
+
+    /* --------------------------------------------------------- 100 ---- */
+    { tier:100, n:'The team’s first web app',
+      s:'One web app, one small database, eleven internal users. Nobody has ever been on call for it. Your job is to make it survive the ordinary things that happen to computers.',
+      budget:11, rto:240, rpo:60, scope:'zone', corr:true,
+      deck:['d101','q101','d103','d107','q103','d105','d106','d108','q106'],
+      optimal:['avzone','zrs','backup','lock','runbook'],
+      note:'Zone redundancy on the compute and the storage handles everything that <em>breaks</em> — the host reboot, the dead drive, the building losing power. A backup handles everything that <em>changes</em> — the bad write, the wrong version, the deletion. A one-credit lock stops the delete happening at all, and a one-credit runbook is the difference between owning all that and being able to use it. Nothing here needs a second region, because the requirement never asked for one.' },
+
+    { tier:100, n:'The shared file store',
+      s:'A storage account holding documents the whole company edits. It is not a live service — people simply need their files to still exist tomorrow, and to be recoverable when somebody has a bad afternoon.',
+      budget:9, rto:1440, rpo:1440, scope:'zone', corr:true,
+      deck:['d102','q102','d113','d105','q105','d112','d110','q104','d111'],
+      optimal:['zrs','backup','blobver','runbook'],
+      note:'A day of RTO and a day of RPO means you never buy anything that <em>runs</em> in a second region. Zone-redundant storage covers the building, versioning covers the overwrite, backup covers the deletion, and the runbook is the one credit that turns all of it into something a colleague could actually use at 3am without you.' },
+
+    /* --------------------------------------------------------- 200 ---- */
+    { tier:200, n:'The company intranet',
+      s:'An internal App Service with an Azure SQL database behind it. It matters during working hours and nobody dies if it is out overnight. You have been asked to configure the standard protections properly, for once.',
+      budget:12, rto:240, rpo:60, scope:'region', corr:true,
+      deck:['d202','q201','d208','d213','q206','d212','d216','d215','q202'],
+      optimal:['activegeo','tm','pitr','lock','runbook'],
+      note:'Active geo-replication meets a four-hour RTO for two credits less than a failover group, and Traffic Manager is enough routing when the requirement is measured in hours rather than seconds. Point-in-time restore is the corruption answer for Azure SQL; a one-credit lock stops the resource-group accident. Every region-scale product you add beyond this is money the requirement did not ask for.' },
+
+    { tier:200, n:'The document platform',
+      s:'A storage-heavy document platform on blobs, with a Cosmos DB container holding the metadata. The team is doing its first proper resilience pass and mostly needs the standard settings switched on in the right places.',
+      budget:12, rto:480, rpo:60, scope:'zone', corr:true,
+      deck:['d201','q201','d204','q204','d210','d216','q202','d212','q203'],
+      optimal:['zrs','blobver','cosmospitr','runbook'],
+      note:'Nothing here asks for a second region, so nothing here should buy one. Zone-redundant storage is the whole availability answer at this scope; versioning and Cosmos continuous backup are the two corruption answers for the two data stores; and the runbook is the credit that makes the other three usable by somebody who is not you.' },
+
+    /* --------------------------------------------------------- 300 ---- */
+    { tier:300, n:'Cost review on the ERP',
+      s:'The resilience design is signed and working. Finance has now asked why it costs what it costs, and the board wants the same protection for less money. Every credit you leave unspent is part of the answer.',
+      budget:15, rto:240, rpo:60, scope:'region', corr:true,
+      deck:['d301','q302','d306','d302','q304','d314','d316','d311','q306'],
+      optimal:['asr','tm','backup','runbook'],
+      note:'The requirement is four hours and one hour — not seconds — so ASR plus DNS routing clears it and active/active never needs to exist. Backup is simultaneously the corruption answer and the file-level restore answer, which is the request you will actually receive most often. One runbook credit is what makes the standby-capacity surprise survivable. Thirteen credits, requirement met, and every extra region-scale product is a line the board will ask about.' },
+
+    { tier:300, n:'Cosmos and SQL, growing fast',
+      s:'A product that has doubled its data volume twice this year. Nothing is broken. Everything is simply at the edge of a limit somebody set in year one, and none of the original numbers hold any more.',
+      budget:14, rto:120, rpo:15, scope:'region', corr:true,
+      deck:['d303','q304','d304','d307','d315','d308','d314','d316','q301'],
+      optimal:['failgroup','pitr','blobver'],
+      note:'Every wave here is a limit, not a failure. The auto-failover group is the one region-scale purchase that answers the SQL region loss, the replication-churn problem and the post-failover state all at once — and it costs less than the multi-region-write bill you were about to sign. Point-in-time restore covers the growing backup window and the corruption requirement together, and two credits of blob versioning is the cheap corruption answer for the object store.' },
+
+    /* --------------------------------------------------------- 500 ---- */
+    { tier:500, n:'The four-nines contract',
+      s:'Sales has committed to 99.99% and a fifteen-minute RTO for a platform spanning two regions, a global router, a third-party payment provider and a message queue. You are chairing the review that decides whether that is a promise or a lie.',
+      budget:24, rto:15, rpo:1, scope:'region', corr:true,
+      deck:['d502','q501','d503','d507','q502','d504','d509','d501','q504'],
+      optimal:['cosmosmw','frontdoor','cosmospitr','chaos','runbook'],
+      note:'Fifteen minutes and one minute rule out every asynchronous product on the board, so multi-region write is the only data answer and an anycast edge is the only router fast enough to matter. Everything else in the optimal set is process — continuous backup for the corruption clause the contract also contains, a rehearsed sequence, and a game day. Six of these nine waves are failures of ordering, decision-making and recovery behaviour that no product on the shop board can buy you out of.' },
+
+    { tier:500, n:'The multi-tenant platform under review',
+      s:'One platform, four hundred tenants, one shared database tier and one deployment pipeline. Nothing has failed yet. The review is about what happens the first time something does, and how much of the customer base goes with it.',
+      budget:21, rto:60, rpo:15, scope:'region', corr:true,
+      deck:['d506','q503','d508','d510','q504','d505','d501','d504','q502'],
+      optimal:['warm','frontdoor','backup','chaos','runbook'],
+      note:'The stated numbers are an hour and fifteen minutes, which warm standby plus an anycast edge meets exactly. Active/active costs four more credits, imports a consistency problem this data model cannot solve, and does not improve the number. The rest of the budget goes where the actual risk is: a shared blast radius, a control plane both regions depend on, a residency constraint that removes geo options entirely, and a recovery that has to work on a system under full load. At this altitude most of the answer is not a product.' }
+  ];
+
+  /* =====================================================================
+   * WHAT THIS DRILLS
+   * ================================================================== */
+  var DRILLS = [
+    [BCDR, 'Business Continuity &amp; DR',
+      'Backup vs ASR vs replication · why replication propagates corruption and ransomware and backup does not · immutable vaults, MUA, soft delete and retention as a security control · cross-region restore · customer-managed vs Microsoft-managed failover · paired-region semantics · secondary-region capacity · test failover as audit evidence · untested DR has no RTO · matching a stated RTO/RPO to the cheapest sufficient pattern.'],
+    [DATA, 'Data Storage Design',
+      'LRS / ZRS / GZRS / RA-GZRS blast radius and async behaviour · read access is not write access · SQL PITR vs active geo-replication vs auto-failover groups (and the listener endpoint) · failover-group grace periods · Cosmos multi-region write vs read and continuous backup · versioning and soft delete living inside the account · access tier as an RTO constraint.'],
+    [TREE, 'The Decision Trees',
+      'SLA composition maths (series multiplies uptime, parallel multiplies failure) · zone vs region scope · Front Door vs Traffic Manager · warm standby vs active/active vs the stated RTO · regional vs zonal vs global service behaviour · AKS multi-region.'],
+    [GOV, 'Identity, Governance &amp; Monitoring Design',
+      'Resource locks as a BCDR control · subscription and tenant as failure domains · Entra ID as a global blast radius and break-glass accounts · certificate expiry and the outages redundancy cannot fix.']
+  ];
+  function drillsHTML() {
+    var h = '<summary class="hand">What this drills 🛡️</summary>' +
+            '<p class="small" style="margin:.3rem 0 .7rem">Every card maps to one of these boards. A lost run is a reading list.</p><div class="dr-recap">';
+    DRILLS.forEach(function (d) {
+      h += '<a href="' + WB + d[0] + '.html" style="border-left-color:var(--mk-blue)"><b>' + d[1] + '</b><span>' + d[2] + '</span></a>';
+    });
+    return h + '</div>';
+  }
+  document.getElementById('dr-drills-title').innerHTML = drillsHTML();
+
+  /* =====================================================================
+   * SCENES
+   * ================================================================== */
+  function scene(kind) {
+    var ink = 'var(--mk-ink)', sw = 'stroke="' + ink + '" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"';
+    var head = '<svg class="dr-scene" viewBox="0 0 240 150" role="img" aria-label="incident">';
+    var rack = function (x, c) {
+      return '<rect x="' + x + '" y="46" width="40" height="76" rx="5" fill="' + c + '" ' + sw + '/>' +
+             '<path d="M' + (x + 7) + ' 60 h26 M' + (x + 7) + ' 74 h26 M' + (x + 7) + ' 88 h26 M' + (x + 7) + ' 102 h26" stroke="var(--ink-soft)" stroke-width="3" stroke-linecap="round"/>';
+    };
+    if (kind === 'INSTANCE') {
+      return head + rack(40, 'var(--board-2)') + rack(100, 'color-mix(in srgb,var(--mk-red) 30%,var(--board-2))') + rack(160, 'var(--board-2)') +
+        '<path d="M106 30 l28 28 M134 30 l-28 28" stroke="var(--mk-red)" stroke-width="7" stroke-linecap="round"/></svg>';
+    }
+    if (kind === 'ZONE') {
+      return head +
+        '<circle cx="62" cy="84" r="34" fill="color-mix(in srgb,var(--mk-red) 24%,var(--board-2))" ' + sw + '/>' +
+        '<circle cx="128" cy="84" r="34" fill="var(--board-2)" ' + sw + '/>' +
+        '<circle cx="194" cy="84" r="34" fill="var(--board-2)" ' + sw + '/>' +
+        '<text x="62" y="90" text-anchor="middle" font-size="20" font-weight="800" fill="var(--mk-red)">1</text>' +
+        '<text x="128" y="90" text-anchor="middle" font-size="20" font-weight="800" fill="var(--ink-soft)">2</text>' +
+        '<text x="194" y="90" text-anchor="middle" font-size="20" font-weight="800" fill="var(--ink-soft)">3</text>' +
+        '<path d="M40 44 l44 44 M84 44 l-44 44" stroke="var(--mk-red)" stroke-width="6" stroke-linecap="round"/>' +
+        '<text x="128" y="26" text-anchor="middle" font-size="12" font-weight="800" fill="var(--ink-soft)">ONE REGION</text></svg>';
+    }
+    if (kind === 'REGION') {
+      return head +
+        '<rect x="14" y="42" width="92" height="76" rx="9" fill="color-mix(in srgb,var(--mk-red) 22%,var(--board-2))" ' + sw + '/>' +
+        '<rect x="134" y="42" width="92" height="76" rx="9" fill="var(--board-2)" ' + sw + '/>' +
+        '<text x="60" y="34" text-anchor="middle" font-size="12" font-weight="800" fill="var(--mk-red)">PRIMARY</text>' +
+        '<text x="180" y="34" text-anchor="middle" font-size="12" font-weight="800" fill="var(--ink-soft)">SECONDARY</text>' +
+        '<path d="M28 60 l64 44 M92 60 l-64 44" stroke="var(--mk-red)" stroke-width="7" stroke-linecap="round"/>' +
+        '<path d="M148 66 h64 M148 82 h64 M148 98 h44" stroke="var(--ink-soft)" stroke-width="4" stroke-linecap="round"/>' +
+        '<path d="M108 80 h24" stroke="var(--mk-orange)" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 5"/>' +
+        '<path d="M126 74 l8 6 l-8 6" fill="none" stroke="var(--mk-orange)" stroke-width="4" stroke-linecap="round"/></svg>';
+    }
+    if (kind === 'RANSOM') {
+      return head +
+        '<rect x="52" y="62" width="136" height="66" rx="8" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M92 62 V44 a28 28 0 0 1 56 0 v18" fill="none" ' + sw + '/>' +
+        '<circle cx="120" cy="92" r="10" fill="var(--mk-pink)" stroke="' + ink + '" stroke-width="3"/>' +
+        '<path d="M120 100 v14" stroke="' + ink + '" stroke-width="5" stroke-linecap="round"/>' +
+        '<text x="120" y="24" text-anchor="middle" font-family="monospace" font-size="13" font-weight="800" fill="var(--mk-pink)">.encrypted</text>' +
+        '<path d="M196 76 h30 M196 94 h30" stroke="var(--mk-pink)" stroke-width="4" stroke-linecap="round" stroke-dasharray="5 5"/></svg>';
+    }
+    if (kind === 'DATA') {
+      return head +
+        '<ellipse cx="120" cy="44" rx="58" ry="17" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M62 44 v56 a58 17 0 0 0 116 0 V44" fill="var(--board-2)" ' + sw + '/>' +
+        '<path d="M62 72 a58 17 0 0 0 116 0" fill="none" ' + sw + '/>' +
+        '<text x="120" y="96" text-anchor="middle" font-family="monospace" font-size="15" font-weight="800" fill="var(--mk-orange)">NULL NULL NULL</text>' +
+        '<path d="M186 118 l16 16 M202 118 l-16 16" stroke="var(--mk-orange)" stroke-width="6" stroke-linecap="round"/></svg>';
+    }
+    if (kind === 'WIN') {
+      return head +
+        '<path d="M120 16 L196 44 v34 c0 34-34 52-76 60 C78 130 44 112 44 78 V44 Z" ' +
+          'fill="color-mix(in srgb,var(--mk-green) 20%,var(--board-2))" stroke="var(--mk-green)" stroke-width="5" stroke-linejoin="round"/>' +
+        '<path d="M86 78 l22 22 l46 -46" fill="none" stroke="var(--mk-green)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+    /* HUMAN */
+    return head +
+      '<circle cx="120" cy="46" r="20" fill="var(--board-2)" ' + sw + '/>' +
+      '<path d="M120 66 v34 M96 78 h48 M100 128 l20-28 l20 28" fill="none" ' + sw + '/>' +
+      '<rect x="150" y="66" width="60" height="42" rx="5" fill="var(--board-2)" ' + sw + '/>' +
+      '<text x="180" y="93" text-anchor="middle" font-family="monospace" font-size="13" font-weight="800" fill="var(--mk-red)">rm -rf</text>' +
+      '<path d="M30 96 q14-22 30 0" fill="none" stroke="var(--mk-red)" stroke-width="4" stroke-linecap="round"/>' +
+      '<text x="45" y="126" text-anchor="middle" font-size="11" font-weight="800" fill="var(--mk-red)">oops</text></svg>';
+  }
+
+  /* =====================================================================
+   * STATE
+   * ================================================================== */
+  var byId = function (id) { return document.getElementById(id); };
+  var elTitle = byId('dr-title'), elPlay = byId('dr-play'), elOver = byId('dr-over');
+  var G = null, veil = null;
+
+  function fmtT(m) {
+    if (m === Infinity || m === null) return 'none';
+    if (m === 0) return '≈ zero';
+    if (m < 60) return m + ' min';
+    if (m < 1440) return (m / 60).toFixed(m % 60 ? 1 : 0) + ' h';
+    return (m / 1440) + ' day' + (m / 1440 > 1 ? 's' : '');
+  }
+  function costOf(ids) { var t = 0; ids.forEach(function (i) { t += DEF[i].c; }); return t; }
+
+  /** A card's own depth, shown on the wave so a curated mix stays honest. */
+  function tierPill(v) {
+    var t = S.tier.of(v);
+    return '<span class="tier-pill tier-any" data-tier="' + t + '" ' +
+           'style="--tier-color:var(--t' + t + ')">' + t + ' ' + S.tier.label(t) + '</span>';
+  }
+
+  function achieved() {
+    var reqRank = RANK[G.sc.scope];
+    var rto = Infinity, rtoWin = null, rpo = Infinity;
+    Object.keys(G.own).forEach(function (id) {
+      var d = DEF[id];
+      if (RANK[d.s] < reqRank) return;
+      if (d.rto !== null && d.rto < rto) { rto = d.rto; rtoWin = id; }
+      if (d.rpo !== null && d.rpo < rpo) { rpo = d.rpo; }
+    });
+    if (rtoWin && NEEDS_ROUTE[rtoWin] && reqRank >= 3) {
+      rto += G.own.frontdoor ? 0 : (G.own.tm ? 60 : 240);
+    }
+    var corr = Object.keys(G.own).some(function (id) { return DEF[id].corr; });
+    return { rto: rto, rpo: rpo, corr: corr };
+  }
+
+  function newGame() {
+    var c = cfg();
+    var pool = scenariosFor();
+    var sc = S.pick(pool.length ? pool : SCENARIOS);
+    /* the run's budget is the scenario's, scaled to the tier's forgiveness */
+    var budget = Math.max(4, Math.round(sc.budget * c.budget));
+    /* The SCENARIO is the unit the tier filter selects; its deck is
+       hand-curated and plays in full. A tier-400 architecture is allowed to
+       walk you past a card whose own tier is 300 — that is the point of a
+       curated deck. Unknown keys are dropped so a typo cannot wedge a run. */
+    var deck = sc.deck.filter(function (k) { return !!(CARDS[k] || QUIZ[k]); });
+    G = {
+      sc: sc, cfg: c, tier: S.tier.get(), budget: budget,
+      own: {}, spent: 0, wave: 0, strikes: 0, maxStrikes: c.strikes,
+      score: 0, survived: 0, quizOk: 0, missed: [], alive: true, deck: deck
+    };
+  }
+
+  /** Which defences are on sale at the selected tier. */
+  function inShop(id) {
+    var shop = (G && G.cfg ? G.cfg.shop : cfg().shop);
+    return !shop || shop.indexOf(id) !== -1;
+  }
+
+  /* ------------------------------------------------------------ render -- */
+  function cell(v, l, c) { return '<div class="dr-cell" style="--dr-c:' + c + '"><b>' + v + '</b><span>' + l + '</span></div>'; }
+
+  function renderAll() {
+    var sc = G.sc, a = achieved();
+    var left = G.budget - G.spent;
+
+    byId('dr-brief').innerHTML =
+      '<span class="box-title">The architecture you inherited</span>' +
+      '<p style="margin-bottom:.35rem"><strong>' + sc.n + '</strong> — ' + sc.s + '</p>' +
+      '<p class="small" style="margin:0">Signed requirement: <strong>RTO ' + fmtT(sc.rto) + '</strong> · ' +
+      '<strong>RPO ' + fmtT(sc.rpo) + '</strong> · scope: <strong>' + sc.scope + '</strong>' +
+      (sc.corr ? ' · must survive <strong>logical corruption</strong>' : '') + '</p>';
+
+    var hearts = '';
+    for (var i = 0; i < G.maxStrikes; i++) hearts += (i < (G.maxStrikes - G.strikes) ? '●' : '○');
+    byId('dr-strip').innerHTML =
+      cell(G.score.toLocaleString(), 'score', 'var(--mk-blue)') +
+      cell(left, 'credits left', left <= 2 ? 'var(--mk-red)' : 'var(--mk-green)') +
+      cell(hearts, 'trust', 'var(--mk-red)') +
+      cell((G.wave) + '/' + G.deck.length, 'waves', 'var(--mk-purple)') +
+      cell(G.tier, S.tier.label(G.tier), 'var(--t' + G.tier + ')') +
+      cell(G.survived, 'survived', 'var(--mk-teal)');
+
+    byId('dr-budgetbar').style.width = (left / G.budget * 100).toFixed(1) + '%';
+    byId('dr-budgetwrap').classList.toggle('is-tight', left / G.budget < 0.25);
+
+    byId('dr-meters').innerHTML =
+      meter('Achieved RTO', fmtT(a.rto), 'required ' + fmtT(sc.rto), a.rto <= sc.rto) +
+      meter('Achieved RPO', fmtT(a.rpo), 'required ' + fmtT(sc.rpo), a.rpo <= sc.rpo) +
+      meter('Corruption-safe', a.corr ? 'yes' : 'no', sc.corr ? 'required' : 'not required', a.corr || !sc.corr);
+    renderShop();
+  }
+  function meter(h, v, sub, ok) {
+    var c = ok ? 'var(--mk-green)' : 'var(--mk-red)';
+    return '<div class="dr-meter" style="--m-c:' + c + '"><h5>' + h + '</h5><p>' + v + '<small>' + sub + '</small></p></div>';
+  }
+
+  function renderShop() {
+    var left = G.budget - G.spent, h = '';
+    SHOP_GROUPS.forEach(function (g) {
+      var ids = g.ids.filter(inShop);
+      if (!ids.length) return;
+      h += '<h4 class="dr-group-h" style="--g-c:' + g.c + '">' + g.n + '</h4><div class="dr-shop">';
+      ids.forEach(function (id) {
+        var d = DEF[id], own = !!G.own[id], afford = d.c <= left;
+        h += '<button type="button" class="dr-buy' + (own ? ' is-own' : '') + '" data-id="' + id + '"' +
+             ' style="--b-c:' + g.c + '"' + ((own || !afford) ? ' disabled' : '') + '>' +
+             '<span class="c">' + d.c + '</span><span class="k">' + KEY_OF[id] + '</span>' +
+             '<b>' + d.n + '</b><span class="d">' + d.d + '</span></button>';
+      });
+      h += '</div>';
+    });
+    byId('dr-shop').innerHTML = h;
+  }
+
+  /** The shop aisles that hold something able to survive this card. */
+  function aislesFor(c) {
+    var names = [];
+    SHOP_GROUPS.forEach(function (g) {
+      if (g.ids.some(function (id) { return c.saves.indexOf(id) !== -1; })) {
+        names.push('<strong style="color:' + g.c + '">' + g.n + '</strong>');
+      }
+    });
+    return names.join(' · ');
+  }
+
+  function renderIncoming() {
+    var next = G.deck[G.wave];
+    if (!next) return;
+    if (next.charAt(0) === 'q') {
+      byId('dr-incoming').innerHTML =
+        '<span class="box-title">Wave ' + (G.wave + 1) + ' — incoming</span>' +
+        '<p style="margin:0"><span class="dr-threat" style="color:var(--mk-blue)">REQUIREMENT CHECK</span> ' +
+        'The architecture review board has a question. Get it wrong and it costs you <strong>3 credits</strong>.</p>';
+      byId('dr-hint').innerHTML = 'No purchase will help you here. Think.';
+    } else {
+      var c = CARDS[next], th = THREATS[c.th];
+      byId('dr-incoming').innerHTML =
+        '<span class="box-title">Wave ' + (G.wave + 1) + ' — incoming</span>' +
+        '<p style="margin:0">Threat class: <span class="dr-threat" style="color:' + th.c + '">' + th.t + '</span> — ' +
+        'buy now, or find out you should have.</p>' +
+        (G.cfg.hint ? '<p class="small" style="margin:.4rem 0 0">💡 Look in: ' + aislesFor(c) + '</p>' : '');
+      byId('dr-hint').innerHTML = 'You survive if you own <em>anything</em> that genuinely mitigates it.';
+    }
+  }
+
+  /* -------------------------------------------------------------- buy -- */
+  function buy(id) {
+    if (!G || !G.alive || veil) return;
+    if (!inShop(id)) return;   /* not on sale at this tier */
+    if (G.own[id]) return;
+    var left = G.budget - G.spent;
+    if (DEF[id].c > left) { S.toast('Not enough budget for ' + DEF[id].n, 'bad', 1600); S.sfx.wrong(); return; }
+    G.own[id] = true; G.spent += DEF[id].c;
+    S.sfx.tick();
+    renderAll();
+  }
+
+  /* ------------------------------------------------------------- wave -- */
+  function faceWave() {
+    if (!G || !G.alive || veil) return;
+    var key = G.deck[G.wave];
+    if (!key) { finish('survived'); return; }
+    if (key.charAt(0) === 'q') { askQuiz(QUIZ[key]); return; }
+    resolveDisaster(CARDS[key]);
+  }
+
+  function ownedIn(list) { return (list || []).filter(function (id) { return G.own[id]; }); }
+
+  function resolveDisaster(c) {
+    var helped = ownedIn(c.saves);
+    var wasted = ownedIn(c.useless);
+    var th = THREATS[c.th];
+    G.wave++;
+
+    var body =
+      scene(helped.length ? 'WIN' : c.th) +
+      '<p><span class="dr-threat" style="color:' + th.c + '">' + th.t + '</span> ' + tierPill(c.tier) + '</p>' +
+      '<p>' + c.s + '</p>' + tagsHTML(helped, wasted, c) +
+      '<div class="' + (helped.length ? 'keyfact' : 'trap') + '" data-label="' +
+        (helped.length ? '★ WHY THAT WORKED' : '⚠ ' + c.c.toUpperCase()) + '"><p>' + c.why + '</p></div>';
+
+    if (helped.length) {
+      G.survived++; G.score += 120;
+      S.sfx.correct();
+      showVeil({ title: 'Survived — ' + c.h, color: 'var(--mk-green)', body: body + '<p class="small">+120 points.</p>' });
+    } else {
+      G.strikes++; G.score = Math.max(0, G.score - 40);
+      if (G.missed.indexOf(c) === -1) G.missed.push(c);
+      S.sfx.wrong();
+      var fix = c.saves.map(function (id) { return DEF[id].n + ' (' + DEF[id].c + ')'; }).join(' · ');
+      showVeil({
+        title: 'OUTAGE — ' + c.h, color: 'var(--mk-red)',
+        body: body +
+          '<p class="small"><strong>Anything on this list would have saved you:</strong> ' + fix + '</p>' +
+          '<p class="small"><a href="' + WB + c.b + '.html">Read the board on this →</a> · Trust remaining: ' +
+          (G.maxStrikes - G.strikes) + '/' + G.maxStrikes + '</p>'
+      });
+    }
+  }
+
+  function tagsHTML(helped, wasted, c) {
+    var h = '<div class="dr-tags">';
+    helped.forEach(function (id) { h += '<span class="dr-ok">✓ ' + DEF[id].n + ' saved you</span>'; });
+    wasted.forEach(function (id) { h += '<span class="dr-huh">◆ ' + DEF[id].n + ' did nothing here</span>'; });
+    if (!helped.length && !wasted.length) h += '<span class="dr-no">✗ nothing you own touches this</span>';
+    return h + '</div>';
+  }
+
+  function askQuiz(q) {
+    G.wave++;
+    var opts = q.o.map(function (t, i) {
+      return '<button type="button" class="dr-opt" data-i="' + i + '"><em>' + (i + 1) + '</em>' + t + '</button>';
+    }).join('');
+    showVeil({
+      title: 'Architecture review: ' + q.h, color: 'var(--mk-blue)', noBtn: true,
+      body: '<p>' + tierPill(q.tier) + '</p><p>' + q.s + '</p><div class="dr-opts" id="dr-quizopts">' + opts + '</div>' +
+            '<p class="small">Wrong answers cost 3 credits.</p>'
+    });
+    var host = byId('dr-quizopts');
+    host.addEventListener('click', function (ev) {
+      var b = ev.target.closest ? ev.target.closest('.dr-opt') : null;
+      if (b) answerQuiz(q, parseInt(b.getAttribute('data-i'), 10));
+    });
+    veil.__quiz = q;
+  }
+
+  function answerQuiz(q, i) {
+    if (!veil || veil.__answered) return;
+    veil.__answered = true;
+    var btns = byId('dr-quizopts').querySelectorAll('.dr-opt');
+    for (var k = 0; k < btns.length; k++) {
+      if (k === q.a) btns[k].classList.add('is-right');
+      else if (k === i) btns[k].classList.add('is-wrong');
+      btns[k].disabled = true;
+    }
+    var right = (i === q.a);
+    if (right) { G.score += 90; G.quizOk++; G.survived++; S.sfx.correct(); }
+    else {
+      G.spent = Math.min(G.budget, G.spent + 3);
+      G.score = Math.max(0, G.score - 30);
+      S.sfx.wrong();
+      if (G.missed.indexOf(q) === -1) G.missed.push(q);
+    }
+    var extra = document.createElement('div');
+    extra.innerHTML =
+      '<div class="' + (right ? 'keyfact' : 'trap') + '" data-label="' +
+        (right ? '★ ' + q.c.toUpperCase() : '⚠ ' + q.c.toUpperCase()) + '"><p>' + q.why + '</p></div>' +
+      '<p class="small">' + (right ? '+90 points.' : '−3 credits, −30 points. ') +
+        '<a href="' + WB + q.b + '.html">Read the board →</a></p>' +
+      '<div class="row" style="margin-top:.7rem"><button class="btn btn--primary" id="dr-next">Continue ⏎</button></div>';
+    veil.firstChild.appendChild(extra);
+    byId('dr-next').addEventListener('click', dismissVeil);
+    byId('dr-next').focus();
+  }
+
+  /* ------------------------------------------------------------- veil -- */
+  function showVeil(cfg) {
+    veil = document.createElement('div');
+    veil.className = 'dr-veil';
+    veil.innerHTML =
+      '<div class="fx-pop" style="--v-c:' + cfg.color + '"><h2 class="hand">' + cfg.title + '</h2>' + cfg.body +
+      (cfg.noBtn ? '' :
+        '<div class="row" style="margin-top:.9rem"><button class="btn btn--primary" id="dr-next">' +
+        (G.strikes >= G.maxStrikes ? 'See the scorecard ⏎' : 'Continue ⏎') + '</button></div>') +
+      '</div>';
+    byId('dr-veil-host').appendChild(veil);
+    if (!cfg.noBtn) {
+      var b = byId('dr-next');
+      b.addEventListener('click', dismissVeil);
+      b.focus();
+    }
+  }
+
+  function dismissVeil() {
+    if (!veil) return;
+    veil.parentNode.removeChild(veil); veil = null;
+    if (G.strikes >= G.maxStrikes) { finish('lost'); return; }
+    if (G.wave >= G.deck.length) { finish('survived'); return; }
+    renderAll(); renderIncoming();
+  }
+
+  /* --------------------------------------------------------- scorecard -- */
+  function finish(reason) {
+    G.alive = false;
+    var sc = G.sc, a = achieved();
+    var rtoOk = a.rto <= sc.rto, rpoOk = a.rpo <= sc.rpo, corrOk = a.corr || !sc.corr;
+    var optCost = costOf(sc.optimal);
+    var over = G.spent - optCost;
+
+    if (rtoOk)  G.score += 250;
+    if (rpoOk)  G.score += 250;
+    if (corrOk) G.score += 150;
+    var efficiency = Math.max(0, 400 - G.cfg.over * Math.max(0, over));
+    G.score += efficiency;
+    G.score += Math.max(0, G.budget - G.spent) * 10;
+    /* the tier multiplier lands once, on the finished total */
+    G.score = Math.round(G.score * G.cfg.mult);
+
+    /* best scores are kept PER TIER — 'dr-dilemma@300', etc. — so a
+       foundation run is never measured against an architect run. */
+    var key = GAME_ID + '@' + G.tier;
+    var prev = S.score.best(key);
+    var isBest = S.score.save(key, G.score);
+    var delta = G.score - prev;
+    var xpGain = Math.max(10, Math.round(G.score / 45));
+    S.xp.add(xpGain, 'DR Dilemma — ' + G.survived + ' waves survived');
+    if (G.score >= 1200) S.progress.complete(GAME_ID);
+    if (isBest) S.confetti();
+
+    var mine = Object.keys(G.own).sort(function (x, y) { return DEF[y].c - DEF[x].c; });
+    var vs = '<div class="scroll-x"><table class="dr-vs"><thead><tr>' +
+             '<th>What you built (' + G.spent + ' credits)</th><th>Cheapest correct architecture (' + optCost + ')</th></tr></thead><tbody><tr><td>' +
+             (mine.length ? mine.map(function (id) {
+                var need = sc.optimal.indexOf(id) !== -1;
+                return '<div style="color:' + (need ? 'var(--mk-green)' : 'var(--mk-orange)') + '">' +
+                       (need ? '✓ ' : '△ ') + DEF[id].n + ' <span class="small">(' + DEF[id].c + ')</span></div>';
+              }).join('') : '<em>you bought nothing at all</em>') +
+             '</td><td>' +
+             sc.optimal.map(function (id) {
+                var got = !!G.own[id];
+                return '<div style="color:' + (got ? 'var(--mk-green)' : 'var(--mk-red)') + '">' +
+                       (got ? '✓ ' : '✗ ') + DEF[id].n + ' <span class="small">(' + DEF[id].c + ')</span></div>';
+              }).join('') +
+             '</td></tr></tbody></table></div>' +
+             '<div class="keyfact" data-label="★ WHY THAT IS THE CHEAPEST CORRECT ANSWER"><p>' + sc.note + '</p></div>';
+
+    var missHTML = '';
+    if (G.missed.length) {
+      missHTML = '<h3 class="hand">What got you</h3><div class="dr-recap">';
+      G.missed.forEach(function (m) {
+        missHTML += '<a href="' + WB + m.b + '.html"><b>' + m.c + '</b><span>“' + m.h + '”</span></a>';
+      });
+      missHTML += '</div>';
+    }
+
+    var deltaLine = isBest
+      ? (prev > 0
+          ? '<strong style="color:var(--mk-green)">NEW PERSONAL BEST — you beat ' + prev.toLocaleString() + ' by ' + delta.toLocaleString() + '.</strong>'
+          : '<strong style="color:var(--mk-green)">First score on the board: ' + G.score.toLocaleString() + '.</strong>')
+      : 'You finished <strong style="color:var(--mk-red)">' + Math.abs(delta).toLocaleString() + '</strong> short of your best (' +
+        prev.toLocaleString() + '). ' + (over > 0
+          ? 'Spending ' + over + ' credits over the optimal cost you ' + Math.round((400 - efficiency) * G.cfg.mult) + ' points on its own.'
+          : 'Two more surviving waves would have covered it.');
+
+    elPlay.classList.add('is-hidden');
+    elOver.classList.remove('is-hidden');
+    elOver.innerHTML =
+      '<h1 class="hand" style="color:' + (reason === 'lost' ? 'var(--mk-red)' : 'var(--mk-green)') + '">' +
+        (reason === 'lost' ? 'The board has lost confidence.' : 'You made it to the post-mortem.') + '</h1>' +
+      '<p class="lede">' + deltaLine + '</p>' +
+      '<p class="small" style="margin-top:-.4rem">Played at ' +
+        '<span class="tier-pill tier-any" data-tier="' + G.tier + '" style="--tier-color:var(--t' + G.tier + ')">' +
+          G.tier + ' ' + S.tier.label(G.tier) + '</span> — budget ' + G.budget +
+        ' credits, ' + G.maxStrikes + ' trust, score multiplier ×' + G.cfg.mult +
+        ', best kept under <strong>' + key + '</strong>.</p>' +
+      '<div class="dr-strip">' +
+        cell(G.score.toLocaleString(), 'final score', 'var(--mk-blue)') +
+        cell(G.survived + '/' + G.deck.length, 'waves survived', 'var(--mk-teal)') +
+        cell(rtoOk ? '✓' : '✗', 'RTO ' + fmtT(sc.rto), rtoOk ? 'var(--mk-green)' : 'var(--mk-red)') +
+        cell(rpoOk ? '✓' : '✗', 'RPO ' + fmtT(sc.rpo), rpoOk ? 'var(--mk-green)' : 'var(--mk-red)') +
+        cell((over > 0 ? '+' : '') + over, 'credits vs optimal', over > 0 ? 'var(--mk-orange)' : 'var(--mk-green)') +
+        cell('LV ' + S.level(), '+' + xpGain + ' xp', 'var(--mk-purple)') +
+      '</div>' +
+      '<p class="small">Achieved RTO <strong>' + fmtT(a.rto) + '</strong> against a required ' + fmtT(sc.rto) +
+        ' · achieved RPO <strong>' + fmtT(a.rpo) + '</strong> against a required ' + fmtT(sc.rpo) +
+        ' · corruption-safe: <strong>' + (a.corr ? 'yes' : 'no') + '</strong>.</p>' +
+      '<h3 class="hand">Your architecture vs the cheapest correct one</h3>' + vs + missHTML +
+      '<div class="row" style="margin:1.1rem 0">' +
+        '<button class="btn btn--primary btn--lg" id="dr-again">New architecture ⏎</button>' +
+        '<a class="btn btn--ghost" href="' + WB + BCDR + '.html">Read the BCDR board</a>' +
+        '<a class="btn btn--ghost" href="../index.html">← Hub</a>' +
+      '</div>' +
+      '<details class="dr-drills" open>' + drillsHTML() + '</details>';
+
+    byId('dr-again').addEventListener('click', start);
+    byId('dr-again').focus();
+  }
+
+  /* ------------------------------------------------------------ start -- */
+  function start() {
+    if (!playable()) { S.toast('No architectures written at tier ' + S.tier.get() + ' yet.', 'bad'); return; }
+    newGame();
+    elTitle.classList.add('is-hidden');
+    elOver.classList.add('is-hidden'); elOver.innerHTML = '';
+    elPlay.classList.remove('is-hidden');
+    renderAll(); renderIncoming();
+    window.scrollTo(0, 0);
+  }
+  function quit() {
+    if (!G) return;
+    if (veil) { veil.parentNode.removeChild(veil); veil = null; }
+    G.alive = false;
+    elPlay.classList.add('is-hidden');
+    elTitle.classList.remove('is-hidden');
+    refreshTitle();
+  }
+
+  /* ======================================================== tier wiring == */
+  /** A run needs at least one scenario written for the selected tier. */
+  function playable() { return scenariosFor().length > 0; }
+
+  /** The nearest tier that has at least one scenario, searching outwards. */
+  function nearestPlayableTier() {
+    var here = S.tier.get(), counts = S.tier.counts(SCENARIOS);
+    var best = null, bestGap = 1e9;
+    S.tier.all().forEach(function (t) {
+      if (t === here || !counts[t]) return;
+      var gap = Math.abs(t - here);
+      if (gap < bestGap) { bestGap = gap; best = t; }
+    });
+    return best;
+  }
+
+  function renderTierEmpty() {
+    var host = byId('dr-tier-empty');
+    if (playable()) { host.innerHTML = ''; return; }
+    var t = S.tier.get(), near = nearestPlayableTier();
+    host.innerHTML =
+      '<div class="tier-empty tier-any">' +
+        '<b>Nobody has handed you an architecture at tier ' + t + '.</b>' +
+        '<p>DR Dilemma needs a scenario — a budget, a signed RTO and RPO, and a deck of waves — ' +
+        'and none is written for <strong>' + t + ' ' + S.tier.label(t) + '</strong> yet. ' +
+        'Starting without one would just be a shop with no disasters in it.</p>' +
+        (near
+          ? '<p style="margin-top:.7rem"><button class="btn btn--primary btn--sm" id="dr-tier-jump">' +
+              'Take the pager at tier ' + near + ' ' + S.tier.label(near) + ' instead →</button></p>'
+          : '') +
+      '</div>';
+    if (near) byId('dr-tier-jump').addEventListener('click', function () { S.tier.set(near); });
+  }
+
+  function renderTierLine() {
+    var t = S.tier.get(), c = cfg();
+    var scen = scenariosFor();
+    var dis = S.tier.filter(Object.keys(CARDS).map(function (k) { return CARDS[k]; }));
+    var qz  = S.tier.filter(Object.keys(QUIZ).map(function (k) { return QUIZ[k]; }));
+    var shopN = c.shop ? c.shop.length : Object.keys(DEF).length;
+
+    byId('dr-ndis').textContent  = dis.length + ' disaster' + (dis.length === 1 ? '' : 's');
+    byId('dr-nquiz').textContent = qz.length + ' requirement check' + (qz.length === 1 ? '' : 's');
+    byId('dr-tierline').innerHTML =
+      '<strong>' + scen.length + ' architecture' + (scen.length === 1 ? '' : 's') + '</strong> to inherit · ' +
+      shopN + ' defences on sale · ' + c.strikes + ' board trust · ' +
+      'budget ×' + c.budget + ' · score ×' + c.mult +
+      (c.hint ? ' · hints on' : ' · no hints') + '.<br>' +
+      '<span style="color:var(--ink-soft)">' + S.tier.blurb(t) + '</span>';
+    byId('dr-start').disabled = !playable();
+  }
+
+  function refreshBest() {
+    var b = S.score.best(scoreKey());
+    byId('dr-best').textContent = b
+      ? '★ best ' + b.toLocaleString() + ' @' + S.tier.get()
+      : '★ best — @' + S.tier.get();
+  }
+
+  function refreshTitle() { renderTierLine(); renderTierEmpty(); refreshBest(); }
+
+  S.tier.mountPicker('#dr-tier-host', {
+    compact: true,
+    heading: 'Skill tier',
+    label: 'Skill tier for DR Dilemma',
+    belowLabel: 'Also draw from lower tiers'
+  });
+
+  /* Changing tier mid-run must restart cleanly rather than swapping the
+     deck under a live scenario. Tear the run down, then re-take the pager. */
+  document.addEventListener('station:tier', function () {
+    var wasLive = !!(G && G.alive);
+    if (veil && veil.parentNode) { veil.parentNode.removeChild(veil); }
+    veil = null;
+    if (G) G.alive = false;
+    if (wasLive && playable()) {
+      S.toast('Tier ' + S.tier.get() + ' — new architecture, new pager.', 'info');
+      refreshTitle();
+      start();
+      return;
+    }
+    elPlay.classList.add('is-hidden');
+    elOver.classList.add('is-hidden');
+    elOver.innerHTML = '';
+    elTitle.classList.remove('is-hidden');
+    refreshTitle();
+    if (wasLive) S.toast('Tier ' + S.tier.get() + ' has no architecture to run.', 'bad');
+  });
+
+  byId('dr-start').addEventListener('click', start);
+  byId('dr-face').addEventListener('click', faceWave);
+  byId('dr-quit').addEventListener('click', quit);
+  byId('dr-shop').addEventListener('click', function (ev) {
+    var b = ev.target.closest ? ev.target.closest('.dr-buy') : null;
+    if (b && !b.disabled) buy(b.getAttribute('data-id'));
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+    if (veil) {
+      if (veil.__quiz && !veil.__answered && /^[1-4]$/.test(e.key)) {
+        e.preventDefault(); answerQuiz(veil.__quiz, parseInt(e.key, 10) - 1); return;
+      }
+      if ((e.key === 'Enter' || e.key === ' ') && byId('dr-next')) { e.preventDefault(); dismissVeil(); }
+      return;
+    }
+    if (!elPlay.classList.contains('is-hidden') && G && G.alive) {
+      if (e.key === 'Enter') { e.preventDefault(); faceWave(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); quit(); return; }
+      var k = e.key.toUpperCase();
+      if (ID_OF_KEY[k]) { e.preventDefault(); buy(ID_OF_KEY[k]); }
+      return;
+    }
+    if (!elOver.classList.contains('is-hidden') && e.key === 'Enter') { e.preventDefault(); start(); return; }
+    if (!elTitle.classList.contains('is-hidden') && e.key === 'Enter') { e.preventDefault(); start(); }
+  });
+
+  refreshTitle();
+});
+</script>
+
+<style>
+  a.locked{
+    opacity:.72; text-decoration:none; cursor:pointer;
+    border-bottom:1px dashed currentColor;
+  }
+  a.locked::after{ content:" 🔒"; font-size:.85em; }
+  .demo-strip{
+    max-width:980px; margin:0 auto 1rem; padding:.65rem .9rem; border-radius:10px;
+    font-size:.85rem; line-height:1.45; display:flex; gap:.7rem; align-items:center;
+    flex-wrap:wrap;
+    border:1px solid var(--mk-green);
+    background:color-mix(in srgb, var(--mk-green) 9%, transparent);
+    color:var(--ink-soft);
+  }
+  .demo-strip b{color:var(--ink)}
+  .demo-strip a{color:var(--mk-blue); font-weight:600}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(!document.querySelector('meta[name="viewport"]')){
+    var mv=document.createElement('meta');
+    mv.name='viewport'; mv.content='width=device-width, initial-scale=1';
+    (document.head||document.documentElement).appendChild(mv);
+  }
+  // Study material is not published here. Any link into it becomes an upgrade prompt.
+  var GATED=/\/(whiteboards|drills|labs|tracks)\//;
+  function sweep(root){
+    var as=(root||document).querySelectorAll?(root||document).querySelectorAll('a[href]'):[];
+    for(var i=0;i<as.length;i++){
+      var a=as[i], h=a.getAttribute('href')||'';
+      if(a.dataset.gateDone) continue;
+      a.dataset.gateDone='1';
+      if(!GATED.test(h)) continue;
+      a.setAttribute('href','../index.html#unlock');
+      a.classList.add('locked');
+      a.setAttribute('title','Part of the full study library — see what is included');
+    }
+  }
+  function boot(){
+    sweep(document);
+    new MutationObserver(function(m){for(var i=0;i<m.length;i++)sweep(m[i].target);})
+      .observe(document.body,{childList:true,subtree:true});
+    var host=document.querySelector('.page')||document.body;
+    var s=document.createElement('div');
+    s.className='demo-strip no-print';
+    s.innerHTML='<span><b>Free forever.</b> Every game, every skill level, no account. '+
+      'The whiteboards, flashcards and exam simulator are part of the full library.</span>'+
+      '<a href="../index.html">← All games</a>';
+    host.insertBefore(s,host.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,2529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blast Radius — Certification Station</title>
+<link rel="stylesheet" href="../assets/css/station.css">
+<script src="../assets/js/station.js" defer></script>
+<style>
+/* ===================== BLAST RADIUS — page-local styles ===================== */
+.br-wrap { display: grid; gap: .9rem; }
+
+.br-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: .5rem; }
+.br-stat {
+  background: var(--board-2); border: 2.5px solid var(--board-edge);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  padding: .45rem .4rem .5rem; text-align: center; box-shadow: var(--shadow-2); min-width: 0;
+}
+.br-stat b { display: block; font-family: var(--font-hand); font-size: 1.45rem; line-height: 1.05; color: var(--s-color, var(--ink)); }
+.br-stat span { font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+
+.br-clock { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 13%, transparent);
+  border: 1.5px solid var(--board-edge); overflow: hidden; }
+.br-clock i { display: block; height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--mk-green), var(--mk-orange), var(--mk-red)); }
+
+/* ---- objective card ---- */
+.br-obj {
+  border: 3px solid var(--mk-orange);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  background: color-mix(in srgb, var(--mk-orange) calc(var(--wash) * 100%), var(--board-2));
+  padding: .8rem 1rem .9rem; box-shadow: var(--shadow-2);
+}
+.br-obj .who { font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; color: var(--mk-orange); }
+.br-obj p { font-family: var(--font-hand); font-size: clamp(1.05rem, 2.5vw, 1.35rem); line-height: 1.32; margin: .25rem 0 0; max-width: none; }
+
+/* ---- hierarchy svg ---- */
+.br-treewrap { background: var(--board-2); border: 2px solid var(--board-edge); border-radius: 12px; padding: .5rem; }
+/* width is set from the computed layout in drawTree(); max-width:none keeps the
+   global `svg { max-width:100% }` reset from squashing it inside .scroll-x */
+.br-tree { display: block; width: 1060px; max-width: none; height: auto; }
+.br-node rect {
+  fill: var(--board-2); stroke: color-mix(in srgb, var(--ink) 26%, transparent); stroke-width: 2;
+  transition: fill .18s ease, stroke .18s ease, stroke-width .18s ease;
+}
+.br-node.t-mg  > rect { fill: color-mix(in srgb, var(--mk-purple) 7%, var(--board-2)); }
+.br-node.t-sub > rect { fill: color-mix(in srgb, var(--mk-blue) 8%, var(--board-2)); }
+.br-node.t-rg  > rect { fill: color-mix(in srgb, var(--mk-teal) 9%, var(--board-2)); }
+.br-node.t-res > rect { fill: color-mix(in srgb, var(--mk-green) 10%, var(--board-2)); }
+.br-node text.n { font-family: var(--font-ui); font-size: 10.5px; font-weight: 800; fill: var(--ink); }
+.br-node text.k { font-family: var(--font-mono); font-size: 9px; font-weight: 700; fill: var(--ink-soft); }
+.br-node text.ty { font-family: var(--font-ui); font-size: 7.5px; font-weight: 800; letter-spacing: .1em; fill: var(--ink-soft); }
+.br-node { cursor: pointer; }
+.br-node:hover > rect { stroke: var(--ink); stroke-width: 3; }
+.br-node.is-sel > rect { stroke: var(--mk-purple); stroke-width: 4; }
+.br-node.hit-good > rect { stroke: var(--mk-green); stroke-width: 3.5; fill: color-mix(in srgb, var(--mk-green) 26%, var(--board-2)); }
+.br-node.hit-bad  > rect { stroke: var(--mk-red);   stroke-width: 3.5; fill: color-mix(in srgb, var(--mk-red) 26%, var(--board-2)); }
+.br-node.hit-miss > rect { stroke: var(--mk-orange); stroke-width: 3.5; stroke-dasharray: 7 5; }
+.br-node.is-anchor > rect { stroke-width: 5; }
+.br-node.wave { animation: br-wave .5s ease-out; }
+@keyframes br-wave { 0% { opacity: .25; } 55% { opacity: 1; } 100% { opacity: 1; } }
+/* Out of play at the lower tiers — visible for context, not clickable. */
+.br-node.is-dim { opacity: .3; pointer-events: none; }
+.br-node.is-dim > rect { stroke-dasharray: 4 4; }
+
+/* ---- tier bay on the start screen ---- */
+.br-tierbay { margin-top: 1rem; border-top: 2px dashed var(--board-edge); padding-top: .8rem; }
+
+/* ---- hint line (foundation / practitioner tiers only) ---- */
+.br-hint {
+  margin: .55rem 0 0; padding: .4rem .6rem;
+  border-left: 4px solid var(--mk-teal); border-radius: 3px 8px 8px 3px;
+  background: color-mix(in srgb, var(--mk-teal) calc(var(--wash-soft) * 100%), var(--board-2));
+  font-family: var(--font-ui); font-size: .78rem; line-height: 1.35; color: var(--ink-soft); max-width: none;
+}
+.br-hint b { color: var(--mk-teal); }
+
+/* ---- instrument palette ---- */
+.br-pal { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: .4rem; }
+@media (max-width: 900px) { .br-pal { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 520px) { .br-pal { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.br-i {
+  border: 2.5px solid var(--i-color, var(--board-edge)); border-radius: 9px;
+  background: var(--board-2); padding: .42rem .45rem .48rem; text-align: left; min-width: 0;
+  font-size: .74rem; font-weight: 700; line-height: 1.2; color: var(--ink);
+  transition: transform .1s ease, background .12s ease;
+}
+.br-i:hover:not(:disabled) { transform: translateY(-2px); background: color-mix(in srgb, var(--i-color) 14%, var(--board-2)); }
+.br-i:disabled { cursor: default; opacity: .55; }
+.br-i u { display: block; font-family: var(--font-mono); font-size: .6rem; color: var(--i-color); text-decoration: none; font-weight: 800; }
+.br-i.is-sel { background: color-mix(in srgb, var(--i-color) 26%, var(--board-2)); box-shadow: inset 0 0 0 2px var(--i-color); }
+.br-i.is-right { border-color: var(--mk-green); background: color-mix(in srgb, var(--mk-green) 20%, var(--board-2)); }
+.br-i.is-wrong { border-color: var(--mk-red);   background: color-mix(in srgb, var(--mk-red) 18%, var(--board-2)); }
+
+/* ---- verdict ---- */
+.br-verdict {
+  border-left: 7px solid var(--v-color, var(--ink-soft)); border-radius: 4px 12px 12px 4px;
+  background: color-mix(in srgb, var(--v-color, var(--ink)) calc(var(--wash) * 100%), var(--board-2));
+  padding: .7rem .9rem; box-shadow: var(--shadow-1); min-height: 84px;
+}
+.br-verdict h4 { margin: 0 0 .25rem; color: var(--v-color); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; }
+.br-verdict p { margin: 0 0 .35rem; font-size: .87rem; max-width: none; }
+.br-verdict.v-good  { --v-color: var(--mk-green); }
+.br-verdict.v-part  { --v-color: var(--mk-orange); }
+.br-verdict.v-bad   { --v-color: var(--mk-red); }
+.br-verdict.v-idle  { --v-color: var(--ink-soft); }
+
+/* ---- bonus snap question ---- */
+.br-bonus { border: 2.5px dashed var(--mk-purple); border-radius: 10px; padding: .55rem .7rem;
+  background: color-mix(in srgb, var(--mk-purple) calc(var(--wash-soft) * 100%), var(--board-2)); }
+.br-bonus p { margin: 0 0 .4rem; font-size: .85rem; font-weight: 700; max-width: none; }
+
+.br-lives { letter-spacing: .1em; }
+
+.br-missed { display: grid; gap: .55rem; }
+.br-missgroup { border: 2px solid var(--board-edge); border-left: 6px solid var(--mk-red);
+  border-radius: 4px 10px 10px 4px; background: var(--board-2); padding: .6rem .75rem; }
+.br-missgroup h4 { margin: 0 0 .2rem; font-size: .92rem; }
+.br-missgroup ul { margin: .25rem 0 .4rem; padding-left: 1.1rem; font-size: .82rem; color: var(--ink-soft); }
+.br-missgroup a { font-size: .76rem; font-weight: 800; color: var(--mk-blue); text-decoration: none; border-bottom: 2px solid currentColor; }
+.br-delta { font-family: var(--font-hand); font-size: clamp(1.3rem, 4vw, 2rem); }
+
+details.br-drills { border: 2.5px dashed var(--board-edge); border-radius: 12px; background: var(--board-2); padding: .35rem .9rem; }
+details.br-drills summary { cursor: pointer; font-weight: 800; font-size: .82rem; letter-spacing: .1em;
+  text-transform: uppercase; padding: .55rem 0; color: var(--ink-soft); }
+details.br-drills[open] summary { color: var(--ink); }
+details.br-drills ul { font-size: .86rem; }
+.br-keys { font-size: .74rem; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<main class="page page--wide">
+
+  <header>
+    <div class="row" style="gap:.4rem">
+      <span class="chip chip--az104">AZ-104</span>
+      <span class="chip chip--az305">AZ-305</span>
+      <span class="chip chip--red">Governance</span>
+    </div>
+    <h1 style="margin-top:.35rem">Blast Radius 💥</h1>
+    <p class="lede">Here is the hierarchy. Here is the governance objective. Pick the right
+      <strong>instrument</strong> and put it at the right <strong>node</strong> — then watch the blast
+      radius ripple through inheritance and find out how much of Contoso you just froze.</p>
+    <div class="keyfact">
+      <p><strong>The one line that answers half of these:</strong> a <em>lock</em> stops the operation even for Owner.
+      <em>RBAC</em> stops the person. <em>Policy</em> stops the shape. If the objective says “nobody, including admins”,
+      you are reaching for a lock. If it says “this team”, RBAC. If it says “resources like this”, policy.</p>
+    </div>
+  </header>
+
+  <!-- ==================== START ==================== -->
+  <section id="br-start">
+    <div class="marker-box mk-purple">
+      <span class="box-title" style="color:var(--mk-purple)">How a round works</span>
+      <div class="grid grid-2">
+        <div>
+          <ul>
+            <li>Read the objective. Pick <strong>one instrument</strong> and <strong>one node</strong>.</li>
+            <li>Right instrument at the right node = full marks + a combo step.</li>
+            <li>Right instrument at a node that <em>works but over-reaches</em> = partial marks and a lecture about blast radius.</li>
+            <li>Wrong instrument = a strike. <strong>Run out of strikes and the run ends</strong> — you get 5 at Foundation, 2 at Architect.</li>
+            <li><strong>The tier sets the pressure:</strong> how many instruments are on the bench, how many nodes are in play, the clock, the strikes and the score multiplier. Best scores are kept per tier.</li>
+            <li>Some rounds add a 5-second <span style="color:var(--mk-purple)"><strong>snap check</strong></span> for bonus points — managed identity, evaluation timing, remediation.</li>
+            <li>The clock shortens every 5 rounds. It bottoms out at genuinely uncomfortable.</li>
+          </ul>
+        </div>
+        <div>
+          <div class="sticky sticky--blue">
+            <strong>Reading the tree</strong><br>
+            Nested boxes = real inheritance. An instrument placed on a box applies to that box and
+            everything drawn inside it. The animation shows you exactly how far it reached — including
+            the subscriptions you did not mean to hit.
+          </div>
+          <p class="br-keys" style="margin-top:.85rem">
+            <strong>Keyboard:</strong> <span class="kbd">1</span>–<span class="kbd">9</span><span class="kbd">0</span> pick the instrument ·
+            <span class="kbd">A</span>–<span class="kbd">T</span> pick the node by its letter badge ·
+            <span class="kbd">Y</span>/<span class="kbd">N</span> answer a snap check. Touch: tap the box.
+          </p>
+        </div>
+      </div>
+      <div class="br-tierbay">
+        <p style="margin:0 0 .45rem">
+          <span class="tier-pill tier-pill--solid tier-any" id="br-stierpill" data-tier="400"></span>
+          <span class="muted small" id="br-stiername">Expert</span>
+        </p>
+        <div id="br-tierhost"></div>
+        <p class="small muted" id="br-tierline" style="margin:.55rem 0 0">—</p>
+      </div>
+
+      <div class="row" style="margin-top:.9rem">
+        <button class="btn btn--primary btn--lg" id="br-begin" type="button">Start the audit ▸</button>
+        <a class="btn btn--ghost" href="../index.html#unlock" class="locked">AZ-104 track</a>
+        <span class="muted small" id="br-best">personal best: —</span>
+      </div>
+    </div>
+
+    <div id="br-tierempty"></div>
+  </section>
+
+  <!-- ==================== GAME ==================== -->
+  <section id="br-game" class="is-hidden">
+    <div class="br-wrap">
+
+      <div class="br-strip">
+        <div class="br-stat" style="--s-color:var(--mk-blue)"><b id="br-score">0</b><span>Score</span></div>
+        <div class="br-stat" style="--s-color:var(--mk-purple)"><b id="br-combo">1×</b><span>Combo</span></div>
+        <div class="br-stat" style="--s-color:var(--mk-orange)"><b id="br-round">1</b><span>Round</span></div>
+        <div class="br-stat" style="--s-color:var(--mk-red)"><b id="br-lives" class="br-lives">♥♥♥</b><span>Strikes left</span></div>
+        <div class="br-stat" style="--s-color:var(--mk-teal)"><b id="br-radius">—</b><span>Nodes hit</span></div>
+      </div>
+
+      <div class="br-clock"><i id="br-clockbar"></i></div>
+
+      <div class="br-obj">
+        <div class="who" id="br-who">Governance objective</div>
+        <p id="br-goal">—</p>
+        <p class="br-hint is-hidden" id="br-hint"></p>
+      </div>
+
+      <div class="scroll-x br-treewrap">
+        <svg class="br-tree" id="br-tree" viewBox="0 0 1010 300" role="img"
+             aria-label="Management group, subscription, resource group and resource hierarchy for Contoso"></svg>
+      </div>
+
+      <div>
+        <div class="br-keys" style="font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Instrument</div>
+        <div class="br-pal" id="br-pal"></div>
+      </div>
+
+      <div class="grid grid-2" style="gap:.8rem;align-items:start">
+        <div class="br-verdict v-idle" id="br-verdict">
+          <h4 id="br-vtitle">Standing by</h4>
+          <p id="br-vbody">Pick an instrument, then click the node you would place it on.</p>
+        </div>
+        <div class="stack">
+          <div class="br-bonus is-hidden" id="br-bonusbox">
+            <p id="br-bq">—</p>
+            <div class="row">
+              <button class="btn btn--sm" type="button" data-bonus="1">Yes <span class="kbd">Y</span></button>
+              <button class="btn btn--sm" type="button" data-bonus="0">No <span class="kbd">N</span></button>
+            </div>
+          </div>
+          <button class="btn btn--ghost btn--sm" id="br-quit" type="button">End run</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== GAME OVER ==================== -->
+  <section id="br-over" class="is-hidden">
+    <div class="marker-box mk-red">
+      <span class="box-title" style="color:var(--mk-red)" id="br-overtitle">Run over</span>
+      <p style="margin:.2rem 0 .6rem">
+        <span class="tier-pill tier-pill--solid tier-any" id="br-otierpill" data-tier="400"></span>
+        <span class="muted small" id="br-otiername">Expert</span>
+      </p>
+      <div class="grid grid-3" style="gap:.6rem">
+        <div class="br-stat" style="--s-color:var(--mk-blue)"><b id="br-fscore">0</b><span>Final score</span></div>
+        <div class="br-stat" style="--s-color:var(--mk-orange)"><b id="br-fround">0</b><span>Rounds cleared</span></div>
+        <div class="br-stat" style="--s-color:var(--mk-green)"><b id="br-facc">0%</b><span>Placed perfectly</span></div>
+      </div>
+      <p class="br-delta center" id="br-deltamsg" style="margin:.9rem 0"></p>
+      <div class="row center" style="justify-content:center">
+        <button class="btn btn--primary btn--lg" id="br-again" type="button">One more run ▸</button>
+        <a class="btn btn--ghost" href="../index.html">Back to the hub</a>
+      </div>
+    </div>
+
+    <h2 id="br-missh">What blew up</h2>
+    <div class="br-missed" id="br-missed"></div>
+  </section>
+
+  <!-- ==================== WHAT THIS DRILLS ==================== -->
+  <section>
+    <details class="br-drills">
+      <summary>▸ What this drills (and where to go read it)</summary>
+      <div class="grid grid-2">
+        <div>
+          <h4>Concepts in the bank</h4>
+          <ul>
+            <li><strong>Policy effects</strong> — Deny, Audit, AuditIfNotExists, Append, Modify, DeployIfNotExists, DenyAction, Disabled — and exactly which two families need a <strong>managed identity</strong> on the assignment.</li>
+            <li><strong>Initiative vs single assignment</strong> — when a policy set earns its keep, and shared parameters.</li>
+            <li><strong>Exemptions vs exclusions (notScopes)</strong> — the two ways to carve out the sandbox, and why one has an expiry date and a category.</li>
+            <li><strong>Remediation tasks</strong> — new resources vs the thousand that already exist, and why compliance state alone changes nothing.</li>
+            <li><strong>Evaluation timing</strong> — deployment-time enforcement vs the periodic compliance scan.</li>
+            <li><strong>Policy vs RBAC vs locks</strong> — the shape, the person, the operation.</li>
+            <li><strong>Lock inheritance and lock traps</strong> — ReadOnly breaking legitimate operations, CanNotDelete blocking a scale-set change, locks beating Owner, and why the lock survives your RBAC removal.</li>
+            <li><strong>Tags</strong> — inheritance from RG/subscription via Modify, tag policies, and what tags do NOT do automatically.</li>
+            <li><strong>Management group design</strong> — depth limits, root-group assignments, subscription placement.</li>
+            <li><strong>Resource move rules</strong> — what moves, what does not, and what locks do to a move.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Whiteboards that cover it</h4>
+          <ul>
+            <li><a href="../index.html#unlock" class="locked">AZ-104 · Identity, RBAC &amp; Governance</a></li>
+            <li><a href="../index.html#unlock" class="locked">AZ-305 · Identity, Governance &amp; Monitoring Design</a></li>
+            <li><a href="../index.html#unlock" class="locked">AZ-305 · The Decision Trees</a></li>
+            <li><a href="../index.html#unlock" class="locked">AZ-104 · Storage &amp; Compute</a></li>
+          </ul>
+          <h4>Sister game</h4>
+          <ul>
+            <li><a href="rbac-roulette.html">RBAC Roulette</a> — same hierarchy, but roles and scopes instead of policy and locks.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var GAME_ID = 'blast-radius';
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* =========================================================================
+     THE HIERARCHY — one canonical tree, learned deeply.
+     node: [id, key(letter), type, label, children]
+     ====================================================================== */
+  var TREE = {
+    id: 'root', key: 'A', type: 'mg', label: 'Tenant Root Group', kids: [
+      { id: 'contoso', key: 'B', type: 'mg', label: 'Contoso', kids: [
+        { id: 'platform', key: 'C', type: 'mg', label: 'Platform', kids: [
+          { id: 'sub-conn', key: 'D', type: 'sub', label: 'Sub: Connectivity', kids: [
+            { id: 'rg-hub', key: 'E', type: 'rg', label: 'rg-hub-net', kids: [
+              { id: 'vnet-hub', key: 'F', type: 'res', label: 'vnet-hub' }
+            ] }
+          ] },
+          { id: 'sub-id', key: 'G', type: 'sub', label: 'Sub: Identity', kids: [
+            { id: 'rg-id', key: 'H', type: 'rg', label: 'rg-identity', kids: [
+              { id: 'kv-id', key: 'I', type: 'res', label: 'kv-core-01' }
+            ] }
+          ] }
+        ] },
+        { id: 'lz', key: 'J', type: 'mg', label: 'Landing Zones', kids: [
+          { id: 'sub-prod', key: 'K', type: 'sub', label: 'Sub: Prod', kids: [
+            { id: 'rg-app', key: 'L', type: 'rg', label: 'rg-prod-app', kids: [
+              { id: 'vm-app', key: 'M', type: 'res', label: 'vm-app-01' }
+            ] },
+            { id: 'rg-data', key: 'N', type: 'rg', label: 'rg-prod-data', kids: [
+              { id: 'sa-data', key: 'O', type: 'res', label: 'stprodfiles' }
+            ] }
+          ] },
+          { id: 'sub-dev', key: 'P', type: 'sub', label: 'Sub: Dev', kids: [
+            { id: 'rg-dev', key: 'Q', type: 'rg', label: 'rg-dev-app' }
+          ] }
+        ] },
+        { id: 'sandbox', key: 'R', type: 'mg', label: 'Sandbox', kids: [
+          { id: 'sub-sbx', key: 'S', type: 'sub', label: 'Sub: Sandbox', kids: [
+            { id: 'rg-sbx', key: 'T', type: 'rg', label: 'rg-sbx' }
+          ] }
+        ] }
+      ] }
+    ]
+  };
+
+  var TYPE_LABEL = { mg: 'MG', sub: 'SUB', rg: 'RG', res: 'RES' };
+  var TYPE_FULL  = { mg: 'management group', sub: 'subscription', rg: 'resource group', res: 'resource' };
+  var NODES = {};      // id -> node (with layout + parent + descendants)
+  var BYKEY = {};      // letter -> id
+
+  /* --------------------------------------------- layout: real nested boxes */
+  var PAD_X = 9, PAD_TOP = 21, PAD_BOT = 8, GAP = 8, LEAF_W = 126, LEAF_H = 34;
+
+  function measure(n) {
+    if (!n.kids || !n.kids.length) { n._w = LEAF_W; n._h = LEAF_H; return; }
+    var w = 0, h = 0;
+    n.kids.forEach(function (k, i) { measure(k); w += k._w + (i ? GAP : 0); h = Math.max(h, k._h); });
+    n._w = w + PAD_X * 2;
+    n._h = h + PAD_TOP + PAD_BOT;
+  }
+  function place(n, x, y, parent, depth) {
+    n.x = x; n.y = y; n.parent = parent; n.depth = depth;
+    NODES[n.id] = n; BYKEY[n.key] = n.id;
+    if (!n.kids) return;
+    var cx = x + PAD_X;
+    n.kids.forEach(function (k) { place(k, cx, y + PAD_TOP, n, depth + 1); cx += k._w + GAP; });
+  }
+  measure(TREE);
+  place(TREE, 6, 6, null, 0);
+
+  function descendants(id, acc) {
+    acc = acc || [];
+    var n = NODES[id];
+    if (!n.kids) return acc;
+    n.kids.forEach(function (k) { acc.push(k.id); descendants(k.id, acc); });
+    return acc;
+  }
+  function subtree(id) { return [id].concat(descendants(id)); }
+  function isAncestor(a, b) { return descendants(a).indexOf(b) !== -1; }
+
+  function drawTree() {
+    var svg = $('br-tree');
+    svg.setAttribute('viewBox', '0 0 ' + (TREE._w + 12) + ' ' + (TREE._h + 12));
+    svg.style.width = (TREE._w + 12) + 'px';   // keep CSS width in step with the layout
+    var out = '';
+    (function walk(n) {
+      // Only draw the type tag when it demonstrably fits beside the name —
+      // otherwise short leaf boxes collide (kv-core-01 vs RES).
+      var nameEnd = 18 + n.label.length * 6.1;
+      var tyW = TYPE_LABEL[n.type].length * 5.6 + 6;
+      var showTy = (n._w - nameEnd - tyW) > 6;
+
+      out += '<g class="br-node t-' + n.type + '" data-node="' + n.id + '" tabindex="0" role="button" ' +
+             'aria-label="' + n.label + ', ' + TYPE_FULL[n.type] + ', key ' + n.key + '">' +
+               '<rect x="' + n.x + '" y="' + n.y + '" width="' + n._w + '" height="' + n._h + '" rx="7"></rect>' +
+               '<text class="k" x="' + (n.x + 6) + '" y="' + (n.y + 13) + '">' + n.key + '</text>' +
+               '<text class="n" x="' + (n.x + 18) + '" y="' + (n.y + 13) + '">' + n.label + '</text>' +
+               (showTy
+                 ? '<text class="ty" x="' + (n.x + n._w - 5) + '" y="' + (n.y + 13) + '" text-anchor="end">' + TYPE_LABEL[n.type] + '</text>'
+                 : '');
+      if (n.kids) n.kids.forEach(walk);
+      out += '</g>';
+    }(TREE));
+    svg.innerHTML = out;
+  }
+
+  /* =========================================================================
+     INSTRUMENTS
+     ====================================================================== */
+  var INSTR = [
+    ['deny',   '1', 'Policy · Deny',            'var(--mk-red)'],
+    ['audit',  '2', 'Policy · Audit / AuditIfNotExists', 'var(--mk-blue)'],
+    ['modify', '3', 'Policy · Append or Modify','var(--mk-teal)'],
+    ['dine',   '4', 'Policy · DeployIfNotExists','var(--mk-purple)'],
+    ['denyact','5', 'Policy · DenyAction',      'var(--mk-pink)'],
+    ['init',   '6', 'Initiative (policy set)',  'var(--mk-orange)'],
+    ['exempt', '7', 'Policy exemption',         'var(--mk-green)'],
+    ['rbac',   '8', 'RBAC assignment',          'var(--azure)'],
+    ['ro',     '9', 'ReadOnly lock',            'var(--ink-soft)'],
+    ['cnd',    '0', 'CanNotDelete lock',        'var(--mk-ink)']
+  ];
+  var INSTR_BY_ID = {};
+  INSTR.forEach(function (i) { INSTR_BY_ID[i[0]] = i; });
+  var INSTR_BY_KEY = {};
+  INSTR.forEach(function (i) { INSTR_BY_KEY[i[1]] = i[0]; });
+
+  /* =========================================================================
+     CONCEPT TAGS
+     ====================================================================== */
+  var TAGS = {
+    effects: ['Policy effects & what each one actually does', '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    mi:      ['Effects that need a managed identity',         '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    scope:   ['Assignment scope & inheritance',               '../whiteboards/az305-identity-governance.html', 'AZ-305 Identity, Governance & Monitoring Design'],
+    exempt:  ['Exemptions vs exclusions',                     '../whiteboards/az305-identity-governance.html', 'AZ-305 Identity, Governance & Monitoring Design'],
+    remed:   ['Remediation of existing resources',            '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    locks:   ['Locks, lock inheritance & lock traps',         '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    three:   ['Policy vs RBAC vs lock — picking the instrument', '../whiteboards/az305-decision-trees.html', 'AZ-305 The Decision Trees'],
+    tags:    ['Tags, tag inheritance & tag policy',           '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance'],
+    mgdes:   ['Management group hierarchy design',            '../whiteboards/az305-identity-governance.html', 'AZ-305 Identity, Governance & Monitoring Design'],
+    move:    ['Resource move rules',                          '../whiteboards/az104-storage-compute.html', 'AZ-104 Storage & Compute'],
+    init:    ['Initiatives vs single assignments',            '../whiteboards/az104-identity-governance.html', 'AZ-104 Identity, RBAC & Governance']
+  };
+
+  /* =========================================================================
+     SCENARIO BANK
+     P(id, who, goal, instrument, node, tag, why, alts, wide, bonus, tier, hint)
+       alts : { instrumentId: 'why that instrument is wrong here' }
+       wide : [nodeIds] that work but over-reach (partial credit)
+       bonus: { q, a(bool), why }
+       tier : 100 Foundation · 200 Practitioner · 300 Professional
+              400 Expert (everything written before the tier system) · 500 Architect
+       hint : shown automatically at the tiers whose config sets hints:true
+     ====================================================================== */
+  function P(id, who, goal, i, n, tag, why, alts, wide, bonus, tier, hint) {
+    return { id: id, who: who, goal: goal, i: i, n: n, tag: tag, why: why,
+             alts: alts || {}, wide: wide || [], bonus: bonus || null,
+             tier: tier || 400, hint: hint || '' };
+  }
+
+  var BANK = [
+
+  P('p01', 'Cloud governance',
+    'Nobody may create resources outside East US 2 or West US 2 anywhere under Contoso. The Sandbox management group is explicitly allowed to do whatever it likes.',
+    'deny', 'contoso', 'exempt',
+    'Deny at Contoso covers everything below it in one assignment. Sandbox then gets carved out — either an exclusion (notScopes) on this assignment or a policy exemption on the Sandbox MG.',
+    { audit: 'Audit records the violation and lets the resource deploy anyway. “Nobody may create” is prevention, not reporting.',
+      init: 'An initiative is a bundle. For a single allowed-locations rule it adds packaging with no benefit.',
+      ro: 'A ReadOnly lock would stop ALL writes including legitimate ones in the approved regions — and it stops updates to existing resources too.' },
+    ['root'],
+    { q: 'Does a Deny policy assignment require a managed identity?', a: false,
+      why: 'No. Only DeployIfNotExists and Modify need an identity, because only those two write things on your behalf.' }, 400),
+
+  P('p02', 'Cloud governance',
+    'The allowed-locations Deny is already assigned at Contoso. Sandbox now needs a documented, time-boxed carve-out with an expiry date and a justification the auditors can read.',
+    'exempt', 'sandbox', 'exempt',
+    'A policy exemption: it attaches to a scope, carries a category (Waiver or Mitigated), an optional expiry date and a justification. An exclusion via notScopes has none of that paperwork.',
+    { deny: 'Adding another Deny at Sandbox does the opposite of carving it out.',
+      audit: 'Audit does not remove the parent Deny. Inheritance means the Deny still fires.',
+      rbac: 'RBAC decides who may act. It has no effect on whether a policy evaluates the resource.' },
+    [],
+    { q: 'Can an exemption be given an automatic expiry date?', a: true,
+      why: 'Yes — expiresOn. That is exactly why exemptions beat notScopes exclusions for temporary carve-outs: the waiver dies on schedule instead of living forever.' }, 400),
+
+  P('p03', 'Platform team',
+    'Every new resource group in the Prod subscription must automatically get a costCenter tag copied down from the subscription. Existing ones will be handled separately.',
+    'modify', 'sub-prod', 'tags',
+    'A Modify policy with the inherit-tag-from-subscription built-in. Modify adds/updates the tag on create and update — and it needs a managed identity on the assignment.',
+    { deny: 'Deny would block untagged deployments instead of fixing them. The objective says “automatically get”, not “refuse”.',
+      audit: 'Audit flags the missing tag and changes nothing.',
+      dine: 'DeployIfNotExists deploys a related RESOURCE (a diagnostic setting, an extension). Tags on the resource itself are Modify/Append territory.' },
+    ['lz'],
+    { q: 'Does this Modify assignment need a managed identity?', a: true,
+      why: 'Yes. Modify and DeployIfNotExists both write on your behalf, so the assignment needs an identity with rights at the scope — Tag Contributor here.' }, 400),
+
+  P('p04', 'Platform team',
+    'Two thousand resources already exist in Prod without the required tag. The Modify policy is assigned and compliant-on-create. Fix the backlog.',
+    'modify', 'sub-prod', 'remed',
+    'Modify/DeployIfNotExists only act at create/update time — existing resources go non-compliant and stay that way until you run a REMEDIATION TASK against the assignment.',
+    { deny: 'Deny never touches a resource that already exists. It only evaluates new writes.',
+      audit: 'Audit will faithfully report all 2,000 as non-compliant and fix precisely zero of them.',
+      init: 'Bundling it changes nothing about existing resources.' },
+    [],
+    { q: 'Will the existing resources become compliant on their own at the next evaluation cycle?', a: false,
+      why: 'No. The compliance scan re-evaluates and re-labels them, but only a remediation task actually writes the tag onto existing resources.' }, 400),
+
+  P('p05', 'Security',
+    'The core key vault kv-core-01 must not be deleted by anyone — including subscription Owners and including our own automation running as Owner.',
+    'cnd', 'kv-id', 'locks',
+    'A CanNotDelete lock on the resource. Locks are evaluated on top of RBAC, so they stop the operation regardless of role — that is the whole point.',
+    { rbac: 'You cannot RBAC your way to “including Owners”. Owner can always re-grant itself.',
+      deny: 'A Deny policy on delete is possible via DenyAction, but the classic, exam-expected instrument for “nobody deletes this specific resource” is the lock.',
+      ro: 'ReadOnly also blocks deletes — and blocks every legitimate update to the vault as well, including secret rotation. Over-reach.' },
+    ['rg-id'],
+    { q: 'Does removing the person’s Owner role also remove the lock?', a: false,
+      why: 'No. Locks are independent of RBAC. They live on the resource and are removed only by someone with Microsoft.Authorization/locks/delete.' }, 400),
+
+  P('p06', 'Security',
+    'The hub VNet configuration is frozen for the change freeze — no edits at all until January. Deletes and updates both blocked, reads fine.',
+    'ro', 'vnet-hub', 'locks',
+    'ReadOnly lock on the VNet. It blocks all write and delete operations on that resource while leaving reads working.',
+    { cnd: 'CanNotDelete stops deletion but happily allows someone to rewrite the address space and the peerings. A freeze means no edits.',
+      deny: 'Policy shapes what may be created, not “freeze this one object for six weeks”.',
+      rbac: 'Removing write from people leaves service principals, break-glass and Owners able to change it. A freeze must beat everyone.' },
+    ['rg-hub'],
+    { q: 'Can a ReadOnly lock break operations that look like reads, such as listing storage account keys?', a: true,
+      why: 'Yes — the classic trap. listKeys is a POST, so ReadOnly blocks it. Same story for restarting VMs and other action-verbs that feel read-ish.' }, 400),
+
+  P('p07', 'Landing zone team',
+    'Prod and Dev both need the same eight baseline rules — allowed locations, allowed SKUs, required tags, diagnostic settings, and four more — assigned and versioned together.',
+    'init', 'lz', 'init',
+    'One initiative (policy set) assigned at Landing Zones. Eight separate assignments means eight things to drift, eight compliance views, and eight sets of parameters.',
+    { deny: 'A single Deny is one of the eight rules, not the package.',
+      exempt: 'An exemption removes a scope from an existing assignment. Nothing is being carved out here — you are creating the baseline, not poking a hole in it.',
+      audit: 'Some of the eight are audit, some are deny. That is exactly why they belong in a set.' },
+    ['contoso'],
+    { q: 'Does an initiative give you one aggregated compliance result across all its policies?', a: true,
+      why: 'Yes, and that is half its value — a single compliance percentage for the baseline rather than eight unrelated numbers.' }, 400),
+
+  P('p08', 'Security',
+    'Every storage account created anywhere under Contoso must have a diagnostic setting shipping to the central Log Analytics workspace — created automatically if it is missing.',
+    'dine', 'contoso', 'mi',
+    'DeployIfNotExists: evaluates the related resource (the diagnostic setting) and deploys it when absent. It requires a managed identity with rights at the scope.',
+    { audit: 'AuditIfNotExists spots the missing diagnostic setting and reports it. It never creates it.',
+      modify: 'Modify changes properties and tags on the resource being evaluated. It cannot deploy a separate child resource.',
+      deny: 'Deny would refuse the storage account entirely rather than completing it.' },
+    ['root'],
+    { q: 'Does DeployIfNotExists need a managed identity on the assignment?', a: true,
+      why: 'Yes — it deploys an ARM template on your behalf, so the assignment identity needs the roles listed in the policy definition’s roleDefinitionIds.' }, 400),
+
+  P('p09', 'Compliance',
+    'We need to know how many VMs across the whole tenant are missing the Azure Monitor Agent. Nothing may be blocked or changed — this is a reporting exercise this quarter.',
+    'audit', 'root', 'effects',
+    'AuditIfNotExists at the tenant root group: it evaluates a related resource (the extension) and marks non-compliant without blocking or changing anything.',
+    { deny: 'Deny would prevent VM creation. The objective explicitly says nothing may be blocked.',
+      dine: 'DeployIfNotExists would install the agent — an action the objective forbids this quarter.',
+      cnd: 'A lock is not a reporting tool.' },
+    [],
+    { q: 'Does AuditIfNotExists require a managed identity?', a: false,
+      why: 'No. It only reads the related resource to judge compliance. Only Modify and DeployIfNotExists write, so only those two need an identity.' }, 400),
+
+  P('p10', 'Cloud governance',
+    'Storage accounts must never be created with public blob access enabled — but developers keep forgetting the property entirely rather than setting it wrong.',
+    'deny', 'contoso', 'effects',
+    'Deny with a condition that treats the missing property as non-compliant (the built-in does exactly this). Deny is evaluated at deployment time, before the resource exists.',
+    { modify: 'Append/Modify could silently set the property for them — a valid pattern, but it quietly rewrites intent instead of enforcing it, and the objective says “must never be created”.',
+      audit: 'Reporting after the fact does not stop the account existing with public access on.',
+      ro: 'A lock cannot express “resources of this shape”.' },
+    ['root'],
+    { q: 'Is a Deny policy evaluated before the resource is created?', a: true,
+      why: 'Yes. Deny, Append, Modify and DenyAction all evaluate at request time in the ARM pipeline. Audit and the *IfNotExists effects also run on a periodic compliance scan.' }, 400),
+
+  P('p11', 'Platform team',
+    'Every new subnet must automatically get the standard NSG-less baseline route table reference appended if the request omits it. Do not fail the deployment.',
+    'modify', 'sub-conn', 'effects',
+    'Append (or Modify) adds the field at request time and lets the deployment succeed. Deny would fail it; audit would ignore it.',
+    { deny: 'Deny fails the deployment. The objective says do not fail it.',
+      audit: 'Audit adds nothing to the request.',
+      dine: 'DeployIfNotExists creates a separate related resource after the fact — the objective is about a field on the request itself.' },
+    ['platform'],
+    null, 400),
+
+  P('p12', 'Security',
+    'A specific engineer must lose the ability to delete anything in rg-prod-data. Everyone else keeps working normally, including deleting things.',
+    'rbac', 'rg-data', 'three',
+    'This is a PERSON problem, so it is an RBAC problem: remove their write/delete assignment at that scope. Locks and policy cannot target one human being.',
+    { cnd: 'A CanNotDelete lock stops everyone — the whole team, the pipelines, and Owner. The objective says everyone else keeps deleting.',
+      deny: 'Policy has no concept of identity. It evaluates the resource, not who asked.',
+      ro: 'Same problem, bigger blast radius: it also blocks all writes for everyone.' },
+    [],
+    { q: 'Can Azure Policy deny an action for one named user but allow it for others?', a: false,
+      why: 'No. Policy evaluates the resource payload, not the principal. “This person specifically” is always RBAC (or a deny assignment).' }, 400),
+
+  P('p13', 'Operations',
+    'Someone deleted a production resource group last quarter. Make every resource group in the Prod subscription undeletable without touching who can deploy into them.',
+    'cnd', 'sub-prod', 'locks',
+    'A CanNotDelete lock at the subscription is inherited by every resource group and resource inside it, and it leaves ordinary deployment untouched.',
+    { ro: 'ReadOnly blocks every deployment and update in Prod. That is an outage, not a guardrail.',
+      rbac: 'Removing delete rights from everyone leaves Owners and automation able to delete. And it breaks legitimate resource-level deletes.',
+      deny: 'DenyAction can block delete calls by policy, but the exam-standard instrument for “this hierarchy is not deletable” is the lock.' },
+    ['lz'],
+    { q: 'Do child resources inherit a lock placed at the subscription?', a: true,
+      why: 'Yes. Locks inherit downward like RBAC — and the most restrictive lock in the chain wins, so a ReadOnly anywhere above beats a CanNotDelete below.' }, 400),
+
+  P('p14', 'Operations',
+    'We put a ReadOnly lock on rg-prod-app during the freeze. Now the on-call cannot restart vm-app-01 during an incident and the scale set will not scale. Explain and fix.',
+    'cnd', 'rg-app', 'locks',
+    'ReadOnly blocks any POST/action verb — restart, listKeys, scale — because those are not reads to ARM. Downgrade to CanNotDelete, which allows operations but blocks deletion.',
+    { ro: 'That is what is already causing the outage.',
+      rbac: 'The on-call already has the role. The lock is what is blocking them — locks beat roles.',
+      exempt: 'Exemptions apply to policy assignments. They have no effect whatsoever on locks.' },
+    [],
+    { q: 'Does a ReadOnly lock block a VM restart?', a: true,
+      why: 'Yes. Restart is Microsoft.Compute/virtualMachines/restart/action — a POST. ReadOnly permits only GET-shaped operations, so the restart fails.' }, 400),
+
+  P('p15', 'Finance',
+    'Cost reporting needs every resource to carry an owner tag. Tag values must come from the resource group so the app teams do not have to type them.',
+    'modify', 'lz', 'tags',
+    'The built-in “Inherit a tag from the resource group” Modify policy. Tags do NOT inherit automatically in Azure — that is the trap the whole question is built on.',
+    { deny: 'Denying untagged resources creates a support queue instead of a tag.',
+      audit: 'Audit marks every untagged resource non-compliant and leaves the tag missing. You get a growing red number instead of a populated tag.',
+      init: 'You could bundle it, but the objective is one specific behaviour.' },
+    ['contoso'],
+    { q: 'Do Azure resources inherit tags from their resource group automatically?', a: false,
+      why: 'No — and this is one of the most reliably tested facts in AZ-104. Tags inherit only because you assign a Modify policy that makes them.' }, 400),
+
+  P('p16', 'Landing zone team',
+    'The Sandbox subscription must be exempt from the corporate initiative, and we want the sandbox to also be excluded from compliance reporting entirely so it does not skew our numbers.',
+    'exempt', 'sub-sbx', 'exempt',
+    'An exemption at the sandbox subscription removes it from evaluation for that assignment — it stops enforcing AND stops appearing as non-compliant.',
+    { deny: 'You would be adding enforcement, not removing it.',
+      audit: 'Audit keeps it in the compliance numbers — the exact thing being avoided.',
+      rbac: 'Access has nothing to do with policy evaluation.' },
+    ['sandbox'],
+    { q: 'Do exempted resources still show as non-compliant in the compliance dashboard?', a: false,
+      why: 'No — they show as Exempted, which is the difference between a documented waiver and a red number nobody can explain.' }, 400),
+
+  P('p17', 'Cloud governance',
+    'A rule must apply to every current subscription and every subscription anyone creates in the future, with zero further action. Place it at the smallest scope that guarantees that.',
+    'deny', 'root', 'scope',
+    'The tenant root management group. New subscriptions land under the root (or the default MG under it), so only a root-level assignment guarantees automatic coverage forever.',
+    { init: 'The bundle question is separate from the scope question — the objective is about future coverage.',
+      exempt: 'An exemption removes a scope from an assignment that already exists. You have not placed the assignment yet — there is nothing to be exempt from.',
+      cnd: 'Locks do not describe resource shape and would freeze every future subscription.' },
+    [],
+    { q: 'Do brand-new subscriptions land under the tenant root group by default?', a: true,
+      why: 'Yes — new subscriptions go to the root (or the configured default management group). This is why root-level assignments are so powerful and so dangerous.' }, 500),
+
+  P('p18', 'Cloud governance',
+    'Nobody may deploy the expensive GPU VM SKUs in Dev. Prod is fine — the ML team lives there and needs them.',
+    'deny', 'sub-dev', 'scope',
+    'Deny allowed-SKUs at the Dev subscription only. Assign it at Landing Zones and you take the GPUs away from Prod too.',
+    { audit: 'A monthly report of GPU spend is not the same as preventing it.',
+      exempt: 'That would be the instrument if the Deny were already above and you needed Prod carved out.',
+      ro: 'A freeze on Dev is not the objective.' },
+    [],
+    { q: 'If this were assigned at Landing Zones with Prod excluded via notScopes, would Prod still show in the compliance report?', a: false,
+      why: 'Excluded scopes are not evaluated at all, so they do not appear. The difference from an exemption is the audit trail: notScopes is a silent list on the assignment, an exemption is a tracked object with a reason and an expiry.' }, 400),
+
+  P('p19', 'Security',
+    'We must be able to prove that nobody can delete the diagnostic-settings resources our compliance evidence depends on — blocking the delete API call itself, by policy rather than by lock, so it applies to future resources automatically.',
+    'denyact', 'contoso', 'effects',
+    'DenyAction blocks a specific action — delete being the headline use — by policy, so it applies to matching resources including ones created later. Locks are per-resource and must be placed.',
+    { deny: 'The plain Deny effect evaluates resource creation and properties. Blocking a delete CALL is DenyAction.',
+      cnd: 'A lock does this for existing resources, but you must place one on each and remember to place one on every future resource.',
+      audit: 'Reporting a deletion after the fact is not prevention.' },
+    ['root'],
+    { q: 'Does DenyAction require a managed identity?', a: false,
+      why: 'No. It blocks a call — it does not write anything. Only Modify and DeployIfNotExists need an identity.' }, 400),
+
+  P('p20', 'Platform team',
+    'A policy is fighting a legitimate emergency deployment right now. Turn the assignment off for a few hours without deleting it or losing its parameters and history.',
+    'exempt', 'contoso', 'effects',
+    'Set the assignment’s enforcement mode to Disabled (or set the effect parameter to Disabled) — the assignment survives with its parameters intact. An exemption at the affected scope is the tracked alternative.',
+    { deny: 'Adding more enforcement is the wrong direction.',
+      rbac: 'Removing someone’s access does not remove policy evaluation.',
+      cnd: 'Locks are unrelated to policy.' },
+    [],
+    { q: 'Does enforcement mode Disabled still evaluate compliance?', a: true,
+      why: 'Yes — DoNotEnforce stops the effect from firing but keeps evaluating and reporting, which is exactly how you preview a policy before turning it on.' }, 300),
+
+  P('p21', 'Landing zone team',
+    'We want to test a new Deny rule against real deployments for two weeks and see who it WOULD have blocked, without blocking anyone.',
+    'audit', 'contoso', 'effects',
+    'Assign it with Audit (or the same assignment with enforcement mode DoNotEnforce). Both give you the “who would have been blocked” list with zero production impact.',
+    { deny: 'That blocks people, which is the one thing the objective rules out.',
+      exempt: 'Exempting everyone to test a policy is not a test.',
+      dine: 'DeployIfNotExists creates a missing related resource. Nothing is being deployed here — you are trialling a rule, not filling a gap.' },
+    ['root'],
+    null, 300),
+
+  P('p22', 'Operations',
+    'Move stprodfiles from rg-prod-data into rg-prod-app. The move keeps failing.',
+    'cnd', 'rg-data', 'move',
+    'Check for a lock first: both the source and the destination resource group must be unlocked for a move, and a CanNotDelete on the source blocks it because a move deletes the resource from the source RG.',
+    { rbac: 'Permissions matter (write on source and destination), but the classic exam answer for “the move keeps failing” with locks in play is the lock on the source.',
+      deny: 'A policy could block the destination if the resource violates it there — a real trap, but locks are the first suspect.',
+      exempt: 'Exemptions have no bearing on resource moves.' },
+    [],
+    { q: 'Does a resource move change the resource ID?', a: true,
+      why: 'Yes — the resource ID contains the resource group, so anything referencing the old ID (alerts, RBAC at the old RG, hard-coded templates) breaks. The region does NOT change: a move between RGs or subscriptions never relocates the resource.' }, 400),
+
+  P('p23', 'Cloud governance',
+    'The corporate baseline must apply everywhere under Contoso except one legacy subscription, and we do not want that exception visible in the assignment definition — it should be a separately tracked, approved waiver.',
+    'exempt', 'sub-dev', 'exempt',
+    'An exemption object at the subscription: separately created, separately audited, with a category and justification. notScopes hides the exception inside the assignment where nobody reviews it.',
+    { deny: 'That is the baseline you are trying to except from.',
+      init: 'The bundle already exists; the question is the carve-out.',
+      rbac: 'Access is irrelevant to policy evaluation.' },
+    [],
+    null, 400),
+
+  P('p24', 'Security',
+    'Diagnostic settings must be deployed on every existing VM in Prod, not just new ones. The DeployIfNotExists assignment is already in place and 400 VMs are non-compliant.',
+    'dine', 'sub-prod', 'remed',
+    'Create a remediation task on the existing DeployIfNotExists assignment. It runs the deployment against the already non-compliant resources using the assignment’s managed identity.',
+    { audit: 'It is already telling you 400 are non-compliant. That is the input, not the fix.',
+      deny: 'Deny does nothing to existing resources.',
+      modify: 'Modify handles properties and tags, not deploying a related diagnostic setting.' },
+    [],
+    { q: 'Does the remediation task use the policy assignment’s managed identity?', a: true,
+      why: 'Yes — which is why remediation fails with a permissions error whenever the identity is missing the roles in roleDefinitionIds at the remediation scope.' }, 300),
+
+  P('p25', 'Cloud governance',
+    'Leadership wants one compliance percentage for the Prod subscription that refreshes on its own. Nothing may be blocked, changed or deployed to produce it.',
+    'audit', 'sub-prod', 'effects',
+    'Audit reports non-compliance and does nothing else. Compliance is re-evaluated on a periodic cycle (roughly every 24 hours), plus whenever a resource or an assignment in scope changes — with an on-demand scan for when you cannot wait.',
+    { deny: 'Deny evaluates at request time and blocks people. The objective forbids blocking.',
+      dine: 'DeployIfNotExists would start creating resources to close the gaps. Nobody asked for that.',
+      exempt: 'Exempting the subscription makes the number disappear, which is not the same as the number being accurate.' },
+    ['lz'],
+    { q: 'Is the standard policy compliance evaluation cycle roughly every 24 hours?', a: true,
+      why: 'Yes, plus an evaluation triggered when a resource in scope changes and when an assignment changes. On-demand scans exist for when you cannot wait.' }, 300),
+
+  P('p26', 'Security',
+    'The identity subscription must never host anything except identity workloads. Block every resource type except the approved list, for everything currently in it and everything created later.',
+    'deny', 'sub-id', 'scope',
+    'Deny allowed-resource-types at the Identity subscription. Assigned at the subscription it covers all current and future resource groups inside it.',
+    { cnd: 'Locks stop deletion or writes, not resource TYPES.',
+      audit: 'Audit lets the resource type land and records it. The objective says block, and identity subscriptions are exactly where you do not want to find out afterwards.',
+      rbac: 'RBAC can restrict who deploys, but not what types they may deploy.' },
+    ['platform'],
+    null, 400),
+
+  P('p27', 'Operations',
+    'A CanNotDelete lock on rg-prod-app is blocking an operation that is not a delete: a VM scale set cannot scale in. Why, and what is the correct instrument?',
+    'rbac', 'rg-app', 'locks',
+    'Scaling in DELETES VM instances, so CanNotDelete blocks it. If you need scale-in, the lock has to go — and access control (RBAC) is what should be limiting who can delete the scale set itself.',
+    { cnd: 'That is the thing causing the problem.',
+      ro: 'Even worse — it blocks scale-out too.',
+      deny: 'A policy cannot make the lock stop applying.' },
+    [],
+    { q: 'Does a CanNotDelete lock also block operations that delete child objects, like scale-in and unassigning a disk?', a: true,
+      why: 'Yes. Locks apply to the operation, not your intent. Anything whose implementation is a delete under the covers is blocked.' }, 400),
+
+  P('p28', 'Cloud governance',
+    'A rule must apply to the Connectivity and Identity subscriptions and to nothing else — never Prod, Dev or Sandbox. One assignment, at the smallest node that does exactly that.',
+    'deny', 'platform', 'mgdes',
+    'The Platform management group exists precisely so Connectivity and Identity can be governed as one unit. That is what the management group layer is FOR: drawing the boundary once so assignments land on it exactly.',
+    { exempt: 'Nothing needs carving out — the right node already draws the right boundary.',
+      rbac: 'Not an access question. Nobody is being granted or denied a permission.',
+      cnd: 'A lock cannot express a rule about the shape of resources.',
+      init: 'One rule is not a set. The question is placement, not packaging.' },
+    ['contoso'],
+    { q: 'Can a management group have more than one parent?', a: false,
+      why: 'No — each management group and each subscription has exactly one parent. The hierarchy is a strict tree, which is why inheritance is unambiguous and why depth planning matters (six levels below the root group).' }, 500),
+
+  P('p29', 'Security',
+    'The app team must be able to deploy into rg-dev-app but must never be able to grant anyone else access there.',
+    'rbac', 'rg-dev', 'three',
+    'RBAC: assign Contributor, which explicitly excludes Microsoft.Authorization writes. This is a person-and-permission problem, so policy and locks are the wrong shelf entirely.',
+    { deny: 'Policy cannot see who is asking.',
+      ro: 'That blocks their deployments too.',
+      cnd: 'Deletion is not the concern here.' },
+    [],
+    null, 400),
+
+  P('p30', 'Finance',
+    'Budgets and chargeback need every resource group under Landing Zones to carry a valid costCenter value from a fixed list. Requests with an invalid value must be rejected.',
+    'deny', 'lz', 'tags',
+    'Deny with an allowedValues condition on the tag. Deny rejects the request; Modify would silently rewrite it, which destroys the data quality you are trying to enforce.',
+    { modify: 'Modify would overwrite the wrong value with a default, which hides the error rather than surfacing it. Good for inheritance, bad for validation.',
+      audit: 'Reporting invalid cost centres does not stop them arriving.',
+      init: 'An initiative bundles many policies under one assignment and one compliance score. This is a single tag-value rule — bundling it adds packaging for no gain.' },
+    ['contoso'],
+    null, 400),
+
+  P('p31', 'Platform team',
+    'A Deny policy at Contoso is blocking a resource type that Prod legitimately needs from now on. The rule stays right for everyone else. Least-disruptive fix at the smallest scope.',
+    'exempt', 'sub-prod', 'exempt',
+    'Exempt the Prod subscription from that assignment. Editing the parent assignment would change behaviour for eleven other subscriptions.',
+    { deny: 'Re-assigning it lower does not remove the inherited parent Deny — parent assignments still apply.',
+      audit: 'Changing the parent effect to Audit weakens the rule for everyone.',
+      rbac: 'Nobody is being denied by permissions here — the parent policy assignment is what rejects the deployment, and it rejects Owners too.' },
+    [],
+    { q: 'Can you override an inherited Deny by assigning the same policy with effect Disabled at a child scope?', a: false,
+      why: 'No. Policy assignments are not overridden by children — the parent assignment still evaluates. Deny always wins over any permissive assignment. Exemption or exclusion is the only way out.' }, 400),
+
+  P('p32', 'Security',
+    'All new storage accounts under Contoso must be created with a specific minimum TLS version. Developers should not have to set it and their deployments should not fail.',
+    'modify', 'contoso', 'mi',
+    'Modify sets the property at request time so deployments succeed with the right value. It needs a managed identity on the assignment.',
+    { deny: 'Correct enforcement but the objective says deployments must not fail.',
+      audit: 'Audit reports that the TLS version is wrong and leaves the deployment exactly as it arrived. The objective is that developers never have to set it.',
+      dine: 'DeployIfNotExists creates a related resource; this is a property on the resource itself.' },
+    ['root'],
+    { q: 'Will Modify also fix the TLS version on the 60 storage accounts that already exist?', a: false,
+      why: 'Not by itself. It applies on create and update — the existing ones need a remediation task.' }, 400),
+
+  P('p33', 'Operations',
+    'The sandbox is torn down and rebuilt from scratch every night, but a CanNotDelete lock sitting at Contoso blocks it. Prod and Dev must keep their delete protection. Re-place the lock at the right node.',
+    'cnd', 'lz', 'locks',
+    'Move the lock down to Landing Zones. It still covers Prod and Dev by inheritance, and Sandbox — a sibling branch, not a descendant — is untouched. You cannot loosen an inherited lock from below, so re-placing it is the only fix.',
+    { exempt: 'Exemptions apply to policy assignments. They have zero effect on locks — that is the trap this whole objective is built on.',
+      ro: 'ReadOnly is more restrictive, not less. It would block every deployment into Prod and Dev on top of the deletes.',
+      rbac: 'Granting more rights does not beat a lock. Locks are evaluated on top of RBAC and apply to Owner too.',
+      deny: 'Policy cannot make an existing lock stop applying.' },
+    [],
+    { q: 'Can a child scope override an inherited lock with a weaker one?', a: false,
+      why: 'No. The most restrictive lock in the chain wins. A ReadOnly above beats a CanNotDelete below, and nothing below can loosen what is above.' }, 500),
+
+  P('p34', 'Cloud governance',
+    'Both the Platform and Landing Zones management groups need the same three networking policies. Sandbox must not get them. Place one assignment.',
+    'init', 'contoso', 'scope',
+    'Assign the initiative at Contoso and exclude Sandbox (notScopes), or assign twice. The single-assignment answer at the common parent plus an exclusion is the standard landing-zone pattern.',
+    { deny: 'A single Deny is one of the three rules, not the package. The question is how you assign three related policies once.',
+      exempt: 'The exemption is the carve-out, not the placement.',
+      rbac: 'Role assignments decide who may act. These are networking guardrails about what resources may look like, which is policy territory.' },
+    [],
+    { q: 'Does a notScopes exclusion on an assignment also exclude the child scopes under it?', a: true,
+      why: 'Yes — excluding a management group excludes everything beneath it for that assignment, the same way inclusion inherits downward.' }, 500),
+
+  P('p35', 'Security',
+    'Auditors want a guarantee that the connectivity subscription is not modified during the audit window, but our monitoring must keep collecting from it.',
+    'ro', 'sub-conn', 'locks',
+    'ReadOnly at the Connectivity subscription: reads (and therefore metric/log collection from the platform side) continue while all writes and deletes stop.',
+    { cnd: 'Allows every modification short of deletion — the audit window would be meaningless.',
+      rbac: 'People are not the only writers. Pipelines and Owners are.',
+      deny: 'Policy cannot express “freeze this subscription for two weeks”.' },
+    ['platform'],
+    { q: 'Will a ReadOnly lock on the subscription break agent-based log collection from inside VMs?', a: false,
+      why: 'Correct — the agent writes to the workspace, not to the locked ARM resources. But ARM-side operations like creating a new diagnostic setting or restarting a VM will fail.' }, 400),
+
+  P('p36', 'Landing zone team',
+    'A new subscription was created by a team directly in the Azure portal and it is sitting outside our governance entirely. Policies are not applying to it.',
+    'deny', 'root', 'mgdes',
+    'It landed in the root (or default) management group, outside Contoso, so only root-level assignments reach it. Move the subscription under the right management group — and assign the guardrail at root so this can never happen silently again.',
+    { exempt: 'You want it governed, not exempted.',
+      rbac: 'The team has plenty of access — that is how they created the subscription. The gap is that no policy assignment reaches the scope it landed in.',
+      cnd: 'Locking it does not apply your policy baseline.' },
+    [],
+    { q: 'Does moving a subscription to a different management group change which policies apply to it?', a: true,
+      why: 'Yes, immediately in terms of assignment inheritance — though compliance results take an evaluation cycle to catch up.' }, 300),
+
+  P('p37', 'Operations',
+    'Production VMs must be backed up. If they are not, the platform team wants the backup configured automatically without waiting for the app team.',
+    'dine', 'sub-prod', 'mi',
+    'DeployIfNotExists with the backup built-in: it evaluates whether the related backup protection exists and deploys it when it does not. Managed identity required.',
+    { audit: 'AuditIfNotExists finds the unprotected VMs and stops there.',
+      deny: 'Denying VM creation because it has no backup is a chicken-and-egg failure — the backup cannot exist before the VM.',
+      modify: 'Backup protection is a separate resource, not a property on the VM.' },
+    ['lz'],
+    { q: 'Would AuditIfNotExists have been enough here?', a: false,
+      why: 'No. AuditIfNotExists reports the gap. DeployIfNotExists closes it. Both look at a RELATED resource, which is what separates them from plain Audit and Deny.' }, 400),
+
+  P('p38', 'Cloud governance',
+    'Both a policy assignment and an RBAC assignment exist that would let a deployment through, but a Deny policy inherited from Contoso rejects it. Who wins?',
+    'deny', 'contoso', 'three',
+    'The Deny wins. RBAC says you MAY act; policy says what the result may LOOK like. Both must pass — having Owner does not exempt you from policy.',
+    { rbac: 'Stacking more RBAC does nothing. Owner is still subject to policy.',
+      exempt: 'An exemption is how you actually get past it — but the question is which control wins, and it is the Deny.',
+      cnd: 'Locks are a third, separate gate. All three must pass.' },
+    [],
+    { q: 'Does an Owner role assignment exempt a deployment from Azure Policy?', a: false,
+      why: 'No. Policy is evaluated on the request regardless of the caller’s role. The only escapes are an exemption, an exclusion, or changing the policy.' }, 500),
+
+  P('p39', 'Security',
+    'The central key vault resource group must be readable by everyone in the platform team, unchangeable by anyone at all, and it must stay that way if someone is accidentally granted Owner.',
+    'ro', 'rg-id', 'three',
+    'ReadOnly lock on the resource group: it survives any RBAC change because locks are evaluated on top of roles, and it applies to every resource inside by inheritance.',
+    { rbac: 'RBAC alone fails the “if someone is accidentally granted Owner” clause — that is the entire point of the question.',
+      cnd: 'Allows modification, which the objective forbids.',
+      deny: 'Policy cannot freeze an existing set of resources.' },
+    ['sub-id'],
+    null, 400),
+
+  P('p40', 'Finance',
+    'Untagged resources are impossible to charge back. New resources without a costCenter tag must be refused, and the app teams must find out at deployment time, not on a monthly report.',
+    'deny', 'contoso', 'tags',
+    'Deny on the missing required tag: the deployment fails immediately with a policy error naming the assignment, which is the fastest possible feedback loop.',
+    { modify: 'Modify would invent a value, which is worse than no value for chargeback.',
+      audit: 'That is the monthly report the objective rejects.',
+      dine: 'DeployIfNotExists deploys a missing related resource. A required tag is a field on the resource itself, and here you want the request refused, not completed.' },
+    ['root'],
+    { q: 'Does a Deny policy failure tell the deployer which assignment blocked them?', a: true,
+      why: 'Yes — the error carries the policy definition and assignment ID, which is why Deny is far kinder to developers than a silent Modify.' }, 400),
+
+  P('p41', 'Platform team',
+    'A single initiative is assigned at Contoso with fifteen policies. Only two of them are wrong for the Identity subscription. Fix those two without weakening the other thirteen anywhere.',
+    'exempt', 'sub-id', 'exempt',
+    'A policy exemption can target specific policy definitions within an initiative (policyDefinitionReferenceIds) — so you carve out exactly two rules for exactly one subscription.',
+    { init: 'Splitting the initiative into two would fix it and create permanent drift for a temporary problem.',
+      deny: 'Adding more enforcement is backwards.',
+      audit: 'Downgrading the effect weakens those rules for all twelve subscriptions.' },
+    [],
+    { q: 'Can an exemption target only some policies inside an initiative?', a: true,
+      why: 'Yes — policyDefinitionReferenceIds. It is the reason initiatives plus exemptions scale better than dozens of individual assignments.' }, 400),
+
+  P('p42', 'Operations',
+    'A storage account with a CanNotDelete lock needs to move to a different subscription. Nothing else changes.',
+    'cnd', 'sa-data', 'move',
+    'Remove the lock before the move: a move deletes the resource from the source and recreates the registration at the destination, so a CanNotDelete lock on the resource or either resource group blocks it.',
+    { rbac: 'You do need write on source and destination, but the stated blocker is the lock.',
+      ro: 'Adding a ReadOnly lock makes the move even more impossible.',
+      deny: 'Policy at the destination can block a move if the resource violates it there — a real trap, but not the stated blocker.' },
+    [],
+    { q: 'Does moving a resource between subscriptions change its region?', a: false,
+      why: 'No. A move changes the resource ID and the billing owner, never the physical region. Changing region means redeploying — which is why “move to another region” questions are always about recreate, not move.' }, 400),
+
+  /* ---------------------------------------------------------------------
+     TIER 100 · FOUNDATION
+     What the tree IS, what inheritance IS, and the three instruments a
+     beginner can hold at once: policy that blocks, RBAC that grants,
+     locks that stop everyone. No effect-family trivia, no remediation,
+     no exemptions. Only instruments 1, 2, 8, 9 and 0 are on the bench.
+     ------------------------------------------------------------------ */
+
+  P('b01', 'Cloud governance',
+    'Nobody, anywhere under Contoso, may create a resource in a region we have not approved. Stop it happening — do not just write it down.',
+    'deny', 'contoso', 'effects',
+    'Deny refuses the request before the resource exists. Placed on Contoso, it is inherited by every management group, subscription, resource group and resource underneath it.',
+    { audit: 'Audit writes down what happened and lets the resource be created anyway. The objective says stop it.',
+      rbac: 'RBAC decides WHO may act. It cannot say anything about which region they picked.',
+      cnd: 'A lock stops an operation on a specific thing that already exists. It has no opinion about a region.' },
+    ['root'],
+    { q: 'Does a policy assigned at Contoso also apply to rg-prod-app, four levels down?', a: true,
+      why: 'Yes. Everything drawn inside the box inherits it. That is the single most important thing about this tree.' },
+    100, 'Blocking a REQUEST is policy. Blocking a PERSON is RBAC. Blocking an OPERATION on one thing is a lock.'),
+
+  P('b02', 'Compliance',
+    'We are not ready to block anything yet. We just want a report of which resources under Contoso break the new rule.',
+    'audit', 'contoso', 'effects',
+    'Audit marks non-compliant resources and changes nothing at all. It is the safe first step for any new rule.',
+    { deny: 'Deny would start refusing deployments today. The objective explicitly says not yet.',
+      rbac: 'Access control cannot produce a compliance report about resource configuration.',
+      ro: 'A ReadOnly lock would freeze the estate. That is the opposite of “change nothing”.' },
+    ['root'],
+    { q: 'Does Audit stop a non-compliant resource from being created?', a: false,
+      why: 'No. Audit records and reports. Deny is the effect that refuses.' },
+    100, 'Two policy effects to start with: Audit reports, Deny refuses.'),
+
+  P('b03', 'Security',
+    'Nobody may delete kv-core-01. Not the app team, not the subscription owner, not our automation. Nobody.',
+    'cnd', 'kv-id', 'locks',
+    'A CanNotDelete lock on the vault. Locks are checked on top of RBAC, so “including Owner” is exactly what they are for.',
+    { rbac: 'You cannot remove the delete right from an Owner — an Owner can simply grant it back to themselves.',
+      deny: 'Policy shapes what resources may look like when they are created. This is about one existing vault.',
+      ro: 'ReadOnly also blocks deletion, and it blocks every ordinary update to the vault as well. Bigger than the ask.' },
+    ['rg-id'],
+    { q: 'Can a subscription Owner delete a resource that has a CanNotDelete lock?', a: false,
+      why: 'No. That is the whole point of a lock: it is evaluated after RBAC has already said yes.' },
+    100, 'If the objective contains the words “including admins” or “nobody at all”, reach for a lock.'),
+
+  P('b04', 'Operations',
+    'vnet-hub is frozen for the change window. No edits, no deletion — reading it is fine.',
+    'ro', 'vnet-hub', 'locks',
+    'A ReadOnly lock on the VNet: reads keep working, every write and delete is refused.',
+    { cnd: 'CanNotDelete blocks deletion but still allows edits. The objective says no edits either.',
+      deny: 'Policy is about the shape of resources being created, not about freezing one that exists.',
+      rbac: 'You would have to find and remove every assignment that could write to it, and put them all back afterwards.' },
+    [],
+    { q: 'Does a ReadOnly lock stop somebody reading the VNet’s settings?', a: false,
+      why: 'No. ReadOnly means read is all you can do — reading is exactly what still works.' },
+    100, 'CanNotDelete blocks one verb. ReadOnly blocks every verb except reading.'),
+
+  P('b05', 'Platform team',
+    'The app team must be able to build things in rg-dev-app. Right now they cannot see it at all.',
+    'rbac', 'rg-dev', 'three',
+    'This is a person problem, so it is an RBAC problem: a role assignment at the resource group they own.',
+    { deny: 'Policy cannot grant anything. It only ever restricts or reports.',
+      audit: 'Audit reports. It grants nothing.',
+      cnd: 'A lock removes ability. It never adds any.' },
+    ['sub-dev'],
+    { q: 'Can an Azure Policy assignment give somebody access to a resource group?', a: false,
+      why: 'No. Policy never grants. Granting is RBAC, and only RBAC.' },
+    100, 'Policy and locks only ever take away. RBAC is the only instrument that gives.'),
+
+  P('b06', 'Cloud governance',
+    'A rule must cover the Prod subscription and nothing else. Not Dev, not Sandbox, not Connectivity.',
+    'deny', 'sub-prod', 'scope',
+    'Assign it at the Prod subscription. The blast radius is that subscription and everything inside it — and stops there.',
+    { rbac: 'The objective is about what may be deployed, not who may deploy.',
+      audit: 'Audit would report instead of enforce; and the question being drilled here is the NODE, not the effect.',
+      cnd: 'A lock at a subscription blocks deletions everywhere in it, which is a completely different rule.' },
+    ['lz', 'contoso'],
+    { q: 'Would assigning this at Landing Zones also hit the Dev subscription?', a: true,
+      why: 'Yes. Dev is drawn inside Landing Zones, so it inherits everything assigned there.' },
+    100, 'Find the smallest box on the tree that contains everything the objective names — and nothing it does not.'),
+
+  P('b07', 'Cloud governance',
+    'A rule must cover every subscription we have and every subscription anyone creates from now on.',
+    'deny', 'root', 'scope',
+    'The Tenant Root Group. It is the top box: every management group and subscription in the tenant sits inside it, including ones that do not exist yet.',
+    { rbac: 'Access control does not decide what may be deployed.',
+      audit: 'Reporting instead of enforcing, and this objective says the rule must cover them.',
+      ro: 'A ReadOnly lock at the root would freeze the entire tenant.' },
+    [],
+    { q: 'Is the Tenant Root Group the highest scope you can assign at?', a: true,
+      why: 'Yes. Everything in the tenant — every management group, every subscription — lives inside it.' },
+    100, 'Root is the only node that covers subscriptions that have not been created yet.'),
+
+  P('b08', 'Operations',
+    'Somebody deleted a production resource group last quarter. Nothing in the Prod subscription should be deletable — but people must still be able to deploy into it normally.',
+    'cnd', 'sub-prod', 'locks',
+    'CanNotDelete at the Prod subscription. It is inherited by every resource group and resource inside it, and it leaves ordinary create and update alone.',
+    { ro: 'ReadOnly would also stop them deploying, which the objective explicitly protects.',
+      rbac: 'Taking away delete rights from everyone means finding every assignment, and an Owner can grant it back.',
+      deny: 'Policy evaluates resources being created. This is about protecting ones that exist.' },
+    ['lz', 'contoso'],
+    { q: 'Does a lock at the subscription apply to a resource group created next week?', a: true,
+      why: 'Yes. Locks inherit downward to everything inside the scope, whenever it appears.' },
+    100, 'CanNotDelete = you may build and change, you may not remove.'),
+
+  P('b09', 'Landing zone team',
+    'What is the Landing Zones management group actually FOR? Show me by placing a rule that must reach Prod and Dev but never Sandbox or the platform subscriptions.',
+    'deny', 'lz', 'mgdes',
+    'That is exactly what a management group is for: drawing a boundary once so an assignment can land on it. Prod and Dev are inside Landing Zones; Sandbox and Platform are siblings, not descendants.',
+    { rbac: 'The objective describes a rule about resources, not about people.',
+      audit: 'Reporting rather than enforcing; and again the drill here is the node.',
+      cnd: 'A lock is not a rule about what may be deployed.' },
+    ['contoso', 'root'],
+    { q: 'Is Sandbox inside Landing Zones?', a: false,
+      why: 'No. They are siblings — both sit inside Contoso. Inheritance flows down a branch, never across to a sibling.' },
+    100, 'Read the picture. If the box is not drawn inside your box, it does not inherit.'),
+
+  P('b10', 'Security',
+    'Only stprodfiles must be protected from deletion. Nothing else in rg-prod-data, and nothing else in Prod.',
+    'cnd', 'sa-data', 'scope',
+    'Put the lock on the resource itself. That is the smallest scope on the tree, and the blast radius is exactly one node.',
+    { rbac: 'Removing delete from everyone is not achievable and not what was asked.',
+      deny: 'Policy does not target one named existing resource.',
+      ro: 'ReadOnly would also stop the storage account being reconfigured.' },
+    ['rg-data', 'sub-prod'],
+    { q: 'Does a lock on stprodfiles affect anything else in rg-prod-data?', a: false,
+      why: 'No. A resource is a leaf — nothing is drawn inside it, so nothing else inherits.' },
+    100, 'A leaf node has a blast radius of one. That is the point of assigning there.'),
+
+  P('b11', 'Platform team',
+    'Somebody put a rule on rg-prod-app and is surprised that vm-app-01 is affected. Show them where the rule reaches.',
+    'audit', 'rg-app', 'scope',
+    'The resource group and everything drawn inside it — here, vm-app-01. Assignments always reach downward and never upward: rg-prod-data next door is untouched.',
+    { deny: 'The drill is the reach of the assignment; Audit is the safe effect for demonstrating it.',
+      rbac: 'Not a person question.',
+      cnd: 'Not a delete-protection question.' },
+    ['sub-prod'],
+    { q: 'Does a rule on rg-prod-app affect rg-prod-data?', a: false,
+      why: 'No. They are siblings inside the Prod subscription. To cover both you assign at the subscription.' },
+    100, 'Down: always. Sideways: never. Up: never.'),
+
+  P('b12', 'Security',
+    'The Identity subscription must never be deleted or reconfigured during the audit. Monitoring must keep reading from it.',
+    'ro', 'sub-id', 'locks',
+    'ReadOnly at the Identity subscription: reads continue — which is what monitoring does — and every write and delete stops, all the way down.',
+    { cnd: 'CanNotDelete would still allow the subscription’s resources to be reconfigured. The audit asks for no changes at all.',
+      rbac: 'Removing everyone’s write access one assignment at a time is neither provable nor reversible in one step.',
+      deny: 'Policy governs new resources’ shape, not a freeze on existing ones.' },
+    ['platform', 'contoso'],
+    { q: 'Does ReadOnly stop metrics and logs being collected from the resources inside?', a: false,
+      why: 'No. Collection reads. ReadOnly blocks writes and deletes, not reads.' },
+    100, 'Freeze = ReadOnly. Protect from deletion only = CanNotDelete.'),
+
+  P('b13', 'Cloud governance',
+    'Explain the difference between a subscription and a resource group by placing a rule that must cover BOTH resource groups in Prod.',
+    'audit', 'sub-prod', 'mgdes',
+    'The subscription. rg-prod-app and rg-prod-data are two separate boxes inside it — the smallest single node containing both is the subscription they share.',
+    { deny: 'Effect is not the drill here; the node is.',
+      rbac: 'Not a person question.',
+      ro: 'A freeze is not what was asked for.' },
+    ['lz', 'contoso'],
+    { q: 'Can one resource group contain another resource group?', a: false,
+      why: 'No. Resource groups do not nest. Subscription → resource group → resource, and that is the end of it.' },
+    100, 'When the objective names two siblings, go up exactly one level to the box containing both.'),
+
+  P('b14', 'Operations',
+    'A developer says “I have Owner, so no policy can stop me.” Settle it: place the instrument that proves them wrong about a rule in Prod.',
+    'deny', 'sub-prod', 'three',
+    'A Deny policy assignment. Policy is evaluated on the request no matter who made it — Owner is not an exemption from anything.',
+    { rbac: 'They already have the maximum role. More RBAC changes nothing about their claim.',
+      audit: 'Audit would let the deployment succeed and prove their point for them.',
+      cnd: 'A lock is about existing resources; the claim is about what they can create.' },
+    ['lz', 'contoso'],
+    { q: 'Does having Owner exempt you from Azure Policy?', a: false,
+      why: 'No. RBAC says whether you may act. Policy says whether the result is allowed. Both have to pass.' },
+    100, 'Role and policy are two separate gates. You need to get through both.'),
+
+  P('b15', 'Landing zone team',
+    'Sandbox is where people learn. Nothing may be locked or blocked in there — but the rest of Contoso needs the rule. Place it so Sandbox is untouched.',
+    'deny', 'lz', 'scope',
+    'Assign at Landing Zones. Sandbox is a sibling branch under Contoso, so placing the rule one level lower leaves Sandbox alone without any exclusion machinery.',
+    { rbac: 'Not a person problem.',
+      cnd: 'Not a deletion problem.',
+      ro: 'Certainly not a freeze.' },
+    ['contoso', 'root'],
+    { q: 'Would placing this at Contoso hit Sandbox?', a: true,
+      why: 'Yes — Sandbox is drawn inside Contoso. Choosing a lower node is the simplest way to miss a branch you do not want to hit.' },
+    100, 'Sometimes the way to exclude a branch is simply to place the assignment below it.'),
+
+  P('b16', 'Security',
+    'Only the Connectivity subscription needs the network rule. It is the only subscription with any networking in it.',
+    'deny', 'sub-conn', 'scope',
+    'Assign at the Connectivity subscription. One box, everything inside it, nothing outside it.',
+    { rbac: 'Not a person problem.',
+      cnd: 'Not a deletion problem.',
+      audit: 'Reporting rather than enforcing.' },
+    ['platform', 'contoso'],
+    { q: 'Does the Platform management group contain the Connectivity subscription?', a: true,
+      why: 'Yes — Connectivity and Identity both sit inside Platform. That is why Platform exists as a node.' },
+    100, 'Name the thing the objective mentions, then find that exact box on the tree.'),
+
+  P('b17', 'Operations',
+    'rg-hub-net must be protected from deletion, including everything inside it, and including from us.',
+    'cnd', 'rg-hub', 'locks',
+    'CanNotDelete on the resource group. It is inherited by vnet-hub inside it, and it applies to every principal regardless of role.',
+    { ro: 'ReadOnly would also freeze routine networking changes.',
+      rbac: 'Cannot achieve “including us” — we can re-grant ourselves.',
+      deny: 'Not about the shape of new resources.' },
+    ['sub-conn'],
+    { q: 'Does a lock on a resource group protect the resources inside it?', a: true,
+      why: 'Yes. Locks inherit downward exactly like everything else on this tree.' },
+    100, 'Lock the box, and everything in the box is locked too.'),
+
+  P('b18', 'Cloud governance',
+    'Give me the report for one subscription only — Dev — and nothing else. Nobody is to be blocked.',
+    'audit', 'sub-dev', 'effects',
+    'Audit at the Dev subscription: compliance results for everything inside it, no enforcement, no other subscription touched.',
+    { deny: 'Blocks. The objective says nobody is blocked.',
+      rbac: 'Does not produce compliance data.',
+      cnd: 'Not a deletion question.' },
+    ['lz', 'contoso'],
+    { q: 'Does Audit change the resources it finds non-compliant?', a: false,
+      why: 'No. Audit only labels. Nothing about the resource changes.' },
+    100, 'Effect answers “what happens”. Node answers “to what”. Two separate decisions, every round.'),
+
+  P('b19', 'Platform team',
+    'The Sandbox subscription should be deletable and rebuildable every night. Someone has asked for a delete lock on it “for consistency”. Place what the objective actually calls for.',
+    'rbac', 'sub-sbx', 'three',
+    'Nothing needs locking here — what the sandbox needs is control over WHO can tear it down, which is a role assignment at the sandbox subscription. A lock would break the nightly rebuild.',
+    { cnd: 'This is the trap: a delete lock stops the nightly teardown the sandbox exists for.',
+      ro: 'Worse — it stops the rebuild too.',
+      deny: 'Policy does not decide who may delete a subscription’s contents.' },
+    ['sandbox'],
+    { q: 'Would a CanNotDelete lock on Sandbox block the nightly teardown?', a: true,
+      why: 'Yes — and it would keep blocking it every night until somebody removed the lock.' },
+    100, 'Before you place a lock, ask what legitimate operation it stops.'),
+
+  P('b20', 'Security',
+    'kv-core-01 must not be deleted, and the objective is about that one vault. Somebody has proposed putting the lock at the Tenant Root Group so it is “definitely covered”.',
+    'cnd', 'kv-id', 'scope',
+    'Place it on the vault. Root would cover it — and also freeze deletion across every subscription in the tenant, including the sandbox that gets rebuilt nightly. Coverage is not the only thing that matters; blast radius is.',
+    { rbac: 'Cannot stop an Owner deleting it.',
+      deny: 'Not about the shape of new resources.',
+      ro: 'Blocks legitimate secret rotation on the vault.' },
+    ['rg-id', 'sub-id'],
+    { q: 'Is a wider scope always safer?', a: false,
+      why: 'No. A wider scope is always BIGGER. Governance is scored on the smallest scope that satisfies the objective.' },
+    100, 'Right instrument, wrong node is still a wrong answer — and usually the expensive kind.'),
+
+  P('b21', 'Compliance',
+    'Show me, with one assignment, everything that is non-compliant everywhere in the tenant. Reporting only.',
+    'audit', 'root', 'scope',
+    'Audit at the Tenant Root Group: one assignment, complete coverage, and it cannot break anything because Audit changes nothing.',
+    { deny: 'Deny at root would be the single largest blast radius in the tenant.',
+      rbac: 'Does not produce compliance data.',
+      cnd: 'Not a deletion question.' },
+    [],
+    { q: 'Is Audit at the root group a safe thing to assign?', a: true,
+      why: 'Yes — it is the standard way to measure an estate before you enforce anything on it. Deny at root is the one you think twice about.' },
+    100, 'Audit is the effect you can afford to put at the top of the tree.'),
+
+  P('b22', 'Landing zone team',
+    'One rule has to cover both platform subscriptions — Connectivity AND Identity — and no landing zone.',
+    'deny', 'platform', 'mgdes',
+    'The Platform management group is the smallest node containing both, and it contains nothing else. One assignment, exact coverage.',
+    { rbac: 'Not a person problem.',
+      audit: 'Reporting, not the enforcement asked for.',
+      cnd: 'Not a deletion problem.' },
+    ['contoso', 'root'],
+    { q: 'Could you cover both by assigning at each subscription instead?', a: true,
+      why: 'Yes — two assignments instead of one, both of which can drift apart. The management group exists so you do not have to.' },
+    100, 'Management groups are how you say “these subscriptions, together” exactly once.'),
+
+
+  /* ---------------------------------------------------------------------
+     TIER 200 · PRACTITIONER
+     The happy path. Assign the built-in, at the scope you would really pick,
+     for a design that is already agreed. Modify and initiatives join the
+     bench; DeployIfNotExists, DenyAction and exemptions do not yet.
+     ------------------------------------------------------------------ */
+
+  P('c01', 'Landing zone team',
+    'Standard baseline rollout: eight agreed rules — allowed locations, allowed SKUs, required tags and five more — go on every landing zone together, versioned and reported as one thing.',
+    'init', 'lz', 'init',
+    'One initiative assigned at Landing Zones. It gives you a single assignment, one set of parameters and one compliance percentage covering Prod and Dev.',
+    { deny: 'Eight separate Deny assignments is eight things to drift and eight compliance views to read.',
+      audit: 'The baseline is meant to enforce, and the drill here is packaging eight rules as one.',
+      modify: 'Modify writes properties. It is one effect inside the bundle, not the bundle.' },
+    ['contoso', 'root'],
+    { q: 'Does an initiative let you set a parameter once and share it across the policies inside it?', a: true,
+      why: 'Yes. Shared parameters are half the reason to bundle — one “allowed locations” list feeding several rules.' },
+    200, 'One rule → policy assignment. A set of rules that ship together → initiative.'),
+
+  P('c02', 'Platform team',
+    'Agreed design: every resource group in the Prod subscription inherits its costCenter tag from the subscription automatically. Deployments must not fail if the tag is missing.',
+    'modify', 'sub-prod', 'tags',
+    'The built-in “Inherit a tag from the subscription” Modify policy, assigned at the Prod subscription. Modify adds the tag at request time so the deployment succeeds with the right value.',
+    { deny: 'Deny would fail the deployment instead of fixing it. The objective says it must not fail.',
+      audit: 'Audit reports the missing tag and adds nothing.',
+      init: 'Bundling a single rule adds packaging without benefit.' },
+    ['lz'],
+    { q: 'Does a Modify assignment need a managed identity?', a: true,
+      why: 'Yes. Modify writes on your behalf, so the assignment needs an identity with rights at the scope — Tag Contributor here.' },
+    200, 'Modify fixes it quietly. Deny refuses it loudly. Audit just tells you.'),
+
+  P('c03', 'Cloud governance',
+    'Standard guardrail: only approved VM SKUs in Dev. Prod is unaffected — the ML team lives there.',
+    'deny', 'sub-dev', 'scope',
+    'Deny the allowed-SKUs built-in at the Dev subscription. Placing it at Landing Zones would take the SKUs away from Prod as well.',
+    { audit: 'The objective is a guardrail, not a report.',
+      init: 'One rule does not need a bundle.',
+      cnd: 'Locks do not decide which SKU may be deployed.' },
+    ['lz', 'contoso'],
+    { q: 'Would assigning this at Landing Zones affect Prod?', a: true,
+      why: 'Yes. Prod sits inside Landing Zones and inherits everything assigned there.' },
+    200, 'Assign one level at a time. Start at the box the objective names.'),
+
+  P('c04', 'Security',
+    'Every storage account created in the Prod subscription must have HTTPS-only enforced. Deployments that leave it off should be refused.',
+    'deny', 'sub-prod', 'effects',
+    'Deny with the built-in secure-transfer policy at the Prod subscription: the deployment fails at request time with the assignment named in the error.',
+    { audit: 'Would produce a list of insecure accounts that already exist and are still serving traffic.',
+      modify: 'Modify could set the property — and here the agreed design is refusal, so the team learns at deploy time.',
+      init: 'Not a bundle.' },
+    ['lz', 'contoso'],
+    { q: 'Is a Deny policy evaluated before the resource is created?', a: true,
+      why: 'Yes. Deny is a deployment-time gate — the resource never exists.' },
+    200, 'Deny is checked on the request. Nothing is created and nothing needs cleaning up.'),
+
+  P('c05', 'Platform team',
+    'New subnets should get our standard tag appended if the request leaves it out. The deployment must still succeed.',
+    'modify', 'sub-conn', 'effects',
+    'Append or Modify at the Connectivity subscription: the field is added to the request and the deployment goes through.',
+    { deny: 'Fails the deployment instead of completing it.',
+      audit: 'Records the omission and adds nothing.',
+      init: 'A single rule.' },
+    ['platform', 'contoso'],
+    { q: 'Does Append change a resource that already exists?', a: false,
+      why: 'No. Append acts on the request. Existing resources are handled by remediation, which is a separate step.' },
+    200, 'Append/Modify act at request time. They do not go back and fix history.'),
+
+  P('c06', 'Compliance',
+    'Leadership wants one compliance number for the Prod subscription. Standard reporting setup, nothing enforced.',
+    'audit', 'sub-prod', 'effects',
+    'Audit at the Prod subscription. Compliance is aggregated for that scope and everything inside it, and nothing is blocked or changed.',
+    { deny: 'Enforces. Nobody asked for enforcement.',
+      modify: 'Writes properties on resources. Not a reporting instrument.',
+      init: 'Useful if there were several rules; the objective is one number from one rule.' },
+    ['lz', 'contoso'],
+    { q: 'Does compliance refresh on its own?', a: true,
+      why: 'Yes — there is a periodic evaluation cycle (roughly every 24 hours), plus evaluation when a resource or an assignment in scope changes.' },
+    200, 'Compliance is a property of the assignment at a scope. Read it where you assigned it.'),
+
+  P('c07', 'Landing zone team',
+    'Prod and Dev both take the same baseline initiative. Sandbox does not. Standard landing-zone setup, one assignment.',
+    'init', 'lz', 'scope',
+    'Assign the initiative at Landing Zones. Prod and Dev inherit it; Sandbox is a sibling under Contoso and never sees it.',
+    { deny: 'One effect, not the bundle described.',
+      audit: 'Same — and the baseline enforces.',
+      modify: 'One effect inside the bundle.' },
+    ['contoso', 'root'],
+    { q: 'Does an initiative assignment inherit downward like a single policy assignment?', a: true,
+      why: 'Yes. An initiative assignment behaves exactly like any other assignment at that scope.' },
+    200, 'Bundle the rules, then choose the node. Two decisions, in that order.'),
+
+  P('c08', 'Security',
+    'Freeze the Identity subscription for the two-week audit. Reads must keep working. This is the agreed change-freeze procedure.',
+    'ro', 'sub-id', 'locks',
+    'ReadOnly at the Identity subscription. It is inherited by rg-identity and kv-core-01, blocks every write and delete, and leaves reads alone.',
+    { cnd: 'Would still allow reconfiguration during the freeze.',
+      rbac: 'Removing write access from everyone one assignment at a time is not a freeze procedure you can reverse in one action.',
+      deny: 'Policy does not freeze existing resources.' },
+    ['platform', 'contoso'],
+    { q: 'Can you remove a ReadOnly lock while it is in force?', a: true,
+      why: 'Yes — if you hold Microsoft.Authorization/locks/delete. The lock stops resource operations, not lock management.' },
+    200, 'A change freeze is a lock, placed at the scope being frozen, removed when the window ends.'),
+
+  P('c09', 'Operations',
+    'Delete protection for the whole Prod subscription, applied the standard way so new resource groups are covered too.',
+    'cnd', 'sub-prod', 'locks',
+    'CanNotDelete at the Prod subscription. Everything inside inherits it, including resource groups created later, and normal deployment is unaffected.',
+    { ro: 'Blocks deployment as well. The standard pattern protects deletion only.',
+      rbac: 'An Owner can grant delete back to themselves.',
+      deny: 'Not the instrument for protecting existing resources.' },
+    ['lz', 'contoso'],
+    { q: 'Does the lock have to be re-applied to each new resource group?', a: false,
+      why: 'No. Inheritance covers anything created inside the locked scope from then on.' },
+    200, 'Place the lock once, at the scope you mean, and let inheritance do the rest.'),
+
+  P('c10', 'Cloud governance',
+    'Standard tagging rule: resources in Prod must carry a costCenter tag, and requests without one are refused at deployment.',
+    'deny', 'sub-prod', 'tags',
+    'Deny on the required-tag built-in at the Prod subscription. The team finds out at deploy time with a clear policy error, not on a monthly report.',
+    { modify: 'Modify would invent a value, which is worse than refusing — you get complete data that is wrong.',
+      audit: 'Produces a monthly list of untagged resources instead of preventing them.',
+      init: 'A single rule.' },
+    ['lz', 'contoso'],
+    { q: 'Does a required-tag Deny policy tag existing untagged resources?', a: false,
+      why: 'No. Deny only evaluates new requests. Existing resources go non-compliant and stay as they are.' },
+    200, 'Deny for data you want people to supply. Modify for data you can derive.'),
+
+  P('c11', 'Platform team',
+    'Apply the corporate baseline to absolutely everything in the tenant, the standard way, so no new subscription can miss it.',
+    'init', 'root', 'scope',
+    'Assign the initiative at the Tenant Root Group. New subscriptions land under the root, so that is the only node guaranteeing automatic coverage.',
+    { deny: 'One rule, not the baseline.',
+      audit: 'One effect, not the baseline.',
+      modify: 'One effect, not the baseline.' },
+    [],
+    { q: 'Do new subscriptions automatically appear under Contoso?', a: false,
+      why: 'No. They land in the root (or the configured default management group) until somebody moves them. That is why the root assignment matters.' },
+    200, 'The root group is where “and everything created in future” lives.'),
+
+  P('c12', 'Security',
+    'Standard practice: turn on the rule in report-only first, watch it for two weeks, then enforce. Set up week one for Prod.',
+    'audit', 'sub-prod', 'effects',
+    'Assign the same rule with Audit at the Prod subscription. You get the list of resources that would have been refused, with nobody blocked.',
+    { deny: 'That is week three. Starting here is how a guardrail rollout becomes an incident.',
+      modify: 'Silently changes deployments during the observation window, which corrupts the observation.',
+      init: 'Packaging is not the question.' },
+    ['lz', 'contoso'],
+    { q: 'Can the same policy definition be assigned with Audit in one place and Deny in another?', a: true,
+      why: 'Yes. The effect is set on the assignment (usually as a parameter), so one definition supports staged rollout across scopes.' },
+    200, 'Audit first, Deny second. Always in that order on a live estate.'),
+
+  P('c13', 'Operations',
+    'Protect vm-app-01 specifically from accidental deletion during the migration. Nothing else changes.',
+    'cnd', 'vm-app', 'scope',
+    'CanNotDelete on the VM itself. Blast radius of one node, removed when the migration finishes.',
+    { ro: 'Would block the migration work itself.',
+      rbac: 'An Owner can re-grant delete.',
+      deny: 'Not a policy question.' },
+    ['rg-app', 'sub-prod'],
+    { q: 'Does a lock on a VM also protect its managed disk resource?', a: false,
+      why: 'No — the disk is a separate resource. Lock the resource group if you mean the VM and everything it is made of.' },
+    200, 'Locks live at a scope. A VM and its disks are separate scopes.'),
+
+  P('c14', 'Platform team',
+    'Agreed: minimum TLS version is set for us rather than being our developers’ problem, on new storage accounts under Contoso.',
+    'modify', 'contoso', 'effects',
+    'Modify at Contoso sets the property at request time, so deployments succeed with the correct value and nobody has to remember it.',
+    { deny: 'Correct security outcome, and every team that forgets gets a failed deployment instead of a working one.',
+      audit: 'Reports a fleet of non-compliant accounts.',
+      init: 'One rule.' },
+    ['root'],
+    { q: 'Does the Modify assignment need an identity with rights at the scope?', a: true,
+      why: 'Yes — Modify and DeployIfNotExists both act on your behalf, so both need a managed identity holding the roles in the definition.' },
+    200, 'If the objective says “without the team having to do it”, you are looking at Modify.'),
+
+  P('c15', 'Landing zone team',
+    'Both platform subscriptions take the same three networking rules. Landing zones must not get them. Set it up the standard way.',
+    'init', 'platform', 'mgdes',
+    'The three rules as one initiative, assigned at the Platform management group — the smallest node containing Connectivity and Identity and nothing else.',
+    { deny: 'One rule of the three.',
+      audit: 'Report-only, and still only one rule.',
+      modify: 'One effect, not three rules.' },
+    ['contoso', 'root'],
+    { q: 'Can one initiative contain policies with different effects?', a: true,
+      why: 'Yes. A policy set is just a list of definitions with parameters — Deny, Audit and Modify can happily sit in the same initiative.' },
+    200, 'Group by “these ship together”, then assign at the node they all apply to.'),
+
+  P('c16', 'Cloud governance',
+    'The Dev subscription needs the tagging rule reporting only, while Prod already enforces it. Standard split.',
+    'audit', 'sub-dev', 'scope',
+    'A second assignment of the same definition, with Audit, at the Dev subscription. Assignments are per-scope, so the two coexist without fighting.',
+    { deny: 'Dev is deliberately the softer environment here.',
+      modify: 'Changes deployments in the environment you use for experimenting.',
+      init: 'Not a bundle.' },
+    ['lz', 'contoso'],
+    { q: 'Can the same policy definition be assigned at two different scopes at once?', a: true,
+      why: 'Yes. Definitions are reusable; assignments are what bind a definition, an effect and a scope together.' },
+    200, 'Definition = the rule. Assignment = the rule, here, with these parameters.'),
+
+  P('c17', 'Security',
+    'The app team needs to deploy into rg-dev-app but must never be able to hand out access there. Standard app-team setup.',
+    'rbac', 'rg-dev', 'three',
+    'A Contributor assignment at rg-dev-app: full resource management, and explicitly no Microsoft.Authorization writes.',
+    { deny: 'Policy cannot grant, and cannot single out the granting action for one team.',
+      cnd: 'Locks remove ability; they do not shape it.',
+      init: 'Not remotely a policy question.' },
+    ['sub-dev'],
+    { q: 'Can a Contributor create a role assignment?', a: false,
+      why: 'No. That single exclusion is what separates Contributor from Owner.' },
+    200, 'People and permissions → RBAC. Resource shape → policy. Operations on one thing → lock.'),
+
+  P('c18', 'Operations',
+    'Standard onboarding for a new resource group: rg-prod-data must be reported against the corporate initiative like every other RG. Where does the assignment already come from?',
+    'init', 'sub-prod', 'scope',
+    'It inherits from the Prod subscription assignment — you do not assign per resource group. Placing the initiative at the subscription is what makes a new RG compliant-by-default.',
+    { deny: 'Single rule.',
+      audit: 'Single rule.',
+      cnd: 'Not a lock question.' },
+    ['lz', 'contoso'],
+    { q: 'Does a resource group created tomorrow inherit the subscription’s assignments?', a: true,
+      why: 'Yes, immediately for enforcement. Compliance results take an evaluation cycle to appear.' },
+    200, 'Assign at the level where the population is stable — usually the subscription, not the RG.'),
+
+  P('c19', 'Platform team',
+    'The Sandbox subscription is being rebuilt nightly by automation and someone has proposed the delete lock there too, “for consistency with Prod”.',
+    'cnd', 'sub-prod', 'locks',
+    'Put the lock on Prod, where delete protection is wanted, and leave Sandbox alone. Consistency is not a reason to break the one environment designed to be destroyed.',
+    { ro: 'Even more blocking, in both environments.',
+      rbac: 'An Owner can re-grant delete.',
+      deny: 'Not a policy question.' },
+    ['lz'],
+    { q: 'Would a lock at Contoso have covered Prod?', a: true,
+      why: 'Yes — and it would also have hit Sandbox, which is the whole problem. Coverage is easy; precision is the job.' },
+    200, 'Ask what the lock stops, in every branch it reaches, before you place it.'),
+
+  P('c20', 'Compliance',
+    'Give me a single compliance view over both platform subscriptions, reporting only, without touching landing zones.',
+    'audit', 'platform', 'mgdes',
+    'Audit at the Platform management group: one assignment, one aggregated compliance number, covering exactly Connectivity and Identity.',
+    { deny: 'Enforcement was not asked for.',
+      modify: 'Changes resources during a reporting exercise.',
+      cnd: 'Not a lock question.' },
+    ['contoso', 'root'],
+    { q: 'Does compliance roll up to the management group you assigned at?', a: true,
+      why: 'Yes. The assignment’s compliance is aggregated across everything in its scope, which is why the node you pick decides the number leadership sees.' },
+    200, 'The scope you assign at is also the scope you report at.'),
+
+  P('c21', 'Cloud governance',
+    'Standard first move on a brand-new tenant: measure everything before enforcing anything.',
+    'audit', 'root', 'effects',
+    'Audit the baseline at the Tenant Root Group. Complete coverage, zero risk, and a real number to argue from before anyone turns on Deny.',
+    { deny: 'Enforcing an unmeasured estate at root is how you break every team at once.',
+      modify: 'Silently rewriting properties across a tenant you have not measured.',
+      init: 'Bundling is fine later; the drill is the effect and the node.' },
+    [],
+    { q: 'Is it normal to leave a root-level Audit assignment in place permanently?', a: true,
+      why: 'Yes. A permanent root Audit is the standard way to keep an estate-wide compliance view while enforcement happens lower down.' },
+    200, 'Measure at the top, enforce where you can afford to.'),
+
+
+  /* ---------------------------------------------------------------------
+     TIER 300 · PROFESSIONAL
+     Production reality: what it costs, what it breaks, what it does NOT do,
+     and what you are actually looking at when compliance says one thing and
+     the estate says another. DeployIfNotExists and exemptions join the bench.
+     ------------------------------------------------------------------ */
+
+  P('d01', 'Platform team',
+    'The DeployIfNotExists assignment for diagnostic settings has been in place for a month. Compliance says 78%. The 22% are all resources that existed before we assigned it.',
+    'dine', 'sub-prod', 'remed',
+    'DeployIfNotExists only fires on create and update. Pre-existing resources are evaluated, marked non-compliant, and then left exactly as they are until you run a remediation task against the assignment.',
+    { audit: 'Would report the same 22% and deploy nothing, which is where you already are.',
+      deny: 'Deny cannot retrofit anything. It only refuses new requests.',
+      exempt: 'Exempting them makes the number go up and the gap stay open.' },
+    ['lz'],
+    { q: 'Does the periodic compliance scan remediate non-compliant resources?', a: false,
+      why: 'No. The scan re-evaluates and re-labels. Only a remediation task writes anything.' },
+    300),
+
+  P('d02', 'Platform team',
+    'The remediation task fails on every resource with a permissions error. The DeployIfNotExists assignment definitely has a managed identity.',
+    'dine', 'sub-prod', 'mi',
+    'Having an identity is not the same as the identity having rights. The assignment’s managed identity needs the roles listed in the definition’s roleDefinitionIds, granted at the remediation scope — and it does not get them retroactively if the identity was added later.',
+    { audit: 'Audit needs no identity at all, which is why swapping to it makes the error disappear and the problem remain.',
+      deny: 'No identity, no deployment, no fix.',
+      exempt: 'Hiding the failure instead of granting the identity its roles.' },
+    ['lz'],
+    { q: 'Does the assignment’s managed identity need role assignments at the scope being remediated?', a: true,
+      why: 'Yes — Contributor, or whatever roleDefinitionIds the definition declares, at the remediation scope. This is the single most common DINE failure.' },
+    300),
+
+  P('d03', 'Cloud governance',
+    'We enforced a new Deny at Contoso this morning. A team says their deployment went through an hour later anyway, and the compliance dashboard still shows them green.',
+    'deny', 'contoso', 'remed',
+    'Two different clocks. Enforcement is immediate on new requests — so a genuinely non-compliant deployment should have failed; check the assignment’s scope, exclusions and parameters. Compliance RESULTS lag by an evaluation cycle, so a green dashboard proves nothing about the last hour.',
+    { audit: 'If the assignment is silently Audit — or enforcement mode is DoNotEnforce — that is exactly the symptom being described.',
+      exempt: 'An exemption on their scope produces this too, which is why exemptions belong in the review.',
+      init: 'Bundling changes nothing about either clock.' },
+    ['root'],
+    { q: 'Are enforcement and compliance reporting on the same schedule?', a: false,
+      why: 'No. Enforcement is at request time. Compliance results are produced by a periodic scan (roughly daily) plus change-triggered evaluation.' },
+    300),
+
+  P('d04', 'Landing zone team',
+    'The Sandbox carve-out was done with notScopes on the assignment eight months ago. The auditor wants to know who approved it, when it expires and why it exists.',
+    'exempt', 'sandbox', 'exempt',
+    'Replace the exclusion with an exemption: exemptions are separate objects with a category (Waiver or Mitigated), a justification, an optional expiresOn, and their own audit trail. notScopes is a field hidden inside the assignment with none of that.',
+    { deny: 'Adding enforcement is the opposite of what is being documented.',
+      audit: 'Does not carve anything out.',
+      init: 'Packaging does not create a waiver record.' },
+    ['contoso'],
+    { q: 'Does a notScopes exclusion expire on its own?', a: false,
+      why: 'No. It sits in the assignment until somebody notices it. Exemptions can carry expiresOn, which is the reason to prefer them for anything temporary.' },
+    300),
+
+  P('d05', 'Operations',
+    'The change freeze ReadOnly lock on rg-prod-app is up. The on-call cannot restart vm-app-01 during an incident, and the scale set will not scale in.',
+    'cnd', 'rg-app', 'locks',
+    'ReadOnly blocks anything that is not a read to ARM — including POST actions like restart, listKeys and scale operations. If you need operations to keep working during a freeze, CanNotDelete is the lock you actually wanted.',
+    { ro: 'This is the instrument currently causing the incident.',
+      rbac: 'The engineers have the roles. The lock is what is refusing them.',
+      deny: 'Not policy. The error will name a lock.' },
+    ['sub-prod'],
+    { q: 'Is a VM restart treated as a read by ARM?', a: false,
+      why: 'No. It is a POST action, and ReadOnly blocks it. That surprises people every single freeze.' },
+    300),
+
+  P('d06', 'Platform team',
+    'A DeployIfNotExists rolled out to Prod created 400 deployments in twenty minutes and the subscription hit its deployment history limit. Compliance is stuck.',
+    'dine', 'rg-app', 'remed',
+    'Remediation at a wide scope is a real workload: it creates a deployment per resource, consumes deployment-history slots and can throttle. Remediate in waves — narrow the scope, use the task’s resource-count controls, and let each wave finish.',
+    { audit: 'Stops the deployments by doing nothing at all, which is not the objective.',
+      exempt: 'Exempting Prod to avoid load is a governance decision made for an operational reason.',
+      deny: 'No deployments and no remediation.' },
+    ['sub-prod'],
+    { q: 'Does a remediation task create a deployment per remediated resource?', a: true,
+      why: 'Yes — which is why scope, batching and the deployment-history limit are things you plan before you press the button.' },
+    300),
+
+  P('d07', 'Security',
+    'Somebody removed the CanNotDelete lock on kv-core-01 and deleted it. Everyone has been told locks stop deletion. What actually failed?',
+    'rbac', 'rg-id', 'locks',
+    'A lock stops the operation, not the removal of the lock. Anyone holding Microsoft.Authorization/locks/delete — Owner and User Access Administrator by default — can remove it and then proceed. The control that protects a lock is RBAC over lock management.',
+    { cnd: 'Replacing the lock without restricting who can delete locks gets you the same outcome again.',
+      ro: 'Same problem, larger blast radius.',
+      deny: 'Policy has no say over lock deletion.' },
+    ['sub-id'],
+    { q: 'Do you need a special permission to delete a lock?', a: true,
+      why: 'Yes — Microsoft.Authorization/locks/delete. It is held by Owner and User Access Administrator, which for most tenants means “quite a lot of people”.' },
+    300),
+
+  P('d08', 'Cloud governance',
+    'We are at the assignment limit at the Prod subscription and the next guardrail will not assign. Thirty separate policy assignments have accumulated there.',
+    'init', 'sub-prod', 'init',
+    'Consolidate them into initiatives. Policy assignments per scope are capped (200 at management group, 200 at subscription), and a single initiative assignment carries many definitions against one of those slots.',
+    { deny: 'Adding a thirty-first assignment is the thing that will not work.',
+      exempt: 'Exemptions do not free assignment slots.',
+      audit: 'Same limit applies whatever the effect.' },
+    ['lz'],
+    { q: 'Does an initiative assignment count as one assignment against the scope limit?', a: true,
+      why: 'Yes. That is a large part of why initiatives exist operationally, not just organisationally.' },
+    300),
+
+  P('d09', 'Platform team',
+    'The team wants the tag inheritance rule fixed for the 6,000 resources already in Prod, and they want to know what it will change before it runs.',
+    'modify', 'sub-prod', 'remed',
+    'Modify with a remediation task — and run it in a lower environment first, because remediation writes to real resources with no preview. The compliance list before the task IS the change list.',
+    { dine: 'DeployIfNotExists deploys a related resource. Writing a tag onto the resource itself is Modify territory.',
+      audit: 'Gives you the change list and never applies it.',
+      deny: 'Cannot touch anything that already exists.' },
+    ['lz'],
+    { q: 'Does a remediation task have a what-if preview?', a: false,
+      why: 'No. The non-compliant resource list is your preview. Scope narrowly and test in a lower environment.' },
+    300),
+
+  P('d10', 'Operations',
+    'An emergency change is being refused by a corporate policy right now, at 02:00. We must not lose the assignment, its parameters or its history.',
+    'exempt', 'sub-prod', 'exempt',
+    'A time-boxed exemption at the affected scope: tracked, justified, expiring. Setting enforcement mode to Disabled also unblocks it, but it silently switches the rule off for the entire assignment scope and nothing makes you turn it back on.',
+    { deny: 'Already the thing blocking you.',
+      audit: 'Changing the effect edits the assignment for everyone it covers.',
+      init: 'Not a packaging problem.' },
+    ['lz'],
+    { q: 'Does an exemption stop the resource being reported as non-compliant?', a: true,
+      why: 'Yes — exempted resources drop out of the compliance calculation for that assignment, which is why the expiry date matters so much.' },
+    300),
+
+  P('d11', 'Security',
+    'Our compliance evidence is diagnostic settings. Somebody could still delete them and there would be no lock on resources that do not exist yet.',
+    'denyact', 'contoso', 'effects',
+    'DenyAction blocks a specific action — delete being the headline use — by policy. Because it is policy, it covers matching resources including ones created later, which is exactly what a per-resource lock cannot do.',
+    { cnd: 'Locks must be placed on each resource. Nothing protects the resource created tomorrow.',
+      deny: 'Deny evaluates create/update requests. Blocking the delete CALL is DenyAction.',
+      audit: 'Reports a deletion after it has happened.' },
+    ['root'],
+    { q: 'Does DenyAction apply to resources created after the assignment?', a: true,
+      why: 'Yes. That is the structural advantage over locks: policy matches resources by shape, not by having been placed on each one.' },
+    300),
+
+  P('d12', 'Cloud governance',
+    'Two assignments reach rg-prod-app: an inherited Audit from Contoso and a Deny at the Prod subscription, on the same rule. The team wants to know which one wins.',
+    'deny', 'sub-prod', 'effects',
+    'Both evaluate. Policy is not first-match: every assignment in the chain applies, and the most restrictive outcome is what the user experiences — a Deny anywhere in the chain refuses the request no matter what any other assignment says.',
+    { audit: 'Audit never overrides Deny. There is no “closest assignment wins” rule.',
+      exempt: 'An exemption at the scope is the only way to take an assignment out of the evaluation.',
+      init: 'Bundling does not change evaluation.' },
+    ['lz', 'contoso'],
+    { q: 'Does an assignment closer to the resource override one higher up?', a: false,
+      why: 'No. They all apply. RBAC is additive; policy is cumulative and restrictive. Neither has a “nearest wins” rule.' },
+    300),
+
+  P('d13', 'Platform team',
+    'The initiative was updated to version 2 last week with a new parameter. Half the landing zones are still evaluating the old rules.',
+    'init', 'lz', 'init',
+    'Assignments pin a definition version. Updating the definition does not roll it out — each assignment has to be updated (or set to follow the latest major/minor), and new parameters need a value supplied per assignment.',
+    { deny: 'Single-rule thinking for a policy-set lifecycle problem.',
+      audit: 'Same.',
+      exempt: 'Nothing here is being carved out.' },
+    ['contoso', 'root'],
+    { q: 'Does editing a policy definition automatically change every assignment of it?', a: false,
+      why: 'Not for versioned built-ins pinned by an assignment. Treat definitions as versioned artefacts and roll assignments forward deliberately.' },
+    300),
+
+  P('d14', 'Operations',
+    'stprodfiles has to move to another resource group tonight. The move keeps failing and nobody has changed any permissions.',
+    'cnd', 'rg-data', 'move',
+    'A move deletes the resource registration from the source and recreates it at the destination, so a CanNotDelete lock on the resource, the source resource group or the destination blocks it. Remove the lock, move, re-apply the lock.',
+    { ro: 'A ReadOnly lock blocks it even more thoroughly.',
+      rbac: 'You do need write on source and destination — but the stated symptom, with permissions unchanged, is a lock.',
+      deny: 'Policy at the destination can block a move if the resource violates it there. Worth knowing, and not what “nobody changed permissions” points at.' },
+    ['sub-prod'],
+    { q: 'Does a move preserve the resource’s existing role assignments?', a: false,
+      why: 'No. Assignments live at a scope. Move the resource out of that scope and it leaves them behind.' },
+    300),
+
+  P('d15', 'Compliance',
+    'Leadership wants compliance reported as a service level. Right now the number moves when nobody has changed anything.',
+    'audit', 'root', 'remed',
+    'Compliance is a measurement with its own cadence, not a live gauge: resources appearing and disappearing, evaluation cycles, exemptions expiring and definition updates all move it. If you report it as an SLA, you must state the measurement window and freeze the assignment set inside it.',
+    { deny: 'Enforcing harder does not stabilise a measurement.',
+      exempt: 'Exempting the noisy scopes improves the number and destroys its meaning.',
+      dine: 'Auto-remediation moves the number, and it also changes production while you are reporting on it.' },
+    [],
+    { q: 'Can compliance percentage change with no change to any resource?', a: true,
+      why: 'Yes — an expiring exemption, a new resource in scope, an updated definition or a re-evaluation can all move it.' },
+    300),
+
+  P('d16', 'Security',
+    'The DeployIfNotExists that configures backup is assigned at Landing Zones. It is silently doing nothing in the Dev subscription.',
+    'dine', 'sub-dev', 'mi',
+    'A DINE assignment’s managed identity is granted rights at the assignment scope. If the identity was created at Landing Zones but never given its roles across a child subscription — or the subscription was moved under Landing Zones afterwards — the deployment silently fails. Check the identity’s role assignments in the failing subscription.',
+    { audit: 'Reports and never deploys — indistinguishable from the current symptom.',
+      deny: 'Blocks instead of deploying.',
+      exempt: 'Would make the non-compliance disappear rather than fix it.' },
+    ['lz'],
+    { q: 'Does moving a subscription under a management group automatically grant an existing assignment’s identity rights over it?', a: false,
+      why: 'The assignment inherits, and the identity’s role assignments have to reach the new scope. This mismatch is a classic silent DINE failure.' },
+    300),
+
+  P('d17', 'Cloud governance',
+    'A team is asking for an exemption every sprint for the same rule in the same subscription. Six waivers in six months.',
+    'exempt', 'sub-dev', 'exempt',
+    'Repeated exemptions are a signal that the rule is wrong for that scope, not that the team is difficult. Either re-scope the assignment so it does not reach them, or parameterise it — and if you keep issuing waivers, do it with a category and an expiry so the pattern is visible.',
+    { deny: 'Enforcing harder against a rule that does not fit the environment.',
+      audit: 'Downgrading the effect for everyone to solve one scope’s problem.',
+      init: 'Packaging does not fix a rule that is wrong here.' },
+    ['lz'],
+    { q: 'Is a recurring exemption a governance smell?', a: true,
+      why: 'Yes. Exemptions are meant to be exceptional. A standing exception is a design decision that has not been written down.' },
+    300),
+
+  P('d18', 'Operations',
+    'We assigned the guardrail at the Prod subscription. Finance then moved Prod under a different management group during the reorganisation.',
+    'deny', 'sub-prod', 'scope',
+    'Subscription-scoped assignments travel with the subscription — they are attached to it, not to its parent. What changes is everything INHERITED: the old management group’s assignments stop applying and the new parent’s start, immediately.',
+    { init: 'Same behaviour; the packaging is irrelevant.',
+      exempt: 'Exemptions are scoped objects too, and they also follow their own scope.',
+      cnd: 'Locks behave the same way: placed at the subscription, they move with it.' },
+    ['lz', 'contoso'],
+    { q: 'Does moving a subscription change which inherited policies apply to it?', a: true,
+      why: 'Yes, immediately for enforcement. This is why subscription placement is a governance decision, not an administrative one.' },
+    300),
+
+  P('d19', 'Platform team',
+    'The corporate initiative has grown to 180 definitions and authors are complaining they cannot add more without splitting it.',
+    'init', 'contoso', 'init',
+    'Policy sets have limits — definitions per initiative and parameters per initiative are both capped — and a 180-definition set is also unreviewable. Split by concern (security baseline, tagging, networking) so each set has an owner and a change cadence.',
+    { deny: 'Individual assignments hit the per-scope assignment limit instead.',
+      audit: 'Same limit, different effect.',
+      exempt: 'Not a carve-out problem.' },
+    ['root'],
+    { q: 'Are there hard limits on how many definitions an initiative can hold?', a: true,
+      why: 'Yes, and you will usually hit the review limit long before the platform limit.' },
+    300),
+
+  P('d20', 'Security',
+    'A deployment fails with RequestDisallowedByPolicy. The team has raised a ticket asking for Owner.',
+    'deny', 'sub-prod', 'three',
+    'That error is policy, not RBAC — the request’s shape is being refused, and Owner is not exempt from policy. The fix is to correct the resource definition, or to grant a tracked exemption. More permission changes nothing.',
+    { rbac: 'This is the ticket they raised, and it is the wrong shelf entirely.',
+      exempt: 'A legitimate second answer — and only after you have established the deployment genuinely should be allowed.',
+      cnd: 'Locks produce a different error naming the lock.' },
+    ['lz', 'contoso'],
+    { q: 'Would granting Owner make a Deny policy stop firing?', a: false,
+      why: 'No. Policy is evaluated on the request regardless of the caller’s role. Only an exemption, an exclusion or a change to the policy alters it.' },
+    300),
+
+
+  /* ---------------------------------------------------------------------
+     TIER 500 · ARCHITECT
+     The layer above the exam: what the placement commits the organisation to,
+     what it costs, what it breaks under failure, and the argument you will
+     actually have in the design review.
+     ------------------------------------------------------------------ */
+
+  P('e01', 'Architecture review',
+    'The proposal is a single Deny initiative at the Tenant Root Group covering security, cost and naming. One assignment, total coverage, "nothing can escape it". Rule on it.',
+    'audit', 'root', 'scope',
+    'Root is the only node that catches subscriptions created in future, and it is also the node with no blast-radius ceiling: one wrong parameter refuses deployments in every subscription simultaneously, including the ones recovering from an incident. The architecture answer is to keep root for measurement and unmissable guardrails, and enforce the opinionated rules one level down where a mistake is survivable.',
+    { deny: 'Total coverage and total blast radius. A bad parameter at root is a tenant-wide outage with no staged rollout available.',
+      init: 'Bundling security, cost and naming into one artefact means the naming rule and the security rule share a change cadence and a blast radius. They should not.',
+      exempt: 'Exemption-per-team is what this design degenerates into within a quarter.' },
+    [],
+    { q: 'Can you stage a root-level Deny assignment across a subset of subscriptions?', a: false,
+      why: 'Not without exclusions or a second assignment. Root is all-or-nothing by construction, which is precisely why the effect you put there matters.' },
+    500),
+
+  P('e02', 'Architecture review',
+    'Acquisition. Thirty subscriptions arrive in our tenant next month with unknown configuration. Place the instrument that lets us absorb them without either blocking their business or abandoning our baseline.',
+    'audit', 'contoso', 'mgdes',
+    'Land them in a quarantine management group under Contoso with the baseline in Audit, measure for a cycle, then move them into landing zones branch by branch. Enforcement follows measurement. The design decision is that subscription PLACEMENT is your rollout mechanism — moving a subscription changes every inherited assignment instantly.',
+    { deny: 'Enforcing an unmeasured estate on day one blocks a business you have just bought.',
+      init: 'The bundle is right eventually; the effect and the staging are the argument today.',
+      exempt: 'Thirty standing exemptions is not an onboarding plan.' },
+    ['root'],
+    { q: 'Does moving a subscription between management groups change its inherited policy immediately?', a: true,
+      why: 'Yes, for enforcement. That makes the hierarchy your rollout mechanism — and your rollback mechanism.' },
+    500),
+
+  P('e03', 'Architecture review',
+    'Regulator requires that audit evidence cannot be destroyed, including by us, including for resources that do not exist yet, and we must be able to demonstrate the control rather than describe it.',
+    'denyact', 'root', 'effects',
+    'DenyAction at the root group: it blocks the delete call itself, by policy, so it covers matching resources created at any point in the future and it is demonstrable as a single assignment with a compliance record. Locks would satisfy the letter for today’s resources and quietly fail the "yet to exist" half — and a lock is per-resource evidence nobody can aggregate.',
+    { cnd: 'Correct behaviour, wrong shape of guarantee: someone has to place it on every resource, forever, and prove they did.',
+      deny: 'Deny evaluates create and update. The regulator’s concern is deletion.',
+      rbac: 'Roles are re-grantable by anyone with authorization writes, which is the opposite of a demonstrable guarantee.' },
+    [],
+    { q: 'Is "the platform prevents it" a stronger control than "nobody has the permission"?', a: true,
+      why: 'Yes, and that distinction is the whole argument for DenyAction and deny assignments over role hygiene. Permissions can be re-granted by whoever holds authorization rights.' },
+    500),
+
+  P('e04', 'Architecture review',
+    'Proposal: auto-remediate everything. Every DeployIfNotExists gets a standing remediation task so the estate is always compliant. Argue the failure modes.',
+    'dine', 'contoso', 'remed',
+    'Standing auto-remediation means the platform writes to production continuously, using an identity with Contributor-grade rights across the estate, with no change window and no preview. The failure modes are a bad definition making a bad change everywhere at once, deployment throttling during an incident, and a permanently privileged identity that is now the highest-value target in the tenant. Remediate deliberately, in waves, with the identity scoped as tightly as the definition allows.',
+    { audit: 'The safe extreme: a permanently non-compliant estate and a dashboard nobody acts on.',
+      modify: 'Same argument, smaller blast per write — the identity and the continuous-write concern are identical.',
+      exempt: 'Not a carve-out question.' },
+    ['root'],
+    { q: 'Does an auto-remediating platform need a standing privileged identity?', a: true,
+      why: 'Yes — and its blast radius is every resource the assignment scope reaches. That identity belongs in your threat model, not just your runbook.' },
+    500),
+
+  P('e05', 'Architecture review',
+    'Two teams want opposite things: the security team wants Deny at Contoso, the app teams want to move fast in Dev. The proposed compromise is "Deny at Contoso plus an exemption for Dev".',
+    'deny', 'lz', 'exempt',
+    'An exemption is the right instrument for an exception. It is the wrong instrument for a permanent difference between environments — that is a design statement, and design statements belong in the hierarchy. Assign the strict rule where it is genuinely wanted and let Dev sit under a different branch or a different parameterisation. Exemptions you never intend to remove are just a hierarchy you refused to draw.',
+    { exempt: 'The proposed compromise. It works, it expires or it does not, and in a year nobody can tell you which rules actually apply in Dev without reading exemption objects.',
+      audit: 'Downgrading the effect everywhere to solve one environment’s problem.',
+      init: 'Packaging does not settle a policy disagreement.' },
+    ['contoso', 'root'],
+    { q: 'Is a permanent exemption a substitute for hierarchy design?', a: false,
+      why: 'No. Exceptions are exemptions; differences are hierarchy. Confusing the two is how governance becomes unreadable.' },
+    500),
+
+  P('e06', 'Architecture review',
+    'We are committing to a four-hour recovery objective. Every production resource group carries a CanNotDelete lock and the platform team owns lock removal. Reconcile those.',
+    'cnd', 'sub-prod', 'locks',
+    'A lock is an availability decision as much as a security one. If recovery requires deleting and redeploying a resource group, your recovery time now includes finding somebody with Microsoft.Authorization/locks/delete at 03:00. Either the on-call rota holds lock-removal rights (with alerting), or the recovery plan must not depend on deletion. Write down which, and test it.',
+    { ro: 'Strictly worse: it blocks the redeploy as well as the delete.',
+      rbac: 'RBAC alone cannot deliver the protection the lock was bought for.',
+      deny: 'Policy does not protect existing resources from deletion; DenyAction does, with the same recovery argument attached.' },
+    ['lz', 'contoso'],
+    { q: 'Should the on-call rota be able to remove production locks?', a: true,
+      why: 'If the recovery plan requires it, yes — with alerting and review. A control nobody on call can lift is a control that becomes an outage.' },
+    500),
+
+  P('e07', 'Architecture review',
+    'Cost governance wants a Deny on expensive SKUs everywhere. Engineering says that will block the incident response playbook, which scales up to ride out load. Place the instrument that satisfies both.',
+    'audit', 'contoso', 'three',
+    'Enforcement that blocks the recovery path is a reliability risk sold as a cost control. Audit (or Deny with a documented, pre-approved exemption path for the incident scopes) keeps the cost signal without putting a policy engine in the middle of an outage. The architectural point: every Deny you assign becomes a dependency of every deployment that passes through it, including emergency ones.',
+    { deny: 'Correct for cost, and it now sits on the critical path of your incident response.',
+      denyact: 'Blocks deletion, which is neither the cost control nor the objection.',
+      exempt: 'Half the answer — an exemption path only works if it is pre-approved and fast, which is the thing to design.' },
+    ['root'],
+    { q: 'Does a Deny assignment become part of the availability story of everything below it?', a: true,
+      why: 'Yes. Anything that can refuse a deployment is a dependency of every deployment, including the one you make at 4am to restore service.' },
+    500),
+
+  P('e08', 'Architecture review',
+    'Landing-zone owners want the ability to assign their own policy in their subscription. Platform wants a guaranteed floor that no landing zone can weaken.',
+    'deny', 'contoso', 'mgdes',
+    'This is what the two-layer model is for: the immovable floor is assigned above the boundary the landing zone owns, so they cannot edit it, and everything they may vary is delegated below it. Policy is cumulative — nothing assigned lower can loosen what is assigned higher — which is exactly the property that makes the floor a guarantee rather than a convention.',
+    { rbac: 'Resource Policy Contributor at their own subscription is the delegation half, and it is not the guarantee half.',
+      exempt: 'If landing zones can create exemptions against the floor, there is no floor.',
+      init: 'Packaging is orthogonal to who can change it.' },
+    ['root'],
+    { q: 'Can an assignment at a lower scope weaken one inherited from above?', a: false,
+      why: 'No. Policy is cumulative and restrictive; only an exemption or an exclusion authored at the higher assignment can carve anything out. That is what makes hierarchy a delegation boundary.' },
+    500),
+
+  P('e09', 'Architecture review',
+    'Multi-region resilience: the design assumes we can redeploy the whole Prod subscription into a second region from source control in under an hour.',
+    'ro', 'sub-prod', 'locks',
+    'Then nothing in the recovery path may be blocked by a control you cannot lift at speed. A ReadOnly lock at the subscription — a perfectly reasonable audit-window control — makes that redeploy impossible, and a Deny on locations makes the second region undeployable. Recovery requirements must be an input to the governance design, not something governance discovers during a failover test.',
+    { cnd: 'Blocks the teardown half of redeploy-from-scratch.',
+      deny: 'An allowed-locations Deny that does not include the DR region is the classic version of this failure.',
+      exempt: 'A pre-agreed, pre-tested exemption for the DR scope is a legitimate part of the answer — if it exists before the incident.' },
+    ['lz', 'contoso'],
+    { q: 'Should the DR region be in the allowed-locations list before the disaster?', a: true,
+      why: 'Yes. Discovering it is not, during a failover, is one of the most common self-inflicted governance outages there is.' },
+    500),
+
+  P('e10', 'Architecture review',
+    'The platform team proposes deployment stacks with deny settings for all landing zones, so app teams cannot delete platform-managed resources — not even the subscription Owner.',
+    'rbac', 'lz', 'three',
+    'Deny settings create real deny assignments, and deny beats every allow including Owner. That is the strongest control available and it removes the app team’s ability to self-serve a fix. Adopt it only with an owned, tested path to update or remove the stack, and with the RBAC over that path designed deliberately — because the escape hatch is now the only escape hatch.',
+    { cnd: 'Close, and removable by anyone with lock-delete rights, which usually includes the team you are constraining.',
+      denyact: 'Policy-based delete blocking, with a different ownership and removal story worth comparing.',
+      deny: 'Deny evaluates creates and updates, not the delete-protection guarantee being described.' },
+    ['contoso', 'root'],
+    { q: 'Can a subscription Owner override a deny assignment?', a: false,
+      why: 'No. Deny assignments are evaluated after RBAC and cannot be overridden by any role. That is their value and their risk.' },
+    500),
+
+  P('e11', 'Architecture review',
+    'Policy-as-code: definitions and assignments in git, deployed by pipeline. Somebody asks what happens to the exemptions people create in the portal during an incident.',
+    'exempt', 'sub-prod', 'exempt',
+    'They get overwritten, or they survive and drift — and either answer is a design decision you must make explicitly. Exemptions are legitimate emergency artefacts, so the pipeline must either reconcile them (import and require a follow-up PR) or refuse to manage them and alert on their creation. Silent divergence between git and the portal is how a governance estate stops being trustworthy.',
+    { deny: 'The enforcement half; the drift is in the exception objects.',
+      init: 'Definitions and sets have the same drift question, with lower emotional stakes.',
+      audit: 'Not a reporting problem.' },
+    ['lz'],
+    { q: 'Should portal-created exemptions be allowed in a policy-as-code estate?', a: true,
+      why: 'Yes, during incidents — with an expiry and a reconciliation step. Banning them means the incident is resolved by disabling the assignment instead, which is far worse.' },
+    500),
+
+  P('e12', 'Architecture review',
+    'The hierarchy proposal is one management group per business unit, per environment, per region — six levels. It is within the supported depth. Defend or demolish.',
+    'init', 'contoso', 'mgdes',
+    'It fits and it should not be built. Every level is somewhere an assignment can hide, and effective policy becomes archaeology. The rule that survives contact with reality: management groups carry GOVERNANCE differences, subscriptions carry OWNERSHIP, and everything else — region, business unit, cost centre — is metadata. If two nodes would always receive identical assignments, they should be one node.',
+    { deny: 'The instrument is not the argument; the shape of the tree is.',
+      exempt: 'A deep tree generates exemptions rather than reducing them.',
+      rbac: 'Ownership belongs at subscription and resource-group level, which is exactly the argument for a shallow tree.' },
+    ['root'],
+    { q: 'Is the supported depth limit the right constraint to design against?', a: false,
+      why: 'No. The binding constraint is whether a human can answer "what applies here and why" without a script. That limit is much lower than six.' },
+    500),
+
+  P('e13', 'Architecture review',
+    'Sandbox is exempt from everything so people can learn. Security asks what stops a sandbox becoming production by accident.',
+    'deny', 'sandbox', 'exempt',
+    'Nothing, unless you design it. A sandbox needs its own small set of Deny rules — no public networking, no production data, hard cost caps, and an expiry on the subscription itself — because "exempt from the corporate baseline" must not mean "ungoverned". The architectural point: an exclusion is a statement about which rules apply, never a statement that none do.',
+    { exempt: 'The current state, and the thing being questioned.',
+      audit: 'Reports on a sandbox nobody reads reports about.',
+      cnd: 'Locking a sandbox contradicts the reason it exists.' },
+    ['contoso'],
+    { q: 'Does "excluded from the baseline" imply "no governance"?', a: false,
+      why: 'No. It implies a DIFFERENT baseline. The sandbox needs the rules that stop it becoming load-bearing, which are not the same rules as production.' },
+    500)
+  ];
+
+  /* =========================================================================
+     ENGINE
+     ====================================================================== */
+  var S = {
+    running: false, score: 0, combo: 0, round: 0, lives: 3, maxLives: 3,
+    deck: [], deckAt: 0, pool: [], cur: null, allowed: null,
+    time: 0, maxTime: 0, lastTs: 0, locked: false,
+    pickedI: null, perfect: 0, played: 0, misses: {}, bonusOpen: false
+  };
+
+  /* =========================================================================
+     TIER SCALING
+     A foundation player gets a longer clock, more strikes, a shorter bench of
+     instruments and a shortlist of candidate nodes. An architect gets two
+     strikes, seventeen seconds and the whole tree. Every dial lives here.
+       time0/Drop/Min   round clock, and how fast it tightens every 5 rounds
+       lives            strikes before the run ends
+       pal              which instruments are on the bench (null = all ten)
+       nodes            candidate nodes offered (0 = the entire tree)
+       mult             score multiplier — higher tiers are worth more
+       hints            whether the scenario's hint line is shown
+       bonus            seconds on the clock for a snap check
+       min              fewest scenarios in the pool before a round is worth playing
+     The 400 row reproduces the original numbers exactly.
+     ====================================================================== */
+  var TIER_CFG = {
+    100: { time0: 38000, timeDrop: 1500, timeMin: 26000, lives: 5, nodes: 5, mult: 0.6, hints: true,  bonus: 9000, min: 8,
+           pal: ['deny', 'audit', 'rbac', 'ro', 'cnd'] },
+    200: { time0: 30000, timeDrop: 1800, timeMin: 20000, lives: 4, nodes: 8, mult: 0.8, hints: true,  bonus: 7500, min: 8,
+           pal: ['deny', 'audit', 'modify', 'init', 'rbac', 'ro', 'cnd'] },
+    300: { time0: 24000, timeDrop: 2000, timeMin: 13000, lives: 3, nodes: 0, mult: 1.0, hints: false, bonus: 6000, min: 8,
+           pal: ['deny', 'audit', 'modify', 'dine', 'init', 'exempt', 'rbac', 'ro', 'cnd'] },
+    400: { time0: 21000, timeDrop: 2200, timeMin: 10000, lives: 3, nodes: 0, mult: 1.0, hints: false, bonus: 5200, min: 8,
+           pal: null },
+    500: { time0: 17000, timeDrop: 2400, timeMin:  9000, lives: 2, nodes: 0, mult: 1.6, hints: false, bonus: 4200, min: 6,
+           pal: null }
+  };
+
+  function tierNow()  { return Station.tier.get(); }
+  function cfg()      { return TIER_CFG[tierNow()] || TIER_CFG[400]; }
+  function scoreKey() { return GAME_ID + '@' + tierNow(); }
+  function pool()     { return Station.tier.filter(BANK); }
+
+  function poolSizeAt(t) {
+    var counts = Station.tier.counts(BANK), n = 0;
+    Station.tier.all().forEach(function (x) {
+      if (x === t || (Station.tier.below() && x < t)) n += counts[x];
+    });
+    return n;
+  }
+  function nearestPlayableTier() {
+    var here = tierNow(), best = null, bestD = Infinity;
+    Station.tier.all().forEach(function (t) {
+      if (t === here) return;
+      if (poolSizeAt(t) < (TIER_CFG[t] || TIER_CFG[400]).min) return;
+      var d = Math.abs(t - here);
+      if (d < bestD) { bestD = d; best = t; }
+    });
+    return best;
+  }
+
+  function roundTime() { var c = cfg(); return Math.max(c.timeMin, c.time0 - Math.floor(S.round / 5) * c.timeDrop); }
+  function multiplier() { return Math.min(4, 1 + Math.floor(S.combo / 3) * 0.5); }
+
+  /**
+   * The bench for this round: the tier's instrument list, always including
+   * whatever the current scenario actually needs, in the canonical order.
+   */
+  function benchFor(scn) {
+    var allow = cfg().pal;
+    if (!allow) return INSTR;
+    return INSTR.filter(function (i) {
+      return allow.indexOf(i[0]) !== -1 || (scn && i[0] === scn.i);
+    });
+  }
+
+  /**
+   * Which nodes may be clicked this round. At the lower tiers the tree is a
+   * lot of decoy: offer a shortlist (always the right answer and its
+   * over-reaching ancestors) and dim the rest. 0 = the whole tree.
+   */
+  function allowedFor(scn) {
+    var n = cfg().nodes;
+    if (!n) return null;
+    var must = [scn.n].concat(scn.wide || []);
+    var rest = Object.keys(NODES).filter(function (id) { return must.indexOf(id) === -1; });
+    var take = Math.max(0, n - must.length);
+    return must.concat(Station.shuffle(rest).slice(0, take));
+  }
+
+  function renderPal(scn) {
+    var html = '';
+    benchFor(scn).forEach(function (i) {
+      html += '<button class="br-i" type="button" data-i="' + i[0] + '" style="--i-color:' + i[3] + '">' +
+                '<u>' + i[1] + '</u>' + i[2] +
+              '</button>';
+    });
+    $('br-pal').innerHTML = html;
+  }
+
+  function renderStats() {
+    $('br-score').textContent = S.score;
+    $('br-combo').textContent = multiplier().toFixed(multiplier() % 1 ? 1 : 0) + '×';
+    $('br-round').textContent = S.round;
+    var full = '', empty = '', i;
+    for (i = 0; i < S.lives; i++) full += '♥';
+    for (i = 0; i < S.maxLives - S.lives; i++) empty += '♡';
+    $('br-lives').textContent = full + empty;
+  }
+
+  function verdict(kind, title, body) {
+    var v = $('br-verdict');
+    v.className = 'br-verdict v-' + kind;
+    $('br-vtitle').textContent = title;
+    $('br-vbody').innerHTML = body;
+  }
+
+  function clearTree() {
+    Array.prototype.forEach.call($('br-tree').querySelectorAll('.br-node'), function (g) {
+      g.classList.remove('is-sel', 'hit-good', 'hit-bad', 'hit-miss', 'is-anchor', 'wave', 'is-dim');
+    });
+    $('br-radius').textContent = '—';
+  }
+
+  function nodeEl(id) { return $('br-tree').querySelector('[data-node="' + id + '"]'); }
+
+  /**
+   * Animate the blast wave outward-in: the anchor lights first, then each
+   * descendant by depth so inheritance is visible rather than instant.
+   */
+  function animateBlast(anchorId, needed, mode) {
+    var hit = subtree(anchorId);
+    var need = {}; needed.forEach(function (n) { need[n] = 1; });
+    $('br-radius').textContent = hit.length;
+
+    hit.sort(function (a, b) { return NODES[a].depth - NODES[b].depth; });
+    hit.forEach(function (id, idx) {
+      setTimeout(function () {
+        var g = nodeEl(id);
+        if (!g) return;
+        var cls = (mode === 'good')
+          ? 'hit-good'
+          : (need[id] ? 'hit-good' : 'hit-bad');
+        g.classList.add(cls, 'wave');
+        if (id === anchorId) g.classList.add('is-anchor');
+      }, Math.min(600, idx * 55));
+    });
+
+    // nodes that SHOULD have been covered but were not
+    needed.forEach(function (id) {
+      if (hit.indexOf(id) === -1) {
+        var g = nodeEl(id);
+        if (g) setTimeout(function () { g.classList.add('hit-miss', 'wave'); }, 300);
+      }
+    });
+  }
+
+  function nextRound() {
+    if (S.deckAt >= S.deck.length) { S.deck = Station.shuffle(S.pool); S.deckAt = 0; }
+    S.cur = S.deck[S.deckAt++];
+    S.round++;
+    S.locked = false;
+    S.pickedI = null;
+    S.bonusOpen = false;
+    S.maxTime = roundTime();
+    S.time = S.maxTime;
+
+    clearTree();
+    /* The bench is rebuilt per round: the tier decides which instruments are
+       on it, and the scenario's own answer is always among them. */
+    renderPal(S.cur);
+    S.allowed = allowedFor(S.cur);
+    if (S.allowed) {
+      var ok = {};
+      S.allowed.forEach(function (id) { ok[id] = 1; });
+      Object.keys(NODES).forEach(function (id) {
+        var g = nodeEl(id);
+        if (g && !ok[id]) g.classList.add('is-dim');
+      });
+    }
+
+    $('br-bonusbox').classList.add('is-hidden');
+    $('br-who').textContent = S.cur.who + ' · objective ' + S.round;
+    $('br-goal').textContent = '“' + S.cur.goal + '”';
+
+    if (cfg().hints && S.cur.hint) {
+      $('br-hint').innerHTML = '<b>Hint ·</b> ' + S.cur.hint;
+      $('br-hint').classList.remove('is-hidden');
+    } else {
+      $('br-hint').classList.add('is-hidden');
+    }
+
+    Array.prototype.forEach.call($('br-pal').children, function (b) {
+      b.disabled = false;
+      b.classList.remove('is-sel', 'is-right', 'is-wrong');
+    });
+    verdict('idle', 'Your move', S.allowed
+      ? 'Pick an instrument, then one of the highlighted nodes. The faded boxes are out of play at this tier.'
+      : 'Pick an instrument, then the node. The tree scrolls sideways on a phone — the whole hierarchy is there.');
+    renderStats();
+  }
+
+  function pickInstrument(id) {
+    if (S.locked || !S.cur) return;
+    S.pickedI = id;
+    Array.prototype.forEach.call($('br-pal').children, function (b) {
+      b.classList.toggle('is-sel', b.getAttribute('data-i') === id);
+    });
+    Station.sfx.tick();
+  }
+
+  function pickNode(id) {
+    if (S.locked || !S.cur) return;
+    if (S.allowed && S.allowed.indexOf(id) === -1) {
+      Station.toast('That box is out of play at this tier. Pick one of the highlighted nodes.', 'info', 1600);
+      return;
+    }
+    if (!S.pickedI) {
+      Station.toast('Pick an instrument first — the numbered buttons under the tree.', 'info', 1400);
+      return;
+    }
+    resolve(id);
+  }
+
+  function noteMiss(line) {
+    var t = S.cur.tag;
+    if (!S.misses[t]) S.misses[t] = [];
+    if (S.misses[t].length < 6) S.misses[t].push(line);
+  }
+
+  function resolve(nodeId) {
+    S.locked = true;
+    S.played++;
+    /* Un-dim the tree so the blast animation can show the full reach, even
+       through nodes that were out of play while the answer was open. */
+    Array.prototype.forEach.call($('br-tree').querySelectorAll('.is-dim'), function (g) {
+      g.classList.remove('is-dim');
+    });
+    var c = S.cur;
+    var rightI = (S.pickedI === c.i);
+    var rightN = (nodeId === c.n);
+    var wide = rightI && c.wide.indexOf(nodeId) !== -1;
+
+    Array.prototype.forEach.call($('br-pal').children, function (b) {
+      b.disabled = true;
+      var k = b.getAttribute('data-i');
+      if (k === c.i) b.classList.add('is-right');
+      else if (k === S.pickedI) b.classList.add('is-wrong');
+    });
+
+    var needed = subtree(c.n);
+    var tail = '<p><strong>Correct:</strong> ' + INSTR_BY_ID[c.i][2] + ' at <strong>' +
+               NODES[c.n].label + '</strong> (' + TYPE_LABEL[NODES[c.n].type] + ') — reaching ' +
+               needed.length + ' node' + (needed.length > 1 ? 's' : '') + '.</p><p>' + c.why + '</p>';
+
+    if (rightI && rightN) {
+      S.combo++;
+      S.perfect++;
+      var pts = Math.round((120 + Math.floor(S.time / 100)) * multiplier() * cfg().mult);
+      S.score += pts;
+      Station.sfx.correct();
+      animateBlast(nodeId, needed, 'good');
+      verdict('good', '+' + pts + ' · placed perfectly', tail);
+      if (S.combo % 4 === 0) { Station.confetti({ count: 60 }); Station.toast(S.combo + ' in a row. Minimal blast radius, maximum smug.', 'good'); }
+      finishRound();
+      return;
+    }
+
+    if (wide) {
+      S.combo = 0;
+      var extra = subtree(nodeId).length - needed.length;
+      var part = Math.round(45 * cfg().mult);
+      S.score += part;
+      Station.sfx.wrong();
+      animateBlast(nodeId, needed, 'bad');
+      verdict('part', '+' + part + ' · right instrument, too much blast radius',
+        '<p>It works — and it also reaches <strong>' + extra + ' node' + (extra > 1 ? 's' : '') +
+        '</strong> nobody asked you to govern. Red boxes are collateral. Governance is scored on the smallest scope that satisfies the objective.</p>' + tail);
+      noteMiss('over-scoped: placed at ' + NODES[nodeId].label + ' instead of ' + NODES[c.n].label);
+      finishRound();
+      return;
+    }
+
+    S.combo = 0;
+    S.lives--;
+    Station.sfx.wrong();
+    animateBlast(nodeId, needed, 'bad');
+
+    var head;
+    if (!rightI) {
+      head = c.alts[S.pickedI] ||
+        (INSTR_BY_ID[S.pickedI][2] + ' does not answer this objective. Re-read what it is trying to stop: the shape of a resource (policy), a person (RBAC), or an operation (lock).');
+      noteMiss('wrong instrument: chose ' + INSTR_BY_ID[S.pickedI][2] + ' instead of ' + INSTR_BY_ID[c.i][2]);
+    } else {
+      var anc = isAncestor(nodeId, c.n);
+      var desc = isAncestor(c.n, nodeId);
+      head = 'Right instrument, wrong node. ' + (anc
+        ? 'You placed it above the target, so the blast radius swallowed scopes the objective never mentioned.'
+        : (desc
+          ? 'You placed it below the target, so everything else that needed covering is untouched — inheritance only flows downward.'
+          : 'That branch is not in scope at all. The objective and your placement do not overlap.'));
+      noteMiss('wrong node: placed at ' + NODES[nodeId].label + ' instead of ' + NODES[c.n].label);
+    }
+    verdict('bad', 'STRIKE · ' + S.lives + ' left', '<p>' + head + '</p>' + tail);
+    finishRound();
+  }
+
+  function finishRound() {
+    renderStats();
+    if (S.lives <= 0) { setTimeout(function () { gameOver('strikes'); }, 2400); return; }
+    if (S.cur.bonus) { setTimeout(openBonus, 1000); return; }
+    setTimeout(function () { if (S.running) nextRound(); }, 2600);
+  }
+
+  function openBonus() {
+    if (!S.running) return;
+    S.bonusOpen = true;
+    $('br-bq').textContent = '⚡ Snap check: ' + S.cur.bonus.q;
+    $('br-bonusbox').classList.remove('is-hidden');
+    S.time = cfg().bonus; S.maxTime = cfg().bonus;
+  }
+
+  function answerBonus(yes) {
+    if (!S.bonusOpen) return;
+    S.bonusOpen = false;
+    $('br-bonusbox').classList.add('is-hidden');
+    var b = S.cur.bonus;
+    var ok = (yes === b.a);
+    if (ok) {
+      var bpts = Math.round(60 * cfg().mult);
+      S.score += bpts;
+      Station.sfx.correct();
+      verdict('good', '+' + bpts + ' · snap check clean', '<p>' + b.why + '</p>');
+    } else {
+      Station.sfx.wrong();
+      verdict('part', 'Snap check missed', '<p>' + b.why + '</p>');
+      noteMiss('snap check: ' + b.q);
+    }
+    renderStats();
+    setTimeout(function () { if (S.running) nextRound(); }, 2400);
+  }
+
+  /* ----------------------------------------------------------------- loop */
+  function tick(ts) {
+    if (!S.running) return;
+    var dt = S.lastTs ? (ts - S.lastTs) : 16;
+    S.lastTs = ts;
+
+    if (!S.locked || S.bonusOpen) {
+      S.time -= dt;
+      if (S.time <= 0) {
+        if (S.bonusOpen) {
+          S.bonusOpen = false;
+          $('br-bonusbox').classList.add('is-hidden');
+          Station.sfx.wrong();
+          verdict('part', 'Snap check timed out', '<p>' + S.cur.bonus.why + '</p>');
+          noteMiss('snap check timed out: ' + S.cur.bonus.q);
+          setTimeout(function () { if (S.running) nextRound(); }, 2200);
+        } else {
+          S.locked = true;
+          S.played++;
+          S.lives--;
+          S.combo = 0;
+          Station.sfx.wrong();
+          animateBlast(S.cur.n, subtree(S.cur.n), 'good');
+          verdict('bad', 'OUT OF TIME · ' + Math.max(0, S.lives) + ' strike' + (S.lives === 1 ? '' : 's') + ' left',
+            '<p>Nothing placed. The green boxes are what the correct answer would have covered.</p>' +
+            '<p><strong>Correct:</strong> ' + INSTR_BY_ID[S.cur.i][2] + ' at <strong>' + NODES[S.cur.n].label + '</strong>.</p><p>' + S.cur.why + '</p>');
+          noteMiss('ran out of time');
+          renderStats();
+          if (S.lives <= 0) { setTimeout(function () { gameOver('strikes'); }, 2400); }
+          else setTimeout(function () { if (S.running) nextRound(); }, 2600);
+        }
+      }
+    }
+
+    var pct = Math.max(0, S.time / S.maxTime * 100);
+    $('br-clockbar').style.width = pct.toFixed(1) + '%';
+    requestAnimationFrame(tick);
+  }
+
+  /* ------------------------------------------------------------ lifecycle */
+  function start() {
+    S.pool = pool();
+    if (S.pool.length < cfg().min) { syncStart(); return; }
+    S.running = true; S.score = 0; S.combo = 0; S.round = 0;
+    S.maxLives = cfg().lives; S.lives = S.maxLives;
+    S.deck = Station.shuffle(S.pool); S.deckAt = 0;
+    S.lastTs = 0; S.perfect = 0; S.played = 0; S.misses = {}; S.bonusOpen = false;
+
+    $('br-start').classList.add('is-hidden');
+    $('br-over').classList.add('is-hidden');
+    $('br-game').classList.remove('is-hidden');
+    nextRound();
+    requestAnimationFrame(tick);
+  }
+
+  function countMisses() {
+    var n = 0;
+    for (var k in S.misses) if (S.misses.hasOwnProperty(k)) n += S.misses[k].length;
+    return n;
+  }
+
+  function gameOver(reason) {
+    if (!S.running) return;
+    S.running = false;
+
+    var best = Station.score.best(scoreKey());
+    var isPB = Station.score.save(scoreKey(), S.score);
+    var acc = S.played ? Math.round(S.perfect / S.played * 100) : 0;
+
+    $('br-fscore').textContent = S.score;
+    $('br-fround').textContent = Math.max(0, S.round - 1);
+    $('br-facc').textContent = acc + '%';
+    $('br-overtitle').textContent = (reason === 'strikes')
+      ? (S.maxLives === 1 ? 'One strike' : S.maxLives + ' strikes') + ' — the governance review did not go well'
+      : 'Run ended';
+    paintTierPill($('br-otierpill'), $('br-otiername'));
+
+    var dm, tn = ' at tier ' + tierNow();
+    if (isPB) {
+      dm = '🏆 <span style="color:var(--mk-green)">NEW PERSONAL BEST</span>' + tn + ' — you beat ' + best + ' by ' + (S.score - best) + '.';
+      Station.confetti();
+      Station.sfx.levelup();
+    } else if (best === 0) {
+      dm = 'Nothing on the board' + tn + ' yet. Every run from here has a number to beat.';
+    } else if (best - S.score <= 300) {
+      dm = 'You finished <span style="color:var(--mk-orange)">' + (best - S.score) + ' points</span> short of ' + best + tn + '. That is two clean placements.';
+    } else {
+      dm = 'Personal best' + tn + ': <strong>' + best + '</strong>. Delta: <span style="color:var(--mk-red)">−' + (best - S.score) + '</span>.';
+    }
+    $('br-deltamsg').innerHTML = dm;
+
+    var gained = Math.floor(S.score / 140);
+    if (gained > 0) Station.xp.add(gained, 'Blast Radius — round ' + Math.max(0, S.round - 1));
+    if (S.round - 1 >= 12) Station.progress.complete(GAME_ID);
+    Station.streak.touch();
+
+    renderMisses();
+    $('br-game').classList.add('is-hidden');
+    $('br-over').classList.remove('is-hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderMisses() {
+    var host = $('br-missed');
+    var keys = Object.keys(S.misses);
+    if (!keys.length) {
+      $('br-missh').textContent = 'Nothing blew up';
+      host.innerHTML = '<div class="keyfact"><p>Every instrument right, every node right, minimal blast radius. ' +
+        'Go do it faster — or go argue with a help desk in <a href="rbac-roulette.html">RBAC Roulette</a>.</p></div>';
+      return;
+    }
+    $('br-missh').textContent = 'What blew up — ' + countMisses() + ' miss' + (countMisses() > 1 ? 'es' : '') +
+      ' across ' + keys.length + ' concept' + (keys.length > 1 ? 's' : '');
+    keys.sort(function (a, b) { return S.misses[b].length - S.misses[a].length; });
+    var html = '';
+    keys.forEach(function (k) {
+      var tag = TAGS[k] || [k, '../index.html', 'the hub'];
+      html += '<div class="br-missgroup"><h4>' + tag[0] + ' <span class="muted small">(' + S.misses[k].length + ')</span></h4><ul>';
+      S.misses[k].forEach(function (m) { html += '<li>' + m + '</li>'; });
+      html += '</ul><a href="' + tag[1] + '">▸ Read the whiteboard: ' + tag[2] + '</a></div>';
+    });
+    host.innerHTML = html;
+  }
+
+  /* ---------------------------------------------------------------- input */
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    var i = e.target.closest('[data-i]');
+    if (i) { pickInstrument(i.getAttribute('data-i')); return; }
+    var n = e.target.closest('[data-node]');
+    if (n) { pickNode(n.getAttribute('data-node')); return; }
+    var b = e.target.closest('[data-bonus]');
+    if (b) { answerBonus(b.getAttribute('data-bonus') === '1'); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (!S.running) {
+      if ((e.key === ' ' || e.key === 'Enter') && !$('br-start').classList.contains('is-hidden')) {
+        e.preventDefault(); start();
+      }
+      return;
+    }
+    var k = e.key.toLowerCase();
+    if (S.bonusOpen) {
+      if (k === 'y') { e.preventDefault(); answerBonus(true); }
+      else if (k === 'n') { e.preventDefault(); answerBonus(false); }
+      return;
+    }
+    if (INSTR_BY_KEY[k]) { e.preventDefault(); pickInstrument(INSTR_BY_KEY[k]); return; }
+    var up = k.toUpperCase();
+    if (BYKEY[up]) { e.preventDefault(); pickNode(BYKEY[up]); }
+  });
+
+  // Enter/Space on a focused node (keyboard tab-through of the SVG tree)
+  document.addEventListener('keypress', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var a = document.activeElement;
+    if (a && a.getAttribute && a.getAttribute('data-node')) {
+      e.preventDefault();
+      pickNode(a.getAttribute('data-node'));
+    }
+  });
+
+  /* This inline script parses BEFORE the deferred station.js executes, so every
+     Station call has to wait for DOMContentLoaded (deferred scripts run first). */
+  /* ----------------------------------------------------------------- tier */
+  function paintTierPill(pill, name) {
+    var t = tierNow();
+    if (pill) { pill.setAttribute('data-tier', String(t)); pill.textContent = ''; }
+    if (name) {
+      name.textContent = Station.tier.label(t) +
+        (Station.tier.below() ? ' (and everything below it)' : '');
+    }
+  }
+
+  /** Repaint the start screen for the tier now in force. */
+  function syncStart() {
+    var t = tierNow(), c = cfg(), n = pool().length;
+    var b = Station.score.best(scoreKey());
+    paintTierPill($('br-stierpill'), $('br-stiername'));
+
+    $('br-best').textContent = b
+      ? 'personal best at tier ' + t + ': ' + b
+      : 'no score yet at tier ' + t + ' — ' + n + ' objective' + (n === 1 ? '' : 's') + ' waiting';
+
+    $('br-tierline').innerHTML = n
+      ? '<strong>' + n + ' objective' + (n === 1 ? '' : 's') + '</strong> at this setting · ' +
+        (c.pal ? c.pal.length + ' instruments on the bench' : 'all 10 instruments') + ' · ' +
+        (c.nodes ? c.nodes + ' candidate nodes' : 'the whole tree') + ' · ' +
+        Math.round(c.time0 / 1000) + 's per round · ' + c.lives + ' strike' + (c.lives === 1 ? '' : 's') + ' · ' +
+        'score ×' + c.mult + (c.hints ? ' · hints on' : ' · no hints')
+      : 'Nothing in the bank at this setting.';
+
+    var host = $('br-tierempty');
+    var ok = n >= c.min;
+    $('br-begin').disabled = !ok;
+    if (ok) { host.innerHTML = ''; return; }
+
+    var near = nearestPlayableTier();
+    host.innerHTML =
+      '<div class="tier-empty">' +
+        '<b>Tier ' + t + ' · ' + Station.tier.label(t) + ' has only ' + n + ' objective' + (n === 1 ? '' : 's') + '</b>' +
+        '<p>A run needs at least ' + c.min + ' or you will be answering the same objective from memory by round four. ' +
+        'Pick another tier, or switch on “show lower tiers too”.</p>' +
+        (near ? '<p><button class="btn btn--sm btn--primary" type="button" data-gotier="' + near + '">' +
+                'Switch to tier ' + near + ' · ' + Station.tier.label(near) + '</button></p>' : '') +
+      '</div>';
+  }
+
+  document.addEventListener('click', function (e) {
+    var g = e.target.closest ? e.target.closest('[data-gotier]') : null;
+    if (g) { Station.tier.set(Number(g.getAttribute('data-gotier'))); }
+  });
+
+  /* A mid-run tier change would score a foundation deck against an architect
+     leaderboard. Abandon the run cleanly and go back to the start screen. */
+  document.addEventListener('station:tier', function () {
+    if (S.running) {
+      S.running = false;
+      S.cur = null;
+      clearTree();
+      $('br-bonusbox').classList.add('is-hidden');
+      $('br-game').classList.add('is-hidden');
+      $('br-over').classList.add('is-hidden');
+      $('br-start').classList.remove('is-hidden');
+      Station.toast('Tier changed — run reset. Scores are kept per tier.', 'info', 2400);
+    }
+    syncStart();
+  });
+
+  function boot() {
+    Station.mountHud({ title: 'Blast Radius', cert: 'az104', back: '../index.html' });
+    drawTree();
+    renderPal(null);
+    Station.tier.mountPicker('#br-tierhost', {
+      compact: true,
+      heading: 'Skill tier — this changes the objectives AND the pressure',
+      label: 'Skill tier for Blast Radius'
+    });
+    syncStart();
+    $('br-begin').addEventListener('click', start);
+    $('br-again').addEventListener('click', start);
+    $('br-quit').addEventListener('click', function () { gameOver('quit'); });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else { boot(); }
+
+}());
+</script>
+
+<style>
+  a.locked{
+    opacity:.72; text-decoration:none; cursor:pointer;
+    border-bottom:1px dashed currentColor;
+  }
+  a.locked::after{ content:" 🔒"; font-size:.85em; }
+  .demo-strip{
+    max-width:980px; margin:0 auto 1rem; padding:.65rem .9rem; border-radius:10px;
+    font-size:.85rem; line-height:1.45; display:flex; gap:.7rem; align-items:center;
+    flex-wrap:wrap;
+    border:1px solid var(--mk-green);
+    background:color-mix(in srgb, var(--mk-green) 9%, transparent);
+    color:var(--ink-soft);
+  }
+  .demo-strip b{color:var(--ink)}
+  .demo-strip a{color:var(--mk-blue); font-weight:600}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(!document.querySelector('meta[name="viewport"]')){
+    var mv=document.createElement('meta');
+    mv.name='viewport'; mv.content='width=device-width, initial-scale=1';
+    (document.head||document.documentElement).appendChild(mv);
+  }
+  // Study material is not published here. Any link into it becomes an upgrade prompt.
+  var GATED=/\/(whiteboards|drills|labs|tracks)\//;
+  function sweep(root){
+    var as=(root||document).querySelectorAll?(root||document).querySelectorAll('a[href]'):[];
+    for(var i=0;i<as.length;i++){
+      var a=as[i], h=a.getAttribute('href')||'';
+      if(a.dataset.gateDone) continue;
+      a.dataset.gateDone='1';
+      if(!GATED.test(h)) continue;
+      a.setAttribute('href','../index.html#unlock');
+      a.classList.add('locked');
+      a.setAttribute('title','Part of the full study library — see what is included');
+    }
+  }
+  function boot(){
+    sweep(document);
+    new MutationObserver(function(m){for(var i=0;i<m.length;i++)sweep(m[i].target);})
+      .observe(document.body,{childList:true,subtree:true});
+    var host=document.querySelector('.page')||document.body;
+    var s=document.createElement('div');
+    s.className='demo-strip no-print';
+    s.innerHTML='<span><b>Free forever.</b> Every game, every skill level, no account. '+
+      'The whiteboards, flashcards and exam simulator are part of the full library.</span>'+
+      '<a href="../index.html">← All games</a>';
+    host.insertBefore(s,host.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
+</body>
+</html>

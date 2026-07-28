@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Showdown — Certification Station</title>
+<link rel="stylesheet" href="../assets/css/station.css">
+<script src="../assets/js/station.js" defer></script>
+<style>
+/* ===================== SERVICE SHOWDOWN — local styles ===================== */
+.ss-wrap { max-width: 980px; margin: 0 auto; }
+
+/* --- header / start screen --- */
+.ss-hero { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.ss-hero h1 { margin: 0; }
+.ss-vs { width: 92px; height: 92px; flex: 0 0 auto; color: var(--mk-red); }
+.ss-vs .s { fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; }
+.ss-vs text { font-family: var(--font-hand); font-weight: 700; font-size: 30px; fill: currentColor; text-anchor: middle; }
+
+.ss-rules { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); }
+.ss-rule { display: flex; gap: .55rem; align-items: flex-start; font-size: .9rem; }
+.ss-rule b { display: block; font-family: var(--font-hand); font-size: 1.05rem; }
+.ss-rule .ico { flex: 0 0 auto; width: 26px; height: 26px; }
+
+/* --- play HUD strip --- */
+.ss-strip {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  justify-content: space-between; margin-bottom: .55rem;
+}
+.ss-pill {
+  display: inline-flex; align-items: baseline; gap: .35rem;
+  border: 2.5px solid var(--board-edge); border-radius: 999px;
+  padding: .2rem .7rem; background: var(--board-2); white-space: nowrap;
+}
+.ss-pill span { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.ss-pill b { font-family: var(--font-hand); font-size: 1.25rem; line-height: 1; }
+.ss-lives { display: inline-flex; gap: .18rem; align-items: center; }
+.ss-heart { width: 22px; height: 22px; color: var(--mk-red); }
+.ss-heart path { fill: currentColor; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; }
+.ss-heart.is-gone { color: var(--ink-soft); opacity: .3; }
+.ss-heart.is-gone path { fill: none; }
+.ss-combo { color: var(--mk-orange); }
+.ss-combo.is-hot b { color: var(--mk-red); }
+
+/* --- timer --- */
+.ss-timer {
+  height: 16px; border-radius: 999px; overflow: hidden;
+  border: 2.5px solid var(--board-edge); background: color-mix(in srgb, var(--ink) 10%, transparent);
+  position: relative; margin-bottom: 1rem;
+}
+.ss-timer__fill {
+  height: 100%; width: 100%;
+  background: var(--mk-green);
+  transition: background .3s linear;
+}
+.ss-timer.is-low .ss-timer__fill { background: var(--mk-orange); }
+.ss-timer.is-crit .ss-timer__fill { background: var(--mk-red); }
+.ss-timer.is-crit { animation: cs-pulse .55s ease-in-out infinite; }
+
+/* --- requirement card --- */
+.ss-req { margin: 0 0 1rem; }
+.ss-req .q {
+  font-size: clamp(1.02rem, 2.5vw, 1.32rem);
+  line-height: 1.42; font-weight: 600; margin: .35rem 0 0;
+  max-width: none;
+}
+.ss-reqhead { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+
+/* --- answer cards --- */
+.ss-cards { display: grid; gap: .7rem; grid-template-columns: repeat(2, minmax(0,1fr)); }
+@media (max-width: 620px) { .ss-cards { grid-template-columns: minmax(0,1fr); } }
+.ss-card {
+  position: relative; text-align: left;
+  display: flex; align-items: center; gap: .65rem;
+  padding: .85rem 1rem; min-height: 70px;
+  font-family: var(--font-ui); font-size: 1rem; font-weight: 600;
+  color: var(--ink); background: var(--board-2);
+  border: 3px solid var(--ink); border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px;
+  box-shadow: var(--shadow-2);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+}
+.ss-card:nth-child(even) { border-radius: 14px 225px 14px 255px / 255px 14px 225px 14px; }
+.ss-card:hover:not(:disabled) { transform: translate(-2px,-2px); box-shadow: 5px 7px 0 var(--board-edge); border-color: var(--mk-blue); }
+.ss-card:active:not(:disabled) { transform: translate(1px,1px); }
+.ss-card .num {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 800;
+  border: 2px solid var(--ink-soft); color: var(--ink-soft);
+}
+.ss-card.is-right { border-color: var(--mk-green); background: color-mix(in srgb, var(--mk-green) 18%, var(--board-2)); }
+.ss-card.is-right .num { border-color: var(--mk-green); color: var(--mk-green); }
+.ss-card.is-wrong { border-color: var(--mk-red); background: color-mix(in srgb, var(--mk-red) 16%, var(--board-2)); }
+.ss-card.is-dim { opacity: .42; }
+.ss-card:disabled { cursor: default; }
+
+/* --- reveal --- */
+.ss-reveal { margin-top: 1rem; }
+.ss-reveal .key {
+  font-family: var(--font-hand); font-size: clamp(1.15rem,3vw,1.55rem); line-height: 1.25;
+  margin: 0 0 .3rem; max-width: none;
+}
+.ss-reveal .why { margin: 0; font-size: .95rem; max-width: none; }
+.ss-reveal .foot { margin-top: .7rem; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.ss-points { font-family: var(--font-hand); font-size: 1.5rem; color: var(--mk-green); }
+
+/* --- game over --- */
+.ss-final { text-align: center; }
+.ss-final .big {
+  font-family: var(--font-hand); font-size: clamp(3rem, 14vw, 6rem); line-height: .95;
+  color: var(--mk-blue); display: block;
+}
+.ss-delta { font-size: 1.02rem; font-weight: 700; }
+.ss-miss { display: grid; gap: .55rem; }
+.ss-missrow {
+  display: block; text-decoration: none; color: inherit;
+  border-left: 6px solid var(--mk-red); border-radius: 3px 10px 10px 3px;
+  background: color-mix(in srgb, var(--mk-red) calc(var(--wash-soft) * 100%), var(--board-2));
+  padding: .6rem .8rem; transition: transform .14s ease, box-shadow .14s ease;
+}
+.ss-missrow:hover { transform: translateX(3px); box-shadow: var(--shadow-2); }
+.ss-missrow .qq { font-size: .86rem; color: var(--ink-soft); display: block; margin-bottom: .2rem; }
+.ss-missrow .kk { font-family: var(--font-hand); font-size: 1.1rem; }
+.ss-missrow .ll { font-size: .74rem; color: var(--mk-blue); font-weight: 700; }
+.ss-fambars { display: grid; gap: .35rem; }
+.ss-fambar { display: grid; grid-template-columns: minmax(96px, 34%) 1fr auto; gap: .5rem; align-items: center; font-size: .78rem; }
+.ss-fambar i { display: block; height: 11px; border-radius: 999px; background: var(--mk-red); min-width: 4px; font-style: normal; }
+
+/* --- drills panel --- */
+.ss-details {
+  border: 3px dashed var(--board-edge); border-radius: 12px;
+  padding: .75rem 1rem; margin-top: 2.5rem; background: var(--board-2);
+}
+.ss-details > summary {
+  cursor: pointer; font-family: var(--font-hand); font-size: 1.2rem; font-weight: 700;
+  list-style: none;
+}
+.ss-details > summary::-webkit-details-marker { display: none; }
+.ss-details > summary::before { content: "▸ "; color: var(--mk-orange); }
+.ss-details[open] > summary::before { content: "▾ "; }
+.ss-drillgrid { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); margin-top: .9rem; }
+.ss-drill {
+  display: block; text-decoration: none; color: inherit;
+  border: 2px solid var(--board-edge); border-radius: 10px; padding: .6rem .75rem;
+  border-left-width: 6px; border-left-color: var(--dc, var(--mk-blue));
+  transition: transform .14s ease;
+}
+.ss-drill:hover { transform: translateY(-2px); border-color: var(--dc, var(--mk-blue)); border-left-color: var(--dc, var(--mk-blue)); }
+.ss-drill b { display: block; font-family: var(--font-hand); font-size: 1.05rem; }
+.ss-drill span { font-size: .78rem; color: var(--ink-soft); }
+.ss-kbdhint { font-size: .78rem; color: var(--ink-soft); }
+@media (max-width: 520px) { .ss-kbdhint { display: none; } }
+
+/* --- tier furniture --- */
+.ss-tierbox { margin-bottom: 1.1rem; }
+.ss-hintrow { margin-top: .75rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; min-width: 0; }
+.ss-hintout {
+  display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; min-width: 0;
+  border-left: 6px solid var(--mk-orange); border-radius: 3px 10px 10px 3px;
+  background: color-mix(in srgb, var(--mk-orange) calc(var(--wash-soft) * 100%), var(--board-2));
+  padding: .5rem .75rem; font-size: .9rem;
+}
+.ss-hintout b { font-family: var(--font-hand); font-size: 1.05rem; color: var(--mk-orange); }
+.ss-hintout span { min-width: 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="ss-wrap">
+
+    <!-- ============================ START ============================ -->
+    <section id="scr-start">
+      <div class="ss-hero">
+        <svg class="ss-vs" viewBox="0 0 100 100" aria-hidden="true">
+          <path class="s" d="M50 6c22 2 40 18 42 40 2 24-16 46-42 48C24 92 6 72 8 46 10 24 28 8 50 6z"/>
+          <path class="s" d="M14 62c12 8 26 12 38 12s24-3 34-9"/>
+          <text x="50" y="60">VS</text>
+        </svg>
+        <div>
+          <h1>Service&nbsp;Showdown</h1>
+          <p class="lede" style="margin:0">Four lookalike Azure services walk into a design review. Only one satisfies
+            the requirement. You have seconds, not minutes.</p>
+        </div>
+      </div>
+
+      <div class="row" style="margin:.9rem 0 1.2rem">
+        <span class="chip chip--az305">AZ-305</span>
+        <span class="chip chip--az104">AZ-104</span>
+        <span class="chip chip--ink" id="bank-size">— matchups</span>
+        <span class="chip chip--green" id="best-chip">no score yet</span>
+        <span class="tier-pill" id="tier-chip">400 Expert</span>
+      </div>
+
+      <div class="marker-box mk-purple ss-tierbox">
+        <div class="box-title" style="color:var(--mk-purple)">SKILL TIER</div>
+        <div id="tier-picker-host"></div>
+        <p class="small" id="tier-line" style="margin:.55rem 0 0">—</p>
+      </div>
+
+      <div id="tier-empty-host"></div>
+
+      <div class="marker-box mk-blue">
+        <div class="box-title" style="color:var(--mk-blue)">HOW IT WORKS</div>
+        <div class="ss-rules">
+          <div class="ss-rule">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--mk-green)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>
+            <div><b>Beat the bar</b>The timer shrinks every round. Correct answers hand a little of it back.</div>
+          </div>
+          <div class="ss-rule">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--mk-orange)" stroke-width="2.2" stroke-linecap="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+            <div><b>Combo pays</b>Consecutive hits multiply the score up to ×2.5. One miss and it is zero again.</div>
+          </div>
+          <div class="ss-rule">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--mk-red)" stroke-width="2.2" stroke-linejoin="round"><path d="M12 21s-8-4.9-8-10.4A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 3.6C20 16.1 12 21 12 21z"/></svg>
+            <div id="rule-lives"><b>Three lives</b>A wrong pick <em>and</em> a timeout both cost one. Zero lives, run over.</div>
+          </div>
+          <div class="ss-rule">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--mk-purple)" stroke-width="2.2" stroke-linecap="round"><path d="M4 5h16v11H4zM8 20h8M12 16v4"/><path d="M8 10h8"/></svg>
+            <div><b>Every answer teaches</b>Hit or miss, you get the discriminating keyword the exam hangs the question on.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" id="start-row" style="margin-top:1.2rem">
+        <button class="btn btn--primary btn--lg" id="btn-start">▶ START RUN</button>
+        <a class="btn btn--ghost" href="../index.html#unlock" class="locked">AZ-305 track</a>
+        <a class="btn btn--ghost" href="../index.html#unlock" class="locked">AZ-104 track</a>
+        <a class="btn btn--ghost" href="../index.html">← Back to hub</a>
+        <span class="ss-kbdhint">Press <span class="kbd">Enter</span> to start · <span class="kbd">1</span>–<span class="kbd">4</span> to answer · <span class="kbd">Space</span> to advance</span>
+      </div>
+    </section>
+
+    <!-- ============================ PLAY ============================ -->
+    <section id="scr-play" class="is-hidden">
+      <div class="ss-strip">
+        <span class="ss-pill"><span>Score</span><b id="ui-score">0</b></span>
+        <span class="ss-pill ss-combo" id="ui-combo-pill"><span>Combo</span><b id="ui-combo">×1.0</b></span>
+        <span class="ss-pill"><span>Round</span><b id="ui-round">1</b></span>
+        <span class="ss-pill"><span>Lives</span><span class="ss-lives" id="ui-lives"></span></span>
+      </div>
+
+      <div class="ss-timer" id="ui-timer"><div class="ss-timer__fill" id="ui-timerfill"></div></div>
+
+      <div class="marker-box mk-orange ss-req">
+        <div class="ss-reqhead">
+          <span class="chip" id="ui-fam">—</span>
+          <span class="small" id="ui-tag"></span>
+        </div>
+        <p class="q" id="ui-q">…</p>
+      </div>
+
+      <div class="ss-cards" id="ui-cards"></div>
+      <div class="ss-hintrow" id="ui-hint"></div>
+
+      <div id="ui-reveal" class="ss-reveal is-hidden" aria-live="polite"></div>
+    </section>
+
+    <!-- ========================== GAME OVER ========================== -->
+    <section id="scr-over" class="is-hidden">
+      <div class="board ss-final">
+        <p class="small" style="letter-spacing:.2em;margin:0">RUN OVER</p>
+        <span class="big" id="fin-score">0</span>
+        <p class="ss-delta" id="fin-delta">—</p>
+        <div class="row" style="justify-content:center;margin:.8rem 0 0">
+          <span class="chip chip--blue" id="fin-rounds">0 rounds</span>
+          <span class="chip chip--green" id="fin-acc">0% accuracy</span>
+          <span class="chip chip--orange" id="fin-combo">best combo 0</span>
+          <span class="chip chip--purple" id="fin-fast">—</span>
+          <span class="tier-pill" id="fin-tier">400</span>
+        </div>
+        <div class="row" style="justify-content:center;margin-top:1.1rem">
+          <button class="btn btn--primary btn--lg" id="btn-again">↻ RUN IT BACK</button>
+          <a class="btn btn--ghost" href="../index.html">← Hub</a>
+        </div>
+        <p class="small" style="margin-top:.6rem">Press <span class="kbd">R</span> to run it back.</p>
+      </div>
+
+      <div id="fin-missblock">
+        <h2>What got you 🔍</h2>
+        <p class="muted" style="margin-bottom:.8rem">Each row links to the whiteboard that covers it. A losing run is a study plan.</p>
+        <div class="ss-miss" id="fin-miss"></div>
+
+        <h3>Damage by family</h3>
+        <div class="ss-fambars" id="fin-fambars"></div>
+      </div>
+    </section>
+
+    <!-- ========================= WHAT THIS DRILLS ========================= -->
+    <details class="ss-details no-print">
+      <summary>WHAT THIS DRILLS</summary>
+      <p class="small" style="margin-top:.6rem">Every matchup in the bank belongs to one of these lookalike families.
+        Lose to one repeatedly and go read the board.</p>
+      <div class="ss-drillgrid" id="drill-grid"></div>
+    </details>
+
+    <p class="center small no-print" style="margin-top:1.6rem">
+      <a href="../index.html" style="font-weight:700">← Back to the Certification Station hub</a>
+    </p>
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  'use strict';
+  var S = window.Station;
+  var GAME_ID = 'service-showdown';
+  S.mountHud({ title: 'Service Showdown', cert: 'az305', back: '../index.html' });
+
+  /* ------------------------------------------------------------------ *
+   * TIERS — the mechanics scale with the tier, not only the content.
+   * A beginner gets a longer clock, fewer decoys, more lives and a hint.
+   * An architect gets a tight clock, four cards and a fatter multiplier,
+   * which is what makes a per-tier personal best mean anything.
+   * ------------------------------------------------------------------ */
+  var TIER_CFG = {
+    100: { lives: 5, opts: 2, t0: 17.0, dec: 0.10, floor: 9.5, give: 0.50, mult: 0.6, hint: true  },
+    200: { lives: 4, opts: 3, t0: 14.0, dec: 0.14, floor: 7.5, give: 0.45, mult: 0.8, hint: true  },
+    300: { lives: 3, opts: 4, t0: 11.5, dec: 0.18, floor: 5.5, give: 0.40, mult: 1.0, hint: false },
+    400: { lives: 3, opts: 4, t0:  9.6, dec: 0.22, floor: 4.2, give: 0.35, mult: 1.3, hint: false },
+    500: { lives: 2, opts: 4, t0:  8.4, dec: 0.26, floor: 3.6, give: 0.30, mult: 1.7, hint: false }
+  };
+  var MIN_ITEMS = 6;                 /* below this a round is not worth starting */
+  var cfg  = TIER_CFG[400];
+  var POOL = [];
+
+  /** Personal bests are stored per tier: 'service-showdown@300'. */
+  function scoreKey() { return GAME_ID + '@' + S.tier.get(); }
+
+  /* ------------------------------------------------------------------ *
+   * FAMILIES — each maps to the whiteboard that fixes the weakness
+   * ------------------------------------------------------------------ */
+  var FAM = {
+    route:  { n: 'Traffic routing',      c: 'blue',   wb: 'az305-decision-trees',      col: 'var(--mk-blue)' },
+    msg:    { n: 'Messaging & events',   c: 'purple', wb: 'az305-decision-trees',      col: 'var(--mk-purple)' },
+    comp:   { n: 'Compute hosting',      c: 'teal',   wb: 'az305-decision-trees',      col: 'var(--mk-teal)' },
+    data:   { n: 'Data platform',        c: 'pink',   wb: 'az305-data-platform',       col: 'var(--mk-pink)' },
+    cosmos: { n: 'Cosmos consistency',   c: 'pink',   wb: 'az305-data-platform',       col: 'var(--mk-pink)' },
+    bcdr:   { n: 'BC / DR',              c: 'red',    wb: 'az305-bcdr',                col: 'var(--mk-red)' },
+    net:    { n: 'Network security',     c: 'green',  wb: 'az104-networking',          col: 'var(--mk-green)' },
+    gov:    { n: 'Governance & identity',c: 'orange', wb: 'az104-identity-governance', col: 'var(--mk-orange)' },
+    stor:   { n: 'Storage',              c: 'teal',   wb: 'az104-storage-compute',     col: 'var(--mk-teal)' },
+    desk:   { n: 'Desktop & VDI',        c: 'blue',   wb: 'az104-storage-compute',     col: 'var(--mk-blue)' }
+  };
+
+  /* ------------------------------------------------------------------ *
+   * THE BANK — 60 head-to-head matchups.
+   * f = family, q = requirement, o = options, a = index of the winner,
+   * k = the discriminating keyword, w = one-sentence reason.
+   * ------------------------------------------------------------------ */
+  var BANK = [
+  /* ---------- global traffic routing ---------- */
+  { tier:400, f:'route', q:'Public web app in three regions. You need a global HTTP(S) entry point with TLS offload at the edge, WAF, caching, and failover measured in seconds — not in DNS TTL minutes.',
+    o:['Azure Front Door Premium','Application Gateway v2','Traffic Manager','Standard Load Balancer'], a:0,
+    k:'global + HTTP + edge WAF + anycast',
+    w:'Front Door is the only anycast Layer 7 global front end; Traffic Manager just answers DNS, so failover waits on every client cache to expire.' },
+  { tier:400, f:'route', q:'One region. Route /api/* to one backend pool and /images/* to another, terminate TLS, run OWASP rules, and keep the whole thing inside your VNet.',
+    o:['Application Gateway v2 with WAF','Azure Front Door','Traffic Manager','Azure Firewall'], a:0,
+    k:'single-region Layer 7 path-based routing',
+    w:'App Gateway is the regional L7 reverse proxy that lives in your VNet; Front Door is global and sits outside it.' },
+  { tier:400, f:'route', q:'Send users to the nearest of several endpoints — some Azure regions, some an on-prem datacentre — for an SMTP service.',
+    o:['Traffic Manager (Performance routing)','Azure Front Door','Application Gateway','Cross-region Load Balancer'], a:0,
+    k:'non-HTTP + external endpoints = DNS-level',
+    w:'Traffic Manager resolves at DNS so it is protocol-agnostic and can target any public endpoint, including things that are not in Azure at all.' },
+  { tier:400, f:'route', q:'A SQL Server Always On availability group listener needs a highly available Layer 4 endpoint inside the VNet, spread across availability zones.',
+    o:['Internal Standard Load Balancer','Application Gateway','Azure Front Door','Traffic Manager'], a:0,
+    k:'Layer 4 + private + zone-redundant frontend',
+    w:'The listener is TCP, not HTTP, and must stay private — only an internal Standard Load Balancer does that.' },
+  { tier:400, f:'route', q:'One static anycast IP, Layer 4, traffic steered to the closest healthy regional load balancer, with no DNS involved in failover.',
+    o:['Cross-region (Global tier) Standard Load Balancer','Traffic Manager','Azure Front Door','Azure Firewall'], a:0,
+    k:'global Layer 4 anycast frontend',
+    w:'Cross-region Load Balancer publishes a single global anycast IP in front of regional LBs; Traffic Manager would hand each client a different address.' },
+  { tier:400, f:'route', q:'The requirement literally says "failover must not depend on clients honouring DNS time-to-live".',
+    o:['Azure Front Door','Traffic Manager with Priority routing','Azure DNS with a 10-second TTL','Traffic Manager with Weighted routing'], a:0,
+    k:'"DNS TTL" is the tell — pick anycast',
+    w:'Anything DNS-based inherits client-side caching (and resolvers that ignore your TTL); Front Door and cross-region LB fail over server-side behind one IP.' },
+  { tier:400, f:'route', q:'Block SQL-injection and cross-site scripting on inbound HTTP for a single-region app, without exposing backend VM public IPs.',
+    o:['Application Gateway v2 with WAF','NSG on the backend subnet','Azure Firewall (network rules)','Standard Load Balancer with health probes'], a:0,
+    k:'OWASP / injection payloads = WAF only',
+    w:'NSGs and Firewall network rules stop at L3/L4 addresses and ports; only a WAF parses the HTTP body.' },
+  { tier:500, f:'route', q:'Global edge with WAF, plus per-region path-based routing, URL rewrite and mutual TLS to the backends.',
+    o:['Front Door in front of Application Gateway','Front Door alone','Traffic Manager in front of Load Balancer','Application Gateway alone'], a:0,
+    k:'stack them: global edge + regional L7',
+    w:'The reference pattern is AFD for anycast/WAF at the edge and App Gateway inside each region for rewrite, mTLS and path rules.' },
+  { tier:300, f:'route', q:'Legacy Basic SKU load balancers must be replaced. Which SKU do you standardise on for zone redundancy and a secure-by-default posture?',
+    o:['Standard Load Balancer','Basic Load Balancer','Gateway Load Balancer','Application Gateway v1'], a:0,
+    k:'Basic is retired; Standard is closed until an NSG allows it',
+    w:'Standard supports zones and outbound rules, and its backends are unreachable until an NSG explicitly permits traffic — Basic was open by default.' },
+  { tier:400, f:'route', q:'You must chain a third-party network virtual appliance transparently into the inbound path of an existing Standard Load Balancer, without changing the frontend.',
+    o:['Gateway Load Balancer','Azure Firewall','Application Gateway','User-defined route to the NVA'], a:0,
+    k:'transparent NVA bump-in-the-wire',
+    w:'Gateway Load Balancer exists exactly to insert NVAs into the data path while preserving the original frontend and source IP.' },
+
+  /* ---------- messaging & events ---------- */
+  { tier:400, f:'msg', q:'Orders per customer must be processed strictly in order, exactly once where possible, with dead-lettering, duplicate detection and transactions across two entities.',
+    o:['Service Bus queue with sessions','Storage queue','Event Grid','Event Hubs'], a:0,
+    k:'FIFO + sessions + transactions + DLQ',
+    w:'Only Service Bus offers sessions for ordering, transactions across entities, duplicate detection and a real dead-letter queue.' },
+  { tier:400, f:'msg', q:'Two million device telemetry events per second, and consumers must be able to re-read the last three days from an arbitrary point.',
+    o:['Event Hubs','Service Bus topic','Event Grid','Storage queue'], a:0,
+    k:'high-throughput stream + replay by offset',
+    w:'Event Hubs is a partitioned log: consumers hold their own offset and can rewind. Service Bus deletes on completion — nothing to replay.' },
+  { tier:400, f:'msg', q:'When a blob lands, four independent handlers must react immediately, each filtered by file suffix, with push delivery and retry.',
+    o:['Event Grid','Service Bus queue','Event Hubs','Storage queue'], a:0,
+    k:'discrete reactive events, push + subject filters',
+    w:'Event Grid is the reactive eventing plane: publishers emit discrete events, subscribers filter and get them pushed with retries.' },
+  { tier:400, f:'msg', q:'A backlog of roughly 500 GB of simple messages must be tolerated during a downstream outage, at the lowest possible cost.',
+    o:['Storage queue','Service Bus queue','Event Grid','Event Hubs'], a:0,
+    k:'queue bigger than 80 GB → Storage queue',
+    w:'Service Bus entities top out around 80 GB; Storage queues scale to the storage account limit and cost pennies.' },
+  { tier:400, f:'msg', q:'Existing Kafka producers must connect with no code change beyond a connection string.',
+    o:['Event Hubs (Kafka endpoint)','Service Bus','Event Grid','HDInsight Kafka cluster'], a:0,
+    k:'Kafka protocol without running Kafka',
+    w:'Event Hubs exposes a Kafka-compatible endpoint on Standard and above — you get the protocol without operating brokers.' },
+  { tier:400, f:'msg', q:'Individual messages can be up to 20 MB and must keep queue semantics.',
+    o:['Service Bus Premium','Service Bus Standard','Storage queue','Event Grid'], a:0,
+    k:'Standard caps at 256 KB — large messages need Premium',
+    w:'Service Bus Standard messages max out at 256 KB; Premium supports large messages (up to 100 MB). Otherwise use the claim-check pattern.' },
+  { tier:400, f:'msg', q:'One order event must fan out to five subscribers. Each consumes at its own pace, has its own filter, and needs its own dead-letter queue.',
+    o:['Service Bus topic with subscriptions','Event Grid topic','Event Hubs consumer groups','Storage queue per subscriber'], a:0,
+    k:'pull-based fan-out with per-subscriber DLQ',
+    w:'Topics give each subscriber an independent, durable, filtered queue — Event Grid pushes and has no per-subscriber DLQ in the same sense.' },
+  { tier:400, f:'msg', q:'Land the raw event stream in ADLS Gen2 as Avro for later batch analytics, writing no code.',
+    o:['Event Hubs Capture','Stream Analytics job','Azure Function on the hub','Data Factory copy activity'], a:0,
+    k:'Capture = no-code archive of the stream',
+    w:'Capture is a checkbox on the Event Hub that writes windowed Avro files straight to Blob/ADLS.' },
+  { tier:400, f:'msg', q:'Trigger an automated workflow whenever any VM in the subscription is deleted, with no polling.',
+    o:['Event Grid system topic on the subscription','Activity log alert with a webhook','Event Hubs with diagnostic settings','Azure Monitor metric alert'], a:0,
+    k:'Azure resource lifecycle events = Event Grid system topic',
+    w:'System topics surface control-plane events natively; alerts are for metrics and are slower and noisier.' },
+  { tier:400, f:'msg', q:'A Function must be invoked once per message, and if it throws, the message must land somewhere for human inspection after five attempts.',
+    o:['Service Bus queue trigger (max delivery count → DLQ)','Event Grid trigger','Event Hubs trigger','Timer trigger polling a table'], a:0,
+    k:'max delivery count then dead-letter',
+    w:'Service Bus tracks delivery count per message and moves poison messages to the DLQ automatically.' },
+
+  /* ---------- compute hosting ---------- */
+  { tier:400, f:'comp', q:'Event-driven HTTP API, spiky and mostly idle, must scale to zero and bill per execution.',
+    o:['Azure Functions (Consumption)','App Service on P1v3','Container Apps with min replicas 1','AKS'], a:0,
+    k:'scale to zero + per-execution billing',
+    w:'Consumption plan is the only one of these where an idle app costs effectively nothing.' },
+  { tier:400, f:'comp', q:'A stateful fan-out / fan-in orchestration written in C#, with checkpointing, replay, and waiting hours for an external event.',
+    o:['Durable Functions','Logic Apps Consumption','Azure Batch','Container Apps job'], a:0,
+    k:'code-first stateful orchestration = Durable',
+    w:'Durable Functions gives orchestrator/activity patterns with automatic checkpointing; Logic Apps does the same thing but visually, not in C#.' },
+  { tier:400, f:'comp', q:'Integration across 200+ SaaS systems, designed visually, maintained by an integration team that does not want to build containers.',
+    o:['Logic Apps','Azure Functions','Container Apps','Service Bus with custom workers'], a:0,
+    k:'connector-heavy, low-code, visual designer',
+    w:'Logic Apps is the connector platform; you write expressions, not code, and the designer is the artefact.' },
+  { tier:400, f:'comp', q:'Containerised microservices that must scale to zero based on queue length, use Dapr for service invocation, and require zero cluster maintenance.',
+    o:['Azure Container Apps','AKS','App Service for Containers','Container Instances'], a:0,
+    k:'KEDA scale-to-zero + Dapr, no cluster to patch',
+    w:'Container Apps is managed KEDA + Dapr on top of AKS you never see; AKS gives you the same power and all of the operations.' },
+  { tier:400, f:'comp', q:'You need DaemonSets, a custom CNI plugin, GPU node drivers, node-level tuning and a service mesh you install yourself.',
+    o:['AKS','Container Apps','App Service for Containers','Container Instances'], a:0,
+    k:'node-level control and cluster primitives',
+    w:'The moment the requirement names Kubernetes objects or node access, the managed abstractions are out.' },
+  { tier:400, f:'comp', q:'Functions must reach a private endpoint inside a VNet, avoid cold starts and keep instances pre-warmed.',
+    o:['Functions Premium (Elastic Premium) plan','Consumption plan','Dedicated plan on Free tier','Container Apps'], a:0,
+    k:'VNet integration + pre-warmed instances',
+    w:'Elastic Premium exists exactly for VNet-connected, always-warm serverless — Consumption cold-starts and has limited networking.' },
+  { tier:400, f:'comp', q:'Run a single container for about ten minutes as part of a batch step, start in seconds, no orchestrator, no scaling rules.',
+    o:['Azure Container Instances','AKS','Container Apps','App Service'], a:0,
+    k:'one-off container, no orchestration',
+    w:'ACI is the "just run this container" primitive — per-second billing, no cluster, no revisions.' },
+  { tier:400, f:'comp', q:'Windows Server containers that need GPU nodes and Group Managed Service Accounts.',
+    o:['AKS with a Windows node pool','Container Apps','Container Instances (Linux)','App Service for Containers'], a:0,
+    k:'Windows containers + GPU → AKS node pool',
+    w:'Container Apps is Linux-only; Windows container workloads with node-level requirements land on AKS.' },
+  { tier:400, f:'comp', q:'Deploy a new build to a warmed-up staging site and swap it into production instantly, with an instant swap-back if telemetry looks wrong.',
+    o:['App Service deployment slots','Container Apps revisions','AKS blue/green with two clusters','Traffic Manager weighted routing'], a:0,
+    k:'slot swap = warm-up then instant, reversible cutover',
+    w:'Slots warm the site before the swap and keep the old instance available for a swap-back.' },
+  { tier:400, f:'comp', q:'Send 10% of traffic to a new container release and 90% to the current one, controlled declaratively.',
+    o:['Container Apps revisions with traffic splitting','App Service slots','AKS with manual scaling','Front Door weighted origin groups'], a:0,
+    k:'revision-level traffic splitting',
+    w:'Container Apps splits traffic across revisions natively — no ingress controller or extra product required.' },
+  { tier:400, f:'comp', q:'Tens of thousands of independent render jobs with dependencies, a scheduler, and Spot/low-priority VMs for cost.',
+    o:['Azure Batch','AKS jobs','Logic Apps','Functions on Consumption'], a:0,
+    k:'HPC-style job scheduling at scale',
+    w:'Batch is the managed job scheduler and pool manager for embarrassingly parallel compute.' },
+  { tier:400, f:'comp', q:'Lift a legacy ASP.NET app that requires IIS and a Windows filesystem, with the least refactoring and built-in autoscale.',
+    o:['App Service (Windows)','AKS with Windows nodes','Azure Functions','Container Apps'], a:0,
+    k:'PaaS lift-and-shift for classic ASP.NET',
+    w:'App Service on Windows runs IIS-hosted apps unmodified; containerising it is work you were told to avoid.' },
+
+  /* ---------- data platform ---------- */
+  { tier:400, f:'data', q:'Migration needs SQL Agent jobs, cross-database queries, CLR, Service Broker and near-100% surface compatibility with SQL Server 2019.',
+    o:['Azure SQL Managed Instance','Azure SQL Database','SQL Server on Azure VM','Azure Synapse dedicated SQL pool'], a:0,
+    k:'instance-scoped features (Agent, cross-DB, CLR)',
+    w:'Managed Instance is the PaaS that keeps instance-level features; single Azure SQL Databases have no SQL Agent and no cross-database queries.' },
+  { tier:300, f:'data', q:'A development database is idle roughly twenty hours a day and the team wants to pay almost nothing while it sleeps.',
+    o:['Azure SQL Database serverless with auto-pause','Elastic pool','Managed Instance Business Critical','Provisioned vCore General Purpose'], a:0,
+    k:'auto-pause = compute billed only while awake',
+    w:'Serverless pauses compute after an idle delay and bills storage only; everything else bills the vCores whether you use them or not.' },
+  { tier:400, f:'data', q:'One hundred tenant databases with unpredictable, non-overlapping spikes, under one predictable budget.',
+    o:['Elastic pool','A serverless database per tenant','One database with row-level security','Managed Instance'], a:0,
+    k:'many DBs sharing one pot of DTU/vCore',
+    w:'Elastic pools let the databases borrow capacity from each other, which is exactly what uncorrelated spikes need.' },
+  { tier:500, f:'data', q:'Globally distributed catalogue: writes accepted in multiple regions, single-digit millisecond reads, and the strongest availability SLA Azure offers.',
+    o:['Azure Cosmos DB with multi-region writes','Azure SQL with active geo-replication','Azure SQL auto-failover group','Table storage with RA-GRS'], a:0,
+    k:'multi-region WRITE = Cosmos',
+    w:'Azure SQL geo-replicas are read-only; only Cosmos DB accepts writes in every region.' },
+  { tier:400, f:'data', q:'Petabyte-scale MPP analytics with clustered columnstore, workload management, and result-set caching.',
+    o:['Synapse dedicated SQL pool','Azure SQL Hyperscale','Cosmos DB analytical store','Azure Data Explorer'], a:0,
+    k:'MPP data warehouse workload',
+    w:'Dedicated SQL pool is the distributed warehouse engine; Hyperscale is still a single-node OLTP-shaped engine.' },
+  { tier:400, f:'data', q:'Fast interactive analytics over huge volumes of append-only log and telemetry data, using KQL.',
+    o:['Azure Data Explorer','Synapse dedicated SQL pool','Cosmos DB','Azure SQL Hyperscale'], a:0,
+    k:'KQL over time-series / log data',
+    w:'ADX (the engine behind Log Analytics) is purpose-built for high-ingest, append-only telemetry queried with KQL.' },
+  { tier:400, f:'data', q:'An existing MongoDB application must move to Azure by changing only the connection string.',
+    o:['Azure Cosmos DB for MongoDB','Azure Database for PostgreSQL','Cosmos DB for NoSQL','MongoDB on an Azure VM'], a:0,
+    k:'wire-protocol compatibility',
+    w:'The MongoDB API speaks the same wire protocol, so drivers and tooling keep working unchanged.' },
+  { tier:400, f:'data', q:'Model and traverse many-to-many relationships — who reports to whom, who influenced what — with a graph query language.',
+    o:['Cosmos DB for Apache Gremlin','Cosmos DB for NoSQL','Azure SQL with recursive CTEs','Table storage'], a:0,
+    k:'graph traversal = Gremlin API',
+    w:'Choose the Cosmos API by data shape: graph → Gremlin, columnar wide rows → Cassandra, documents → NoSQL/Mongo, key-value → Table.' },
+  { tier:500, f:'data', q:'Run analytics over operational Cosmos data without consuming request units or building an ETL pipeline.',
+    o:['Azure Synapse Link (Cosmos analytical store)','Change feed into a Function','Data Factory nightly copy','Read replica in a second region'], a:0,
+    k:'HTAP with no RU impact',
+    w:'Synapse Link keeps a column-store copy of the container that analytics reads directly, isolated from transactional RUs.' },
+  { tier:400, f:'data', q:'Device telemetry documents must disappear automatically after 90 days without a cleanup job.',
+    o:['Cosmos DB container TTL','A scheduled Function that deletes','Blob lifecycle management policy','Stored procedure on a timer'], a:0,
+    k:'TTL is a container property',
+    w:'Cosmos deletes expired items with leftover throughput — you write no code and pay no query cost to find them.' },
+  { tier:400, f:'data', q:'Terabyte-scale OLTP database that must grow past 4 TB and restore in minutes regardless of size.',
+    o:['Azure SQL Database Hyperscale','Business Critical','General Purpose','Managed Instance General Purpose'], a:0,
+    k:'Hyperscale = snapshot-based, size-independent restore',
+    w:'Hyperscale separates compute from a page-server storage layer, so backup and restore stop scaling with database size.' },
+
+  /* ---------- cosmos consistency ---------- */
+  { tier:400, f:'cosmos', q:'A user must always read their own writes from the same client session, at low RU cost, with multi-region reads.',
+    o:['Session consistency','Strong','Eventual','Consistent prefix'], a:0,
+    k:'read-your-own-writes, per session token',
+    w:'Session is the default for a reason: monotonic reads and read-your-writes inside a session, without the latency of Strong.' },
+  { tier:400, f:'cosmos', q:'Reads must never lag writes by more than a defined number of versions or a defined time window, globally ordered.',
+    o:['Bounded staleness','Session','Eventual','Strong'], a:0,
+    k:'"at most K versions or T seconds"',
+    w:'Bounded staleness is the only level that lets you name the lag budget as a number.' },
+  { tier:400, f:'cosmos', q:'Linearizable reads: every reader must see the most recent committed write, and the team accepts the write-latency cost.',
+    o:['Strong consistency','Bounded staleness','Session','Consistent prefix'], a:0,
+    k:'linearizability — and it blocks multi-region writes',
+    w:'Strong guarantees a single global order but cannot be combined with multi-region writes and costs more RUs on reads.' },
+  { tier:400, f:'cosmos', q:'Lowest RU cost and lowest latency for a like-counter where ordering does not matter at all.',
+    o:['Eventual consistency','Session','Bounded staleness','Strong'], a:0,
+    k:'cheapest, no ordering guarantee',
+    w:'Eventual is the cheapest read; it can return out-of-order values, which a counter tolerates and a bank balance does not.' },
+  { tier:400, f:'cosmos', q:'Readers may lag, but must never see writes out of the order they were made — no "reply before the post".',
+    o:['Consistent prefix','Eventual','Session','Bounded staleness'], a:0,
+    k:'order preserved, staleness unbounded',
+    w:'Consistent prefix guarantees you never see a later write without the earlier ones, but puts no bound on how far behind you are.' },
+
+  /* ---------- BC / DR ---------- */
+  { tier:400, f:'bcdr', q:'IaaS application across two regions with RPO measured in seconds, orchestrated failover order, and non-disruptive test failovers.',
+    o:['Azure Site Recovery','Azure Backup','Storage account GRS','Availability zones'], a:0,
+    k:'continuous replication + recovery plans + test failover',
+    w:'Backup gives you an RPO equal to the last backup; ASR replicates continuously and can rehearse the failover without touching production.' },
+  { tier:400, f:'bcdr', q:'Restore one file that a user deleted three weeks ago from a VM.',
+    o:['Azure Backup (file-level recovery)','Azure Site Recovery failover','GRS account failover','Snapshot of the managed disk'], a:0,
+    k:'point-in-time restore of past state',
+    w:'ASR replicates the current state — including the deletion. Retention of old points is Backup’s job.' },
+  { tier:400, f:'bcdr', q:'Azure SQL Database must survive a region outage with the application connection string unchanged.',
+    o:['Auto-failover group','Active geo-replication','Zone-redundant configuration','Long-term retention backups'], a:0,
+    k:'stable listener endpoint that moves with the failover',
+    w:'Geo-replication alone requires the app to switch endpoints; a failover group publishes read-write and read-only listeners that follow the primary.' },
+  { tier:400, f:'bcdr', q:'Blob data must remain readable from the secondary region while the primary is unavailable, without you initiating anything.',
+    o:['RA-GRS','GRS','ZRS','LRS'], a:0,
+    k:'"read access" to the secondary = the RA- prefix',
+    w:'Plain GRS keeps a copy you cannot read until a failover is triggered; RA-GRS exposes a read-only secondary endpoint continuously.' },
+  { tier:300, f:'bcdr', q:'Protect a storage account against the loss of a single datacentre, with no cross-region copy and no cross-region cost.',
+    o:['ZRS','LRS','GRS','RA-GZRS'], a:0,
+    k:'zone failure only, stay in-region',
+    w:'ZRS writes three synchronous copies across three availability zones inside one region.' },
+  { tier:300, f:'bcdr', q:'Highest durability tier: synchronous copies across three zones in the primary region AND a readable copy in the paired region.',
+    o:['RA-GZRS','GZRS','RA-GRS','ZRS'], a:0,
+    k:'zones + geo + readable secondary',
+    w:'RA-GZRS stacks zone redundancy locally with an asynchronously replicated, readable secondary region.' },
+  { tier:400, f:'bcdr', q:'The primary region is down and you must restore VM backups into the paired region right now.',
+    o:['Cross-region restore from a GRS Recovery Services vault','Azure Site Recovery failover','Restore from a disk snapshot','Rebuild from an image gallery'], a:0,
+    k:'cross-region restore must be enabled beforehand',
+    w:'Cross-region restore is an opt-in setting on a GRS vault; if nobody enabled it before the outage, the backups stay in the dead region.' },
+  { tier:400, f:'bcdr', q:'Regulator requires seven years of monthly database backups. Nightly operational backups already exist.',
+    o:['Long-term retention policy on the vault','Increase point-in-time retention to 35 days','Copy .bak files to Archive tier manually','Geo-redundant backup storage'], a:0,
+    k:'years = LTR, days = PITR',
+    w:'Point-in-time retention maxes out in weeks; long-term retention is the weekly/monthly/yearly ladder measured in years.' },
+  { tier:400, f:'bcdr', q:'A disgruntled admin deletes a Recovery Services vault item. Recovery data must survive for a grace period.',
+    o:['Soft delete on the vault (on by default)','Resource lock on the vault','GRS replication','Immutable blob policy'], a:0,
+    k:'soft delete = 14-day grace on deleted backup items',
+    w:'A lock stops the delete; soft delete is what saves you when a delete was allowed and shouldn’t have been.' },
+  { tier:400, f:'bcdr', q:'Application tier must survive the loss of one datacentre inside a region, with an SLA covering the VMs.',
+    o:['Spread VMs across availability zones','Availability set','Two VMs in the same zone','Azure Site Recovery'], a:0,
+    k:'zone = separate datacentre; set = separate rack',
+    w:'Availability sets protect against rack/update-domain failure inside one datacentre; zones protect against losing the whole building.' },
+
+  /* ---------- network security ---------- */
+  { tier:400, f:'net', q:'On-prem servers over ExpressRoute must reach Azure SQL using a private IP from your own address space.',
+    o:['Private Endpoint (plus a private DNS zone)','Service endpoint','Firewall rule allowing the on-prem public IP','VNet peering to the PaaS service'], a:0,
+    k:'private IP inside your VNet, reachable from on-prem',
+    w:'Service endpoints only work from inside the VNet and still use the public IP; private endpoints inject a NIC with your private IP and require the private DNS zone to resolve it.' },
+  { tier:400, f:'net', q:'Restrict a storage account so only one subnet can reach it. Traffic may keep using the service’s public IP, and it must cost nothing extra.',
+    o:['Service endpoint + storage firewall rule','Private endpoint','Azure Firewall with FQDN rules','NSG service tag rule'], a:0,
+    k:'free, subnet-scoped, still the public endpoint',
+    w:'Service endpoints keep traffic on the Azure backbone and pin access to a subnet, but the destination is still the public endpoint — and they are free.' },
+  { tier:400, f:'net', q:'Central egress control for 30 spoke VNets with FQDN filtering, threat intelligence, and a single set of logs.',
+    o:['Azure Firewall in the hub','NSGs on every subnet','Application Gateway with WAF','Route table with a deny route'], a:0,
+    k:'FQDN filtering + threat intel + central logging',
+    w:'NSGs cannot filter by hostname and cannot do threat intel; that is exactly what Firewall application rules are for.' },
+  { tier:300, f:'net', q:'Allow TCP 1433 from the app subnet to the data subnet and deny everything else, at no cost.',
+    o:['NSG rules','Azure Firewall','Application security group alone','Private endpoint'], a:0,
+    k:'L3/L4 allow-deny inside the VNet, free',
+    w:'NSGs are the free stateful L3/L4 filter; reaching for Firewall here is money for nothing.' },
+  { tier:400, f:'net', q:'NSG rules keep breaking whenever web server IPs change. You want rules written against roles, not addresses.',
+    o:['Application security groups','Service tags','Larger subnets','IP groups on Azure Firewall'], a:0,
+    k:'ASG = a named group of NICs used as source/destination',
+    w:'ASGs let an NSG rule say "web → app" instead of enumerating IPs, and membership follows the NIC.' },
+  { tier:400, f:'net', q:'Administrators need RDP and SSH to VMs that must not have public IPs, without deploying jump boxes.',
+    o:['Azure Bastion','Just-in-time VM access on a public IP','Point-to-site VPN plus NSG rules','Public IP with an NSG allowing your office range'], a:0,
+    k:'browser-based RDP/SSH over TLS, no public IP on the VM',
+    w:'Bastion is the managed jump host; JIT still requires a public IP and a management port to open at all.' },
+  { tier:400, f:'net', q:'Force all spoke-to-internet traffic through the hub firewall.',
+    o:['User-defined route 0.0.0.0/0 → firewall private IP','NSG deny rule to Internet','Service endpoint policies','Peering with gateway transit'], a:0,
+    k:'default route to the NVA/firewall',
+    w:'Routing decides the path; NSGs only permit or block what routing already delivered.' },
+  { tier:400, f:'net', q:'Spoke A must reach Spoke B. Both are peered to the hub and nothing else.',
+    o:['Route through an NVA/firewall in the hub (peering is not transitive)','Nothing — hub peering already allows it','Add a service endpoint','Enable "allow forwarded traffic" only'], a:0,
+    k:'VNet peering is NOT transitive',
+    w:'Spoke-to-spoke needs a routed hop through the hub (firewall/NVA/Route Server) or a direct peering — the hub does not relay by itself.' },
+
+  /* ---------- governance & identity ---------- */
+  { tier:400, f:'gov', q:'Nobody, not even a subscription Owner, may create VMs outside an approved SKU list.',
+    o:['Azure Policy with a deny effect','A custom RBAC role','A CanNotDelete lock','Microsoft Entra Conditional Access'], a:0,
+    k:'Policy judges the resource’s PROPERTIES; RBAC judges the person',
+    w:'RBAC can grant or withhold "create VM" but cannot inspect the SKU in the request body — Policy can.' },
+  { tier:400, f:'gov', q:'A production resource must survive an accidental delete even when an Owner runs the command.',
+    o:['CanNotDelete lock','Azure Policy deny','Remove Owner assignments','Resource group tag'], a:0,
+    k:'locks apply to everyone, including Owners',
+    w:'Locks are enforced at the management-plane regardless of role; they are inherited down from the scope they are set on.' },
+  { tier:400, f:'gov', q:'Helpdesk must be able to restart VMs but not resize, delete or read secrets.',
+    o:['Custom RBAC role with the restart action','Virtual Machine Contributor','Reader plus a lock','Azure Policy'], a:0,
+    k:'built-in role too broad → custom role definition',
+    w:'VM Contributor also allows delete and resize; when the exam says "only this one action", it is a custom role.' },
+  { tier:400, f:'gov', q:'One identity is shared by twenty VMs, must exist before the VMs are created so RBAC can be pre-assigned, and must outlive any single VM.',
+    o:['User-assigned managed identity','System-assigned managed identity','Service principal with a client secret','A shared local account'], a:0,
+    k:'shared, pre-created, independent lifecycle',
+    w:'System-assigned identities are 1:1 with a resource and die with it, so pre-assigning RBAC is impossible.' },
+  { tier:400, f:'gov', q:'A single Function App needs to read a Key Vault secret, with zero credential sprawl and automatic cleanup when the app is deleted.',
+    o:['System-assigned managed identity','User-assigned managed identity','App registration with a certificate','Connection string in app settings'], a:0,
+    k:'1:1 lifecycle, deleted with the resource',
+    w:'System-assigned is the least-sprawl option when exactly one resource needs the identity.' },
+  { tier:400, f:'gov', q:'Thousands of existing resources are missing a cost-centre tag. Add it retroactively and keep it applied going forward.',
+    o:['Azure Policy modify effect with a remediation task','Policy audit effect','Tag inheritance in Cost Management only','A PowerShell script on a schedule'], a:0,
+    k:'modify + remediation task fixes EXISTING resources',
+    w:'Audit only reports; deny only blocks new ones; modify with remediation actually writes the tag onto what already exists.' },
+  { tier:300, f:'gov', q:'One RBAC assignment must cover every current and future subscription belonging to a business unit.',
+    o:['Assign the role at the management group','Assign it at each subscription','Assign it at the tenant root for everyone','Use Azure Policy'], a:0,
+    k:'assign once at the highest scope, inherit down',
+    w:'RBAC inherits downward, so a management group assignment automatically covers subscriptions added later.' },
+  { tier:400, f:'gov', q:'Admin rights must be requested, approved and time-boxed, with an audit trail per activation.',
+    o:['Microsoft Entra Privileged Identity Management','Standing Owner assignment','Conditional Access policy','Access reviews'], a:0,
+    k:'eligible not active — just-in-time elevation',
+    w:'PIM turns a permanent assignment into an eligible one that must be activated, optionally with approval and MFA.' },
+  { tier:400, f:'gov', q:'Guest accounts accumulate. Business owners must confirm quarterly who still needs access.',
+    o:['Access reviews (Entra ID Governance)','Conditional Access','PIM activation','A quarterly export to CSV'], a:0,
+    k:'recurring recertification of membership',
+    w:'Access reviews put the decision in front of the owner on a schedule and can auto-remove non-responders.' },
+  { tier:400, f:'gov', q:'Block sign-in to the Azure portal from outside corporate networks unless MFA and a compliant device are present.',
+    o:['Conditional Access policy','Azure Policy','RBAC deny assignment','Network security group'], a:0,
+    k:'sign-in conditions = Conditional Access',
+    w:'Conditional Access is the identity-plane gate; Azure Policy never sees an authentication.' },
+
+  /* ---------- storage ---------- */
+  { tier:300, f:'stor', q:'Compliance data touched maybe once a year, retrieval in hours is fine, cheapest possible storage.',
+    o:['Archive tier','Cold tier','Cool tier','Hot tier'], a:0,
+    k:'offline, rehydrate before read, longest minimum retention',
+    w:'Archive is offline: you must rehydrate before reading, and early deletion charges apply on a 180-day minimum.' },
+  { tier:400, f:'stor', q:'Data read about once a quarter but must be available in milliseconds when it is.',
+    o:['Cold tier','Archive tier','Hot tier','Premium block blob'], a:0,
+    k:'online but rarely read — cheaper storage, pricier reads',
+    w:'Cool and Cold stay online with millisecond access; the trade is lower storage cost against higher transaction cost and a longer minimum retention.' },
+  { tier:400, f:'stor', q:'Analytics platform needs a hierarchical namespace, directory-level ACLs and NFS 3.0 access to the same data.',
+    o:['ADLS Gen2 (hierarchical namespace enabled)','Blob storage flat namespace','Azure Files Premium','Managed disks'], a:0,
+    k:'real directories + POSIX ACLs',
+    w:'Hierarchical namespace turns blob prefixes into actual directories, which makes renames atomic and ACLs possible.' },
+  { tier:400, f:'stor', q:'Lift-and-shift a Windows application that needs an SMB share with Active Directory authentication.',
+    o:['Azure Files with AD DS authentication','Blob storage','ADLS Gen2','Azure NetApp Files Standard'], a:0,
+    k:'SMB + Kerberos identity-based access',
+    w:'Azure Files is the SMB service; blob has no SMB, and NetApp is the answer only when the requirement screams extreme IOPS/latency or NFS at scale.' },
+  { tier:400, f:'stor', q:'Keep an on-prem file server as the fast local cache while the full dataset lives in Azure.',
+    o:['Azure File Sync with cloud tiering','Azure Files mounted over SMB','StorSimple','Robocopy on a schedule'], a:0,
+    k:'local cache + cloud tiering of cold files',
+    w:'File Sync keeps hot files on the local server and replaces cold ones with pointers into Azure Files.' },
+  { tier:400, f:'stor', q:'Financial records must be write-once-read-many for five years, provably unmodifiable even by administrators.',
+    o:['Immutable blob storage with a time-based retention policy','Resource lock','Soft delete','Archive tier'], a:0,
+    k:'WORM / legal hold at the container level',
+    w:'Immutability policies are enforced by the storage service itself; locks and soft delete are administrative conveniences, not compliance controls.' },
+  { tier:300, f:'stor', q:'Move blobs to Cool after 30 days and delete them after 365, with no code.',
+    o:['Blob lifecycle management policy','Azure Function on a timer','Storage account replication setting','Azure Policy'], a:0,
+    k:'lifecycle rules act on last-modified/last-accessed',
+    w:'Lifecycle management is a JSON rule set on the account — the platform does the tiering and deletion for you.' },
+
+  /* ---------- desktop & VDI ---------- */
+  { tier:400, f:'desk', q:'Pooled multi-session Windows 11 desktops, FSLogix profile containers, per-host-pool autoscale, and full control of the images.',
+    o:['Azure Virtual Desktop','Windows 365','Microsoft Dev Box','A VM Scale Set of Windows VMs'], a:0,
+    k:'multi-session + pooled + you own the hosts',
+    w:'AVD is the control plane for pooled multi-session hosts you manage; Windows 365 is one dedicated Cloud PC per user with no pooling.' },
+  { tier:400, f:'desk', q:'200 users need a persistent personal desktop at a fixed, predictable per-user monthly price with minimal infrastructure work.',
+    o:['Windows 365 Cloud PC','Azure Virtual Desktop personal host pool','AVD pooled host pool','Dev Box'], a:0,
+    k:'fixed per-user price, dedicated, no session hosts to run',
+    w:'Windows 365 is per-user subscription pricing; AVD is consumption pricing on infrastructure you operate.' },
+  { tier:400, f:'desk', q:'Developers need self-service workstations pre-loaded with a specific project’s tooling and source, created and destroyed on demand.',
+    o:['Microsoft Dev Box','Windows 365 Enterprise','AVD personal desktop','Local laptops with a setup script'], a:0,
+    k:'project-scoped, self-service developer workstation',
+    w:'Dev Box is Windows 365 shaped for engineering: dev-centre projects, per-project images and pools.' },
+
+  /* ================================================================== *
+   * TIER 100 — FOUNDATION. What the thing IS. No comparisons, no limits,
+   * no edge cases. Never assumes the reader has opened the portal.
+   * ================================================================== */
+  { tier:100, f:'gov', q:'What is an Azure resource group?',
+    o:['A lifecycle boundary — the things inside it are created, secured and deleted together','A folder for tidying up the portal view','A network boundary that isolates traffic'], a:0,
+    k:'lifecycle boundary, not a folder',
+    w:'Everything in a resource group shares a life: one delete command takes the lot. It is not a security boundary and it is not a network boundary.' },
+  { tier:100, f:'gov', q:'What is an Azure subscription, in one line?',
+    o:['A billing and quota boundary that resources are created inside','A single user account used to sign in','A regional datacentre'], a:0,
+    k:'subscription = billing + quota container',
+    w:'Costs roll up to a subscription and most service limits are counted per subscription. Resource groups live inside one.' },
+  { tier:100, f:'gov', q:'What does role-based access control (RBAC) decide?',
+    o:['Who is allowed to do what to which Azure resources','Which ports a virtual machine may listen on','How much a resource costs per month'], a:0,
+    k:'RBAC judges the PERSON',
+    w:'Every assignment is three things: a security principal, a role definition, and a scope. Change any one and you have changed the answer.' },
+  { tier:100, f:'gov', q:'What is Microsoft Entra ID?',
+    o:['The identity directory that holds your users, groups and app registrations','A firewall that filters inbound internet traffic','A backup service for virtual machines'], a:0,
+    k:'identity directory — the service formerly called Azure AD',
+    w:'Entra ID authenticates people and applications. Azure RBAC then decides what those identities are allowed to touch.' },
+  { tier:100, f:'net', q:'What is an Azure virtual network (VNet)?',
+    o:['A private address space in Azure that your resources take IP addresses from','A physical cable between two datacentres','A DNS name you register for a website'], a:0,
+    k:'your own private IP space in the cloud',
+    w:'A VNet is carved into subnets. Resources placed in those subnets can reach each other by private IP without touching the internet.' },
+  { tier:100, f:'net', q:'What is a network security group (NSG) for?',
+    o:['Allowing or denying traffic by IP address, port and protocol','Encrypting data stored on disk','Scanning uploaded files for malware'], a:0,
+    k:'an allow/deny list for network traffic',
+    w:'An NSG is a stateful list of rules attached to a subnet or a NIC. It never looks inside the traffic — only at addresses, ports and direction.' },
+  { tier:100, f:'comp', q:'What is Azure App Service?',
+    o:['A managed platform that runs your web app without you touching the operating system','A virtual machine image with IIS pre-installed','A content delivery network for static files'], a:0,
+    k:'PaaS web hosting — no OS to patch',
+    w:'You hand App Service your code or a container. Microsoft patches the OS, runs the web server, and gives you scaling and TLS certificates.' },
+  { tier:100, f:'comp', q:'What does "serverless" actually mean for Azure Functions?',
+    o:['There are still servers — you never see, size or patch them, and you pay per execution','Your code runs in the browser instead of on a server','The service has no network connectivity'], a:0,
+    k:'servers exist; the operations and the idle bill do not',
+    w:'Serverless is a billing and operations model, not an absence of machines.' },
+  { tier:100, f:'comp', q:'What is a container?',
+    o:['Your application packaged together with its dependencies so it runs the same anywhere','A virtual machine that carries its own operating system kernel','A storage bucket that holds application files'], a:0,
+    k:'app + dependencies, sharing the host kernel',
+    w:'Containers start in seconds because they never boot an OS — they share the host kernel and add only your application layer.' },
+  { tier:100, f:'msg', q:'What problem does a message queue solve between two services?',
+    o:['The sender can keep working when the receiver is slow, busy or down','It makes the network physically faster','It encrypts the data at rest'], a:0,
+    k:'decoupling in time',
+    w:'A queue is a buffer. The producer drops a message and moves on; the consumer picks it up whenever it is able to.' },
+  { tier:100, f:'msg', q:'What is the difference between a message and an event?',
+    o:['A message is work you want done; an event is a notification that something happened','They are the same thing with two different names','A message is JSON and an event is XML'], a:0,
+    k:'command versus notification',
+    w:'Messages have an intended consumer and an expectation of processing. Events are announcements — the publisher does not care who is listening.' },
+  { tier:100, f:'route', q:'What does a load balancer do?',
+    o:['Spreads incoming connections across several healthy backend servers','Stores copies of files closer to the user','Encrypts traffic between two datacentres'], a:0,
+    k:'one front door, many backends',
+    w:'It also stops sending traffic to any backend that fails its health probe, which is genuinely half the point of having one.' },
+  { tier:100, f:'route', q:'What is DNS doing when you type a hostname into a browser?',
+    o:['Translating the name into an IP address the browser can connect to','Encrypting the page before it is sent','Choosing which datacentre has the cheapest capacity'], a:0,
+    k:'name-to-address lookup',
+    w:'DNS answers are cached by clients and resolvers for the length of the TTL, which is why DNS-based failover is never instant.' },
+  { tier:100, f:'data', q:'What does "managed database service" mean?',
+    o:['Microsoft runs the patching, backups and high availability; you own the schema and the data','You still install and patch the database engine yourself','The database can only be read, never written'], a:0,
+    k:'PaaS database — you keep the data, not the maintenance',
+    w:'Azure SQL Database, Cosmos DB and Azure Database for PostgreSQL are all managed. SQL Server running on a VM is not.' },
+  { tier:100, f:'cosmos', q:'What does a Cosmos DB consistency level control?',
+    o:['How up to date a read is allowed to be, traded against speed and cost','How the data is encrypted on disk','How many regions the account is allowed to use'], a:0,
+    k:'the freshness / latency / cost dial',
+    w:'Cosmos hands you five settings on that dial instead of one fixed behaviour, which is unusual among databases.' },
+  { tier:100, f:'stor', q:'What is a blob?',
+    o:['A single file of any type, stored in a container inside a storage account','A row in a relational table','A virtual machine disk that cannot be resized'], a:0,
+    k:'unstructured object storage',
+    w:'Blob is short for binary large object: images, logs, backups, video — anything you would put in a file, without a filesystem in front of it.' },
+  { tier:100, f:'stor', q:'What is an Azure storage account?',
+    o:['The namespace and billing container that holds your blobs, files, queues and tables','A single hard disk attached to one virtual machine','A user account used to sign in to Azure'], a:0,
+    k:'one account, several data services, one endpoint namespace',
+    w:'The account name becomes part of every URL, which is why it has to be globally unique and lowercase.' },
+  { tier:100, f:'stor', q:'What is Azure Files for?',
+    o:['A fully managed file share you mount with SMB or NFS, like a network drive','Storing container images for a registry','Streaming video directly to browsers'], a:0,
+    k:'a network drive as a service',
+    w:'If an application expects a mapped drive or a UNC path, Azure Files fits without changing the application at all.' },
+  { tier:100, f:'bcdr', q:'What does RPO mean?',
+    o:['Recovery Point Objective — how much data you can afford to lose','Recovery Process Order — the sequence services restart in','Redundant Primary Origin — the main copy of the data'], a:0,
+    k:'RPO is the data-loss budget; RTO is the downtime budget',
+    w:'RPO is measured backwards from the outage ("we can lose 15 minutes of writes"). RTO is measured forwards ("we must be serving again within an hour").' },
+  { tier:100, f:'bcdr', q:'What is an availability zone?',
+    o:['A physically separate datacentre inside one Azure region, with its own power and cooling','A different Azure region on another continent','A group of virtual machines sharing one rack'], a:0,
+    k:'separate building, same region',
+    w:'Spreading across zones survives the loss of one building. Spreading across regions survives the loss of the whole metro area.' },
+  { tier:100, f:'bcdr', q:'What does Azure Backup do, in one line?',
+    o:['Keeps recoverable copies of past state so you can restore something as it was','Keeps a live second copy that always matches the current state','Prevents anybody from deleting a resource'], a:0,
+    k:'backup preserves the PAST; replication mirrors the PRESENT',
+    w:'That one distinction answers a surprising number of questions: if the requirement says "three weeks ago", replication cannot help you.' },
+  { tier:100, f:'desk', q:'What is a virtual desktop?',
+    o:['A Windows desktop running in Azure that users connect to from any device','A second monitor configured in Windows display settings','A browser tab styled to look like Windows'], a:0,
+    k:'the desktop runs in the datacentre, not on the endpoint',
+    w:'Because the desktop lives in Azure, company data never lands on the laptop — which is usually the actual reason people buy it.' },
+
+  /* ================================================================== *
+   * TIER 200 — PRACTITIONER. The happy path: how you really create and
+   * configure the thing, and the command you would really type.
+   * ================================================================== */
+  { tier:200, f:'comp', q:'You created an App Service Plan. What does the plan itself determine?',
+    o:['The size, OS, region and instance count your apps run on — and several apps can share one plan','Which programming language the app is allowed to use','The custom domain name attached to the app'], a:0,
+    k:'the plan IS the compute; apps are tenants of it',
+    w:'Scale UP changes the plan SKU. Scale OUT changes the instance count. Both are properties of the plan, never of the app.' },
+  { tier:200, f:'comp', q:'Where do you set an environment variable for a Function App?',
+    o:['Application settings on the Configuration blade — they reach the code as environment variables','Inside host.json only','On the storage account the app is linked to'], a:0,
+    k:'app settings = environment variables',
+    w:'Connection strings live there too. Each value is encrypted at rest and each one can be marked as a deployment-slot setting.' },
+  { tier:200, f:'comp', q:'Which command creates a Linux web app inside an existing plan?',
+    o:['az webapp create -g rg-web -p plan-web -n myapp --runtime "PYTHON:3.11"','az appservice create --linux myapp','az vm create -g rg-web -n myapp --image Ubuntu2204'], a:0,
+    k:'az webapp create needs -g, -p (the plan) and -n',
+    w:'The plan has to exist first, and it has to be in the same resource group and region as the app you are attaching to it.' },
+  { tier:200, f:'route', q:'You deployed an Application Gateway and no traffic flows. Which four pieces must be configured?',
+    o:['A listener, a backend pool, a routing rule and a health probe','Only a public IP and a backend pool','Only a WAF policy and a TLS certificate'], a:0,
+    k:'listener → rule → backend pool, plus a probe',
+    w:'The rule is the wiring: it joins one listener to one backend pool through an HTTP setting. Miss any piece and you get silence or a 502.' },
+  { tier:200, f:'route', q:'In Traffic Manager, what do you configure per endpoint for Priority routing?',
+    o:['A priority number — the lowest number is the primary and the rest are standby','A weight between 0 and 100','A geographic region code'], a:0,
+    k:'lowest priority number wins',
+    w:'Weighted routing uses weights, Performance routing uses latency measurements, and Priority uses the ordering you typed in.' },
+  { tier:200, f:'net', q:'Two VMs sit in different subnets of the same VNet and you have created no NSG rules. Can they talk?',
+    o:['Yes — the default rule set allows all traffic inside the VNet','No — subnets are isolated until you add an allow rule','Only if both VMs are in the same availability zone'], a:0,
+    k:'AllowVnetInBound is a default rule',
+    w:'The defaults permit VNet-to-VNet traffic and load balancer probes, then deny everything else arriving from the internet.' },
+  { tier:200, f:'net', q:'Which command adds a subnet to an existing VNet?',
+    o:['az network vnet subnet create -g rg-net --vnet-name vnet-hub -n snet-app --address-prefixes 10.0.1.0/24','az network subnet add --name snet-app --size /24','az vnet subnet new -n snet-app'], a:0,
+    k:'--address-prefixes has to sit inside the VNet address space',
+    w:'A subnet can never be created outside the VNet space, and it can never overlap a subnet that already exists.' },
+  { tier:200, f:'gov', q:'You add a tag to a resource group. What happens to the resources inside it?',
+    o:['Nothing — tags do not inherit to child resources on their own','They all receive the same tag immediately','They receive the tag the next time they restart'], a:0,
+    k:'tags do NOT inherit by default',
+    w:'Cost Management can show inherited tags for reporting and Azure Policy can push them down, but the resources stay untagged until something writes the tag.' },
+  { tier:200, f:'gov', q:'How do you give one user Reader on a single resource group?',
+    o:['Open the resource group → Access control (IAM) → Add role assignment → Reader','Add the user to the Global Administrator role','Change the subscription billing settings'], a:0,
+    k:'assign at the scope you opened IAM on',
+    w:'The scope of the assignment is whatever object you were looking at: management group, subscription, resource group or one single resource.' },
+  { tier:200, f:'stor', q:'You created a storage account. What must exist before you can upload a blob?',
+    o:['A container inside the account','A file share','A managed disk'], a:0,
+    k:'account → container → blob',
+    w:'Container names are lowercase and become part of the URL: https://account.blob.core.windows.net/container/blob.' },
+  { tier:200, f:'stor', q:'Which access tier does a new block blob land in if you do not choose one?',
+    o:['Hot — new blobs inherit the account default access tier','Cool','Archive'], a:0,
+    k:'the account has a default access tier and blobs inherit it',
+    w:'You can set the account default to Cool, and any individual blob can always override whatever the account says.' },
+  { tier:200, f:'data', q:'You created an Azure SQL Database and your laptop cannot connect to it.',
+    o:['The server firewall denies everything until you add a rule for your client IP','Azure SQL has no public endpoint at all','You must first deploy a virtual network gateway'], a:0,
+    k:'the firewall denies by default — add the client IP rule',
+    w:'The portal offers a one-click "Add current client IP address" button for precisely this moment.' },
+  { tier:200, f:'cosmos', q:'Which consistency level does a brand new Cosmos DB account use?',
+    o:['Session','Strong','Eventual'], a:0,
+    k:'Session is the default',
+    w:'It is the default because it gives read-your-own-writes inside a client session at a sensible RU cost, which suits most applications.' },
+  { tier:200, f:'cosmos', q:'When do you choose a Cosmos DB partition key, and can you change it later?',
+    o:['At container creation, and no — it is immutable, so changing it means migrating the data','Any time, from the portal','It is chosen automatically per document'], a:0,
+    k:'the partition key is set once, at container creation',
+    w:'That is why a high-cardinality, evenly-accessed property matters more than almost any other Cosmos decision you will make.' },
+  { tier:200, f:'msg', q:'Where do you get the connection string for a Service Bus queue?',
+    o:['Shared access policies, on the namespace or on the queue itself','On the Overview blade of the resource group','On the storage account linked to the namespace'], a:0,
+    k:'SAS policies live on the namespace or the entity',
+    w:'RootManageSharedAccessKey exists by default and is far too powerful for an application. Create a scoped policy with only Send or only Listen.' },
+  { tier:200, f:'msg', q:'What does an Event Hubs consumer group give you?',
+    o:['An independent view of the stream, with its own offset, for one consuming application','A copy of the data in a second region','A dead-letter queue for failed messages'], a:0,
+    k:'one consumer group per consuming application',
+    w:'Two applications sharing a consumer group fight over the same offsets. Give each its own and they read the same events independently.' },
+  { tier:200, f:'bcdr', q:'What must exist before you can back up a VM with Azure Backup?',
+    o:['A Recovery Services vault, in the same region as the VM','A second VM to restore into','A storage account with a container named backups'], a:0,
+    k:'vault first, and it must be in the source region',
+    w:'The vault holds the policy — schedule and retention — and it holds the recovery points that come out of it.' },
+  { tier:200, f:'bcdr', q:'Which redundancy option does the portal preselect for a new standard storage account?',
+    o:['Geo-redundant storage (GRS)','Locally-redundant storage (LRS)','Zone-redundant storage (ZRS)'], a:0,
+    k:'the portal default is geo-redundant',
+    w:'It is the safe default and also the expensive one. Plenty of dev and test accounts should be switched down to LRS on day one.' },
+  { tier:200, f:'desk', q:'What is the first object you create when deploying Azure Virtual Desktop?',
+    o:['A host pool — session hosts, application groups and workspaces all hang off it','A Recovery Services vault','A public load balancer'], a:0,
+    k:'the host pool is the root object',
+    w:'You then choose pooled or personal, register session hosts to it, and publish an application group into a workspace.' },
+  { tier:200, f:'comp', q:'You need three instances of a web app instead of one. Which action?',
+    o:['Scale out on the App Service plan, manually or with an autoscale rule','Scale up to a larger SKU','Deploy the app a second time in another region'], a:0,
+    k:'OUT means more instances, UP means a bigger instance',
+    w:'Scale out is horizontal and handles more concurrent users. Scale up is vertical and handles a heavier single request.' },
+  { tier:200, f:'net', q:'Azure Bastion is deployed in your VNet. How does an administrator now reach a VM?',
+    o:['Portal → the VM → Connect → Bastion, which opens RDP or SSH inside the browser over TLS','By RDP straight to the VM public IP','By installing a VPN client onto the VM'], a:0,
+    k:'browser session over 443, and no public IP on the VM',
+    w:'That is the entire point: the VM keeps only a private IP, and port 3389 is never exposed to anybody.' },
+  { tier:200, f:'gov', q:'Which command assigns a built-in role to a user at resource group scope?',
+    o:['az role assignment create --assignee user@contoso.com --role Reader --scope /subscriptions/<id>/resourceGroups/rg-app','az ad user update --role Reader','az group update -n rg-app --set role=Reader'], a:0,
+    k:'assignee + role + scope, always those three',
+    w:'Leave off --scope and the assignment lands at the subscription in your current context, which is almost never what you meant.' },
+
+  /* ================================================================== *
+   * TIER 300 — PROFESSIONAL. Real limits, real cost, what breaks under
+   * load, how you troubleshoot it, and when NOT to use the thing.
+   * ================================================================== */
+  { tier:300, f:'comp', q:'Ten apps share one App Service plan. One of them pegs the CPU and the rest slow to a crawl.',
+    o:['They share the plan instances — move the noisy app onto its own plan','Restart the affected apps','Put a WAF in front of the plan','Enable Always On for the affected apps'], a:0,
+    k:'the plan is the compute; apps on it are neighbours',
+    w:'Density on one plan is a cost optimisation with a blast radius. Isolate anything with a spiky or unpredictable profile.' },
+  { tier:300, f:'comp', q:'A Function on the Consumption plan keeps getting killed part way through a long job.',
+    o:['Consumption caps execution at 5 minutes by default and 10 minutes maximum — move to Premium or break the job up','Increase the memory allocation','Add a retry policy','Raise functionTimeout in host.json past ten minutes'], a:0,
+    k:'Consumption timeout: 5 minutes default, 10 minutes ceiling',
+    w:'Premium and Dedicated plans allow much longer runs. Durable Functions is the other answer: split the work into activities that each finish quickly.' },
+  { tier:300, f:'comp', q:'When should a team NOT choose AKS?',
+    o:['When nobody wants to own upgrades, node pools and cluster networking — the operations are the real cost','When the application is written in .NET','When the workload needs more than one container image','When the workload needs to autoscale'], a:0,
+    k:'AKS bills you in operations, not only in nodes',
+    w:'Container Apps gives most teams the scaling they actually wanted without the cluster they did not.' },
+  { tier:300, f:'comp', q:'Which requirement forces a workload off Azure Container Apps?',
+    o:['Windows containers, DaemonSets, or direct node access','Needing more than one revision at a time','Pulling from a private container registry','Scaling on queue length with KEDA'], a:0,
+    k:'Container Apps is Linux-only and hides the nodes from you',
+    w:'The moment a requirement names a Kubernetes primitive or a node-level tweak, the managed abstraction is out and AKS is in.' },
+  { tier:300, f:'route', q:'Users report stale data from an API published through Front Door.',
+    o:['Caching is enabled on that route — turn it off for dynamic paths or honour Cache-Control','The WAF is blocking the request','The origin health probe is failing','The origin sits in a different region from the edge location'], a:0,
+    k:'never cache a dynamic API route',
+    w:'Front Door caches per route. Split static and dynamic paths into separate routes rather than fighting the cache with query-string tricks.' },
+  { tier:300, f:'route', q:'Application Gateway returns 502 for every request, although the backend VMs answer fine from inside the VNet.',
+    o:['The health probe is failing — usually a wrong path, a wrong host header, or an NSG blocking the gateway subnet','The public IP is the wrong SKU','TLS 1.2 is disabled on the client','A WAF policy must be attached before the gateway forwards anything'], a:0,
+    k:'a 502 from App Gateway means probe failure until proven otherwise',
+    w:'Open the backend health blade first. It names the failing probe and the reason, which saves an hour of guessing.' },
+  { tier:300, f:'route', q:'Traffic Manager was configured for failover, but users stayed on the dead region for several minutes.',
+    o:['Detection is probe interval × tolerated failures, and then clients still wait out the DNS TTL','Traffic Manager only fails over during a maintenance window','The endpoints were in the wrong resource group','Traffic Manager works at Layer 4 and needs a TCP probe'], a:0,
+    k:'probe time PLUS TTL is your real RTO',
+    w:'Dropping the TTL to 30 seconds helps. Resolvers that quietly ignore short TTLs are the reason anycast products exist at all.' },
+  { tier:300, f:'msg', q:'What does Service Bus Premium actually buy you over Standard, in production terms?',
+    o:['Dedicated messaging units with predictable latency, larger messages, and VNet or private endpoint support','A completely different API surface','Free data egress between regions','Automatic geo-replication of every individual message'], a:0,
+    k:'Premium buys dedicated capacity and isolation, not new verbs',
+    w:'Standard is multi-tenant and throttles under noisy-neighbour conditions, which is fine right up until it very suddenly is not.' },
+  { tier:300, f:'msg', q:'One Event Hubs throughput unit gives you what?',
+    o:['1 MB/s or 1,000 events per second inbound, and 2 MB/s outbound','10 MB/s in and 10 MB/s out','Unlimited ingress with metered egress','1 MB/s in and 1 MB/s out, symmetrically'], a:0,
+    k:'1 TU: 1 MB/s in, 2 MB/s out',
+    w:'Auto-inflate raises throughput units automatically on ingress pressure but never lowers them again — somebody has to notice and turn it back down.' },
+  { tier:300, f:'msg', q:'Your handler occasionally processes the same message twice.',
+    o:['At-least-once is the realistic guarantee — make the handler idempotent','Turn on duplicate detection and stop worrying','Switch to Storage queues','Increase the lock duration until it stops happening'], a:0,
+    k:'design for at-least-once; idempotency is your job',
+    w:'Duplicate detection deals with the publish side inside a time window. Redelivery after a consumer crashes is a different problem, and it is yours.' },
+  { tier:300, f:'data', q:'When does vCore purchasing beat DTU for Azure SQL?',
+    o:['When you need to size compute and storage independently, use Azure Hybrid Benefit, or reach Hyperscale and serverless','When the database is under 10 GB','When you need geo-replication','When the workload is read-only'], a:0,
+    k:'vCore unlocks the modern tiers and the licence benefit',
+    w:'DTU is a blended unit that hides the trade-offs. Anything you have to size deliberately belongs on vCore.' },
+  { tier:300, f:'data', q:'A Cosmos container starts returning HTTP 429 under load.',
+    o:['Provisioned RU/s are exhausted — look for a hot partition before simply buying more throughput','The account has run out of storage','The consistency level is set too weak','The partition key is missing from the query filter'], a:0,
+    k:'429 means rate limited, and a hot partition fakes a capacity problem',
+    w:'Throughput is divided evenly across physical partitions. One overloaded key can throttle you while the account as a whole looks half idle.' },
+  { tier:300, f:'cosmos', q:'What is the cost consequence of choosing Strong over Session in Cosmos DB?',
+    o:['Roughly double the RU charge on reads, higher write latency, and no multi-region writes','No cost difference at all, only a latency difference','Storage costs double','Reads get cheaper because they never leave the local region'], a:0,
+    k:'stronger consistency is billed on every single read',
+    w:'It is one of the few settings where a checkbox chosen in a design meeting shows up directly on next month invoice.' },
+  { tier:300, f:'data', q:'When is a Synapse dedicated SQL pool the wrong tool?',
+    o:['Small datasets, high concurrency or OLTP-shaped queries — and it bills provisioned DWUs until somebody pauses it','Any workload above 1 TB','Anything that needs columnstore indexes','Whenever the source data lives in ADLS Gen2'], a:0,
+    k:'a dedicated pool bills whether or not anyone is querying it',
+    w:'Serverless SQL or an Azure SQL Hyperscale database will beat it on both cost and concurrency for anything that is not a genuine warehouse.' },
+  { tier:300, f:'net', q:'When is Azure Firewall not worth the money?',
+    o:['A single small VNet whose requirements are ports and IP ranges — NSGs are free and do exactly that','Any hub-and-spoke topology','Whenever a WAF is already deployed','When the VNet already has a NAT Gateway'], a:0,
+    k:'buy Firewall for FQDN filtering, threat intel and central logging',
+    w:'A firewall in the hub is a monthly deployment charge plus a data-processing charge. It has to be earning both.' },
+  { tier:300, f:'net', q:'Intermittent outbound connection failures from a pool of VMs behind a Standard Load Balancer.',
+    o:['SNAT port exhaustion — add a NAT Gateway or allocate more outbound ports','The NSG is rate limiting the traffic','DNS is failing intermittently','The health probe interval is set too short'], a:0,
+    k:'symptom: outbound works, then randomly does not',
+    w:'Every frontend IP has a finite pool of SNAT ports shared by every backend instance. NAT Gateway is the modern fix and scales far better.' },
+  { tier:300, f:'gov', q:'You assigned a deny policy at the management group, but existing non-compliant resources are still there.',
+    o:['Deny only blocks new or updated deployments — what already exists shows as non-compliant until you remediate it','Policy takes 24 hours to apply to anything','Deny cannot be used at management group scope','Deny effects need a policy exemption created before they apply'], a:0,
+    k:'deny handles the future; modify plus a remediation task handles the past',
+    w:'Evaluation is not instant either: a fresh assignment can take up to half an hour before compliance results appear at all.' },
+  { tier:300, f:'gov', q:'Role assignments in one subscription have grown into the thousands and new ones start failing.',
+    o:['There is a hard limit per subscription — assign roles to groups instead of to individual users','Role assignments have no limit; something else is wrong','You need to upgrade the support plan','Move the subscription under a different management group'], a:0,
+    k:'assign to groups; the per-subscription limit is real',
+    w:'Group-based assignment also survives joiners and leavers without anybody having to touch Azure at all.' },
+  { tier:300, f:'stor', q:'Finance asks why moving everything to the Cool tier made the bill go up.',
+    o:['Cool has a 30-day minimum retention and higher transaction costs — frequently read data costs more there','Cool is simply always more expensive than Hot','Tiering only applies to page blobs','Cool data is billed twice while it rehydrates'], a:0,
+    k:'minimum retention: Cool 30 days, Cold 90, Archive 180',
+    w:'Tiering is a bet on access frequency. Lose the bet and early-deletion plus read charges wipe out every penny of the storage saving.' },
+  { tier:300, f:'stor', q:'A single storage account is throttling under load.',
+    o:['Account-level IOPS and throughput limits are being hit — shard across accounts or move to Premium block blob','Add more containers to spread the load','Enable soft delete','Switch the account to geo-redundant replication'], a:0,
+    k:'the scale target is per ACCOUNT, not per container',
+    w:'Containers do not shard the limit. More accounts, or Premium block blob storage, is how you actually buy headroom.' },
+  { tier:300, f:'bcdr', q:'A DR test technically succeeded but the application did not work in the secondary region.',
+    o:['Dependencies were never in the recovery plan — DNS, secrets, database endpoints and start order all have to be scripted','The RPO was set too low','The vault was in the wrong tier','The recovery point was older than the RPO allowed'], a:0,
+    k:'RTO includes everything that is not the VM',
+    w:'This is exactly why Site Recovery recovery plans have ordered groups and script hooks, and why untested DR is not DR.' },
+  { tier:300, f:'desk', q:'How do you size AVD session hosts for multi-session?',
+    o:['From per-user vCPU and memory guidance for the workload profile, plus the IOPS the FSLogix profile storage must sustain','One session host per user, always','By counting the published applications','From the number of session hosts already in the host pool'], a:0,
+    k:'profile storage IOPS is the usual real bottleneck',
+    w:'Light, medium and heavy user profiles all have published density guidance. Storage is the part people forget until logon times triple.' },
+  { tier:300, f:'cosmos', q:'When is Cosmos autoscale throughput cheaper than manual provisioning?',
+    o:['When load is bursty and peak sits well above average — autoscale costs about 1.5× per RU but only for what you actually use','Always; it is a strictly better option','Only on single-region accounts','Whenever the container has only one physical partition'], a:0,
+    k:'autoscale carries roughly a 50% per-RU premium, applied to real usage',
+    w:'Steady predictable load is cheaper on manual RU/s. Spiky load with long idle troughs is cheaper on autoscale. Do the arithmetic, not the vibe.' },
+
+  /* ================================================================== *
+   * TIER 500 — ARCHITECT. Cross-service consequences, SLA and cost math,
+   * failure-mode analysis. The layer above the exam.
+   * ================================================================== */
+  { tier:500, f:'cosmos', q:'Your multi-region Cosmos account is set to Strong consistency. What does that force to be true about your write topology and your availability SLA?',
+    o:['A single write region, regions constrained by the quorum round trip, and you forfeit the 99.999% multi-write read SLA','Nothing — consistency is orthogonal to region topology','It requires at least three write regions','Exactly two write regions, both inside the same geography'], a:0,
+    k:'Strong and multi-region writes are mutually exclusive',
+    w:'Strong commits a majority quorum before acknowledging, so every write pays an inter-region round trip. That is a topology decision disguised as a dropdown.' },
+  { tier:500, f:'route', q:'Front Door (99.99%) in front of Application Gateway (99.95%) in front of App Service (99.95%). What is the composite SLA, and what does that tell a design review?',
+    o:['Roughly 99.89% — dependencies in series multiply, so every hop you add lowers the number','99.99%; the strongest component sets the floor','99.95%; you take the average of the components','Take the lowest component and subtract 0.01% for each extra hop'], a:0,
+    k:'series dependencies multiply, parallel ones add nines',
+    w:'The architectural response is to remove a hop or make one of them redundant, not to buy a larger SKU of the same product.' },
+  { tier:500, f:'bcdr', q:'A stateful application needs cross-region RPO in seconds and RTO in minutes. What dominates the design?',
+    o:['Where data may be written and how it replicates — compute is cheap to duplicate, consistent state is not','How many VM images you keep in the compute gallery','Which load balancer SKU you standardise on','The number of availability zones in the secondary region'], a:0,
+    k:'state topology decides everything downstream of it',
+    w:'Once you know whether the secondary region can accept writes, the compute, DNS and failover design fall out of it almost mechanically.' },
+  { tier:500, f:'data', q:'The business asks for active-active writes in two regions on a relational store.',
+    o:['Azure SQL will not do it — shard by region, accept one write region with read replicas, or move to a store that owns conflict resolution','Enable auto-failover groups in both directions','Promote read-scale replicas to writable secondaries','Run a second primary and reconcile nightly with Data Factory'], a:0,
+    k:'relational active-active is a data-partitioning decision, not a feature toggle',
+    w:'Multi-master means somebody must define what happens when two regions write the same row. Cosmos makes that explicit; Azure SQL simply refuses.' },
+  { tier:500, f:'gov', q:'Why does an enterprise landing zone treat the subscription as the unit of scale?',
+    o:['Limits, quotas, policy scope and blast radius are all per subscription — more capacity means another subscription, not a bigger one','Because subscriptions are cheaper when bought in bulk','Because a resource group cannot exceed 800 resources','Because a management group can hold only one subscription'], a:0,
+    k:'subscription = quota + policy + blast-radius boundary',
+    w:'Designing to add subscriptions rather than to grow one is what stops a platform team hitting a wall about two years in.' },
+  { tier:500, f:'net', q:'Two hundred spokes and dozens of branch sites. What tips the argument from hub-and-spoke to Virtual WAN?',
+    o:['Managed any-to-any transit routing and branch scale — you stop hand-writing route tables and start operating a service','Virtual WAN is simply always cheaper','Hub-and-spoke cannot cross regions','Virtual WAN supports more availability zones per hub'], a:0,
+    k:'the crossover point is operational, not technical',
+    w:'Both topologies work at 200 spokes. Only one of them still works when four people maintain it and one of them leaves.' },
+  { tier:500, f:'msg', q:'Why can a partitioned event platform never promise global ordering, and what does that make the partition key?',
+    o:['Ordering only holds within a partition, so the partition key is the unit of ordering and the unit of parallelism at the same time','It can promise global ordering if you use a single consumer','The broker guarantees ordering regardless of partitioning','Ordering holds as long as producers share one connection'], a:0,
+    k:'partition key = ordering boundary = scaling boundary',
+    w:'You cannot maximise both. Choosing per-customer ordering buys parallelism across customers and precisely none within a single hot one.' },
+  { tier:500, f:'comp', q:'A team wants scale-to-zero and a strict p99 latency objective in the same sentence.',
+    o:['Those fight — cold start is the price of zero, so you either buy warm instances or you accept the tail','Modern runtimes have eliminated cold start entirely','Put a CDN in front and the problem disappears','Warm-up probes remove cold start on any plan'], a:0,
+    k:'you cannot buy idle-free billing and warm capacity at once',
+    w:'The honest design-review answer is to price a minimum replica count out loud and let the business choose which number it actually cares about.' },
+  { tier:500, f:'bcdr', q:'What does the Azure region-pair model actually guarantee, and what does it not?',
+    o:['Sequenced platform updates and recovery prioritisation — not reserved compute capacity for you during a regional outage','A guaranteed failover inside 15 minutes','Automatic replication of every service you deploy','Free data transfer between the two paired regions'], a:0,
+    k:'pairing is an update and recovery ordering promise',
+    w:'If everybody fails over at once, capacity is first come first served. Capacity reservations are how you actually hold a seat.' },
+  { tier:500, f:'data', q:'Modelling five years of 100 TB retention: what really decides Archive versus Cool, and what does the naive comparison miss?',
+    o:['Retrieval — rehydration time, retrieval charges and the 180-day minimum can outweigh years of storage savings the first time you read it','Nothing; Archive is always cheaper over five years','Only the resting storage price matters because egress between tiers is free','Archive blobs cannot be listed at all, so inventory costs dominate'], a:0,
+    k:'model the restore, not just the resting cost',
+    w:'One unplanned full restore from Archive has ended more than one tiering strategy. Price the worst case you promised the regulator.' },
+  { tier:500, f:'gov', q:'What is the design-review case for policy-as-code over portal-assigned policy?',
+    o:['Assignments become reviewable, diffable and environment-scoped, and an exemption becomes a pull request instead of a favour','It evaluates faster at runtime','Portal assignments cannot use deny effects','Code-based assignments evaluate at deployment time rather than at runtime'], a:0,
+    k:'governance you cannot diff is governance you cannot audit',
+    w:'The enforcement mechanism is identical. The difference is whether the platform team can answer "who changed that, and when" in ten seconds.' },
+  { tier:500, f:'route', q:'A single anycast global entry point means one configuration change can affect every region at once. What do you argue for?',
+    o:['Treating edge configuration as a blast-radius decision — staged rollout, change windows and a rehearsed rollback','A second Front Door profile running active-active','Removing the global entry point altogether','Pin the edge configuration to one region so changes cannot propagate'], a:0,
+    k:'global control planes concentrate traffic and risk together',
+    w:'Regional redundancy protects you from the platform failing. Nothing but process protects you from your own config being applied everywhere in ninety seconds.' },
+  { tier:500, f:'net', q:'Private endpoints everywhere makes DNS a hard dependency of the entire estate. What is the architectural response?',
+    o:['A centrally owned private DNS zone design with resolvers and a documented failure mode — DNS becomes tier-zero infrastructure','Distribute host files to each VM','Skip private DNS and connect by IP address','Point every VNet at public resolvers so the dependency leaves your estate'], a:0,
+    k:'privatising the network privatises the name-resolution problem',
+    w:'Every zero-trust network design eventually discovers that name resolution is now on the critical path for absolutely everything.' },
+  { tier:500, f:'comp', q:'Why does a Premium Functions plan bill you while nothing is running?',
+    o:['You reserved pre-warmed instances — latency and VNet reachability are bought with reserved capacity, not with better code','Because of a flat minimum monthly charge','Because Premium bundles the storage account cost','Because Premium runs on hardware you must reserve for a year'], a:0,
+    k:'warm capacity is a purchase, not an optimisation',
+    w:'Saying that out loud is how a design review chooses between a latency objective and a serverless bill, instead of discovering the trade-off in production.' },
+  { tier:500, f:'desk', q:'AVD in two regions for the same user population: what actually blocks a clean active-active experience?',
+    o:['Profile containers are region-bound storage — a user following their profile across regions is the whole problem','Licensing prohibits multi-region AVD','A host pool cannot exist in two regions','Session hosts cannot be registered to a host pool outside their own region'], a:0,
+    k:'the profile, not the session host, is the sticky part',
+    w:'Designs end up pinning user groups to a home region and treating the second as recovery, because a profile container cannot be in two places at once.' }
+  ];
+
+  /* ------------------------------------------------------------------ *
+   * State
+   * ------------------------------------------------------------------ */
+  var st = null;
+  var raf = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var scrStart = $('scr-start'), scrPlay = $('scr-play'), scrOver = $('scr-over');
+
+  /* drills panel — counts follow whatever tier is selected */
+  function buildDrills() {
+    var counts = {};
+    POOL.forEach(function (it) { counts[it.f] = (counts[it.f] || 0) + 1; });
+    var html = '';
+    Object.keys(FAM).forEach(function (k) {
+      var f = FAM[k];
+      html += '<a class="ss-drill" style="--dc:' + f.col + '" href="../index.html#unlock" class="locked">' +
+              '<b>' + f.n + '</b>' +
+              '<span>' + (counts[k] || 0) + ' matchups here · board: ' + f.wb + '</span></a>';
+    });
+    $('drill-grid').innerHTML = html;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Tier wiring: pool selection, the start-screen readout, and the
+   * "nobody has written this tier yet" fallback.
+   * ------------------------------------------------------------------ */
+  function tintPill(el, t) {
+    el.setAttribute('data-tier', t);
+    el.style.setProperty('--tier-color', 'var(--t' + t + ')');
+    el.textContent = t + ' ' + S.tier.label(t);
+  }
+
+  /** Nearest OTHER tier that actually has enough matchups to run. */
+  function nearestPlayableTier() {
+    var here = S.tier.get(), all = S.tier.all(), best = null, bestGap = Infinity;
+    for (var i = 0; i < all.length; i++) {
+      var t = all[i];
+      if (t === here) continue;
+      var n = 0;
+      BANK.forEach(function (it) { if (S.tier.of(it.tier) === t) n++; });
+      if (n < MIN_ITEMS) continue;
+      var gap = Math.abs(t - here);
+      if (gap < bestGap) { bestGap = gap; best = t; }
+    }
+    return best;
+  }
+
+  /** Repoint everything at the current tier. @returns {boolean} playable */
+  function refreshTier() {
+    var t = S.tier.get();
+    cfg  = TIER_CFG[t] || TIER_CFG[400];
+    POOL = S.tier.filter(BANK);
+
+    tintPill($('tier-chip'), t);
+    $('bank-size').textContent = POOL.length + ' matchup' + (POOL.length === 1 ? '' : 's') + ' at this tier';
+
+    var b = S.score.best(scoreKey());
+    $('best-chip').textContent = b ? '★ tier ' + t + ' best ' + b : 'no tier ' + t + ' score yet';
+
+    $('rule-lives').innerHTML = '<b>' + cfg.lives + ' lives</b>A wrong pick <em>and</em> a timeout ' +
+      'both cost one. Zero lives, run over.';
+
+    $('tier-line').innerHTML =
+      'Tier <b>' + t + ' ' + S.tier.label(t) + '</b> deals <b>' + cfg.opts + ' cards</b> per matchup, gives you <b>' +
+      cfg.lives + ' lives</b> and about <b>' + cfg.t0.toFixed(0) + 's</b> on the opening clock, and scores at <b>×' +
+      cfg.mult.toFixed(1) + '</b>' +
+      (cfg.hint ? '. Press <span class="kbd">H</span> for a hint — it costs most of the speed bonus.' : '. No hints up here.') +
+      (S.tier.below() ? ' Lower tiers are mixed in.' : '');
+
+    buildDrills();
+
+    var ok = POOL.length >= MIN_ITEMS;
+    $('start-row').classList.toggle('is-hidden', !ok);
+    var host = $('tier-empty-host');
+    host.innerHTML = '';
+    if (!ok) {
+      var alt = nearestPlayableTier();
+      var box = document.createElement('div');
+      box.className = 'tier-empty';
+      var h = '<b>Nothing worth playing at tier ' + t + ' yet</b>' +
+              '<p>This bank holds ' + POOL.length + ' matchup' + (POOL.length === 1 ? '' : 's') + ' at ' + t + ' ' +
+              S.tier.label(t) + ', and a run needs at least ' + MIN_ITEMS + '. Tick “show lower tiers too” in the ' +
+              'picker, or drop to a tier that is stocked.</p>';
+      if (alt) {
+        h += '<p style="margin-top:.8rem"><button class="btn btn--primary btn--sm" id="btn-tierjump">' +
+             'Play tier ' + alt + ' ' + S.tier.label(alt) + ' instead</button></p>';
+      }
+      box.innerHTML = h;
+      host.appendChild(box);
+      if (alt) $('btn-tierjump').addEventListener('click', function () { S.tier.set(alt); });
+    }
+    return ok;
+  }
+
+  S.tier.mountPicker('#tier-picker-host', {
+    compact: true,
+    heading: 'Play at which skill tier?',
+    label: 'Skill tier for Service Showdown'
+  });
+  refreshTier();
+
+  /* Changing tier mid-session restarts cleanly instead of half-swapping a bank. */
+  document.addEventListener('station:tier', function () {
+    var wasLive = !scrPlay.classList.contains('is-hidden') || !scrOver.classList.contains('is-hidden');
+    cancelAnimationFrame(raf);
+    st = null;
+    refreshTier();
+    if (wasLive) {
+      show(scrStart);
+      S.toast('Tier changed — fresh bank, fresh run', 'info', 2000);
+    }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Round plumbing
+   * ------------------------------------------------------------------ */
+  function heartsHTML(lives) {
+    var h = '';
+    for (var i = 0; i < cfg.lives; i++) {
+      h += '<svg class="ss-heart' + (i < lives ? '' : ' is-gone') + '" viewBox="0 0 24 24" aria-hidden="true">' +
+           '<path d="M12 21s-8-4.9-8-10.4A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 3.6C20 16.1 12 21 12 21z"/></svg>';
+    }
+    return h;
+  }
+
+  function comboMult(c) { return 1 + Math.min(c, 10) * 0.15; }
+
+  /** Foundation and Practitioner tiers may buy the discriminating keyword,
+   *  paid for out of the speed bonus rather than out of a life. */
+  function useHint() {
+    if (!st || st.locked || st.usedHint || !cfg.hint || !st.cur) return;
+    st.usedHint = true;
+    var host = $('ui-hint');
+    host.innerHTML = '<div class="ss-hintout fx-fade-in"><b>look for</b><span></span></div>';
+    host.querySelector('span').textContent = st.cur.k;
+    S.sfx.tick();
+  }
+
+  function newRun() {
+    st = {
+      order: S.shuffle(POOL),
+      i: 0,
+      round: 0,
+      score: 0,
+      lives: cfg.lives,
+      combo: 0,
+      bestCombo: 0,
+      right: 0,
+      asked: 0,
+      bank: 0,          // banked bonus seconds from correct answers
+      misses: [],
+      fastest: 99,
+      locked: false,
+      paused: false,
+      limit: 0,
+      left: 0,
+      last: 0,
+      cur: null
+    };
+  }
+
+  function show(node) {
+    [scrStart, scrPlay, scrOver].forEach(function (n) { n.classList.add('is-hidden'); });
+    node.classList.remove('is-hidden');
+  }
+
+  function startRun() {
+    if (!refreshTier()) { show(scrStart); return; }
+    newRun();
+    show(scrPlay);
+    S.streak.touch();
+    nextRound();
+  }
+
+  function nextRound() {
+    if (st.i >= st.order.length) { st.order = S.shuffle(POOL); st.i = 0; }
+    var item = st.order[st.i++];
+    st.round++;
+    st.asked++;
+    st.locked = false;
+    st.paused = false;
+    st.usedHint = false;
+    st.cur = item;
+
+    /* how many cards hit the table is a tier decision: the winner plus
+       however many decoys this tier deserves, then shuffled */
+    var want = Math.min(cfg.opts, item.o.length);
+    var decoys = [];
+    item.o.forEach(function (_, n) { if (n !== item.a) decoys.push(n); });
+    var idx = S.shuffle([item.a].concat(S.shuffle(decoys).slice(0, want - 1)));
+    st.opts = idx.map(function (n) { return item.o[n]; });
+    st.ans = idx.indexOf(item.a);
+
+    /* timer: starts generous for the tier, tightens every round, then floors */
+    st.limit = Math.max(cfg.floor, cfg.t0 - (st.round - 1) * cfg.dec) + st.bank;
+    st.left = st.limit;
+    st.last = 0;
+
+    var fam = FAM[item.f];
+    var famEl = $('ui-fam');
+    famEl.className = 'chip chip--' + fam.c;
+    famEl.textContent = fam.n;
+    $('ui-tag').textContent = 'Round ' + st.round + ' · tier ' + S.tier.get() +
+      (st.round >= 12 ? ' · the bar is getting mean' : '');
+    $('ui-q').textContent = item.q;
+
+    var html = '';
+    st.opts.forEach(function (o, n) {
+      html += '<button class="ss-card fx-fade-in fx-delay-' + Math.min(n + 1, 4) + '" data-i="' + n + '">' +
+              '<span class="num">' + (n + 1) + '</span><span class="txt"></span></button>';
+    });
+    var host = $('ui-cards');
+    host.innerHTML = html;
+    /* text set via textContent so service names can never break markup */
+    Array.prototype.forEach.call(host.querySelectorAll('.ss-card'), function (b, n) {
+      b.querySelector('.txt').textContent = st.opts[n];
+      b.addEventListener('click', function () { answer(n); });
+    });
+
+    var hintHost = $('ui-hint');
+    hintHost.innerHTML = '';
+    if (cfg.hint) {
+      var hb = document.createElement('button');
+      hb.className = 'btn btn--ghost btn--sm';
+      hb.id = 'btn-hint';
+      hb.type = 'button';
+      hb.textContent = '🛟 HINT (H)';
+      hb.addEventListener('click', useHint);
+      hintHost.appendChild(hb);
+    }
+
+    $('ui-reveal').classList.add('is-hidden');
+    $('ui-reveal').innerHTML = '';
+    paintStrip();
+    runTimer();
+  }
+
+  function paintStrip() {
+    $('ui-score').textContent = st.score;
+    $('ui-round').textContent = st.round;
+    $('ui-lives').innerHTML = heartsHTML(st.lives);
+    var m = comboMult(st.combo);
+    $('ui-combo').textContent = '×' + m.toFixed(2).replace(/0$/, '');
+    $('ui-combo-pill').classList.toggle('is-hot', st.combo >= 5);
+  }
+
+  function runTimer() {
+    cancelAnimationFrame(raf);
+    st.last = 0;
+    var bar = $('ui-timer'), fill = $('ui-timerfill');
+    bar.classList.remove('is-low', 'is-crit');
+    function frame(ts) {
+      if (!st.last) st.last = ts;
+      var dt = (ts - st.last) / 1000;
+      st.last = ts;
+      if (!st.locked && !st.paused) {
+        st.left -= dt;
+        var pct = Math.max(0, st.left / st.limit) * 100;
+        fill.style.width = pct.toFixed(1) + '%';
+        bar.classList.toggle('is-low', pct < 45 && pct >= 20);
+        bar.classList.toggle('is-crit', pct < 20);
+        if (st.left <= 0) { timeout(); return; }
+      }
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function timeout() {
+    cancelAnimationFrame(raf);
+    st.locked = true;
+    resolve(-1);
+  }
+
+  function answer(n) {
+    if (st.locked) return;
+    st.locked = true;
+    cancelAnimationFrame(raf);
+    resolve(n);
+  }
+
+  function resolve(chosen) {
+    st.lockedAt = Date.now();     /* stops the same keypress from skipping the reveal */
+    var item = st.cur, fam = FAM[item.f];
+    var right = (chosen === st.ans);
+    var used = st.limit - Math.max(0, st.left);
+    var gained = 0;
+
+    Array.prototype.forEach.call($('ui-cards').querySelectorAll('.ss-card'), function (b, n) {
+      b.disabled = true;
+      if (n === st.ans) b.classList.add('is-right');
+      else if (n === chosen) { b.classList.add('is-wrong', 'fx-shake'); }
+      else b.classList.add('is-dim');
+    });
+
+    if (right) {
+      st.right++;
+      st.combo++;
+      st.bestCombo = Math.max(st.bestCombo, st.combo);
+      if (used < st.fastest) st.fastest = used;
+      var speed = Math.round(Math.max(0, st.left / st.limit) * 120 * (st.usedHint ? 0.3 : 1));
+      gained = Math.round((100 + speed) * comboMult(st.combo - 1) * cfg.mult);
+      st.score += gained;
+      st.bank = Math.min(2.4, st.bank + cfg.give);   /* the timer hands a little back */
+      S.sfx.correct();
+      if (st.combo === 5 || st.combo === 10 || st.combo === 15) { S.confetti({ count: 60 }); S.toast(st.combo + ' in a row 🔥', 'good', 1400); }
+    } else {
+      st.combo = 0;
+      st.lives--;
+      st.bank = Math.max(0, st.bank - 0.5);
+      st.misses.push({ f: item.f, q: item.q, k: item.k, w: item.w, right: item.o[item.a], picked: chosen < 0 ? null : st.opts[chosen] });
+      S.sfx.wrong();
+    }
+    paintStrip();
+
+    var r = $('ui-reveal');
+    r.className = 'ss-reveal marker-box ' + (right ? 'mk-green' : 'mk-red');
+    var head = right
+      ? (chosen === st.ans ? 'CORRECT' : 'CORRECT')
+      : (chosen < 0 ? 'OUT OF TIME' : 'NOPE');
+    var html = '<div class="box-title" style="color:' + (right ? 'var(--mk-green)' : 'var(--mk-red)') + '">' +
+               head + ' · ' + fam.n + '</div>' +
+               '<p class="key">🔑 ' + esc(item.k) + '</p>' +
+               '<p class="why"><b>' + esc(item.o[item.a]) + '</b> — ' + esc(item.w) + '</p>' +
+               '<div class="foot">';
+    if (right) html += '<span class="ss-points fx-pop">+' + gained + '</span>';
+    html += '<button class="btn btn--primary btn--sm" id="btn-next">' +
+            (st.lives > 0 ? 'NEXT ▸' : 'SEE THE DAMAGE ▸') + '</button>' +
+            '<a class="btn btn--ghost btn--sm" href="../index.html#unlock" class="locked">Board: ' + fam.n + '</a>' +
+            '<span class="small">Space / Enter</span></div>';
+    r.innerHTML = html;
+    r.classList.remove('is-hidden');
+    $('btn-next').addEventListener('click', advance);
+    r.scrollIntoView({ block: 'nearest' });
+  }
+
+  function advance() {
+    if (st.lives <= 0) gameOver();
+    else nextRound();
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Game over
+   * ------------------------------------------------------------------ */
+  function gameOver() {
+    cancelAnimationFrame(raf);
+    show(scrOver);
+
+    var tnow = S.tier.get(), key = scoreKey();
+    var prevBest = S.score.best(key);
+    var isBest = S.score.save(key, st.score);
+
+    tintPill($('fin-tier'), tnow);
+    $('fin-score').textContent = st.score;
+    var d = $('fin-delta');
+    if (isBest) {
+      d.innerHTML = '<span style="color:var(--mk-green)">★ NEW PERSONAL BEST</span>' +
+                    (prevBest ? ' — beat ' + prevBest + ' by ' + (st.score - prevBest) : '');
+      S.confetti();
+      S.sfx.levelup();
+    } else {
+      var gap = prevBest - st.score;
+      d.innerHTML = '<span style="color:var(--mk-orange)">' + gap + ' points</span> short of your best (' + prevBest + '). ' +
+                    'That is about ' + Math.max(1, Math.ceil(gap / 180)) + ' more correct answer' + (Math.ceil(gap / 180) > 1 ? 's' : '') + '.';
+    }
+
+    var acc = st.asked ? Math.round(st.right / st.asked * 100) : 0;
+    $('fin-rounds').textContent = st.round + ' rounds';
+    $('fin-acc').textContent = acc + '% accuracy (' + st.right + '/' + st.asked + ')';
+    $('fin-combo').textContent = 'best combo ' + st.bestCombo;
+    $('fin-fast').textContent = st.fastest < 99 ? 'fastest call ' + st.fastest.toFixed(1) + 's' : 'no correct calls';
+
+    /* miss list */
+    var host = $('fin-miss'), bars = $('fin-fambars'), block = $('fin-missblock');
+    if (!st.misses.length) {
+      block.innerHTML = '<h2>Flawless 🧼</h2><p class="muted">Zero misses. The timer beat you, not the content. ' +
+        'Go again and push the combo higher.</p>';
+    } else {
+      var html = '';
+      st.misses.forEach(function (m) {
+        var f = FAM[m.f];
+        html += '<a class="ss-missrow" href="../index.html#unlock" class="locked">' +
+                '<span class="qq">' + esc(m.q.length > 130 ? m.q.slice(0, 130) + '…' : m.q) + '</span>' +
+                '<span class="kk">🔑 ' + esc(m.k) + '</span><br>' +
+                '<span class="small">Answer: <b>' + esc(m.right) + '</b>' +
+                (m.picked ? ' · you picked ' + esc(m.picked) : ' · you ran out of time') + '</span><br>' +
+                '<span class="ll">' + f.n + ' → ' + f.wb + '.html ▸</span></a>';
+      });
+      host.innerHTML = html;
+
+      var counts = {};
+      st.misses.forEach(function (m) { counts[m.f] = (counts[m.f] || 0) + 1; });
+      var max = 0;
+      Object.keys(counts).forEach(function (k) { max = Math.max(max, counts[k]); });
+      var bh = '';
+      Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).forEach(function (k) {
+        bh += '<div class="ss-fambar"><span>' + FAM[k].n + '</span>' +
+              '<i style="width:' + (counts[k] / max * 100) + '%;background:' + FAM[k].col + '"></i>' +
+              '<span>' + counts[k] + '</span></div>';
+      });
+      bars.innerHTML = bh;
+    }
+
+    /* XP + progress */
+    var xp = S.clamp(Math.round(st.score / 45), 5, 220);
+    S.xp.add(xp, 'Service Showdown · tier ' + tnow + ' · ' + st.score);
+    if (!S.progress.isDone(GAME_ID) && st.asked >= 5) S.progress.complete(GAME_ID);
+    $('best-chip').textContent = '★ tier ' + tnow + ' best ' + S.score.best(key);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Input
+   * ------------------------------------------------------------------ */
+  $('btn-start').addEventListener('click', startRun);
+  $('btn-again').addEventListener('click', startRun);
+
+  document.addEventListener('keydown', function (e) {
+    var playing = !scrPlay.classList.contains('is-hidden');
+    if (!scrStart.classList.contains('is-hidden') && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault(); startRun(); return;
+    }
+    if (!scrOver.classList.contains('is-hidden') && (e.key === 'r' || e.key === 'R' || e.key === 'Enter')) {
+      e.preventDefault(); startRun(); return;
+    }
+    if (!playing || !st) return;
+    if (!st.locked && (e.key === 'h' || e.key === 'H')) { e.preventDefault(); useHint(); return; }
+    if (st.paused) {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); st.paused = false; S.toast('Back on the clock', 'info', 900); }
+      return;
+    }
+    if (!st.locked && /^[1-9]$/.test(e.key)) {
+      var n = parseInt(e.key, 10) - 1;
+      if (n < st.opts.length) { e.preventDefault(); answer(n); }
+    } else if (st.locked && (e.key === ' ' || e.key === 'Enter') && Date.now() - (st.lockedAt || 0) > 250) {
+      e.preventDefault(); advance();
+    }
+  });
+
+  /* pause the clock if the tab loses focus — nobody likes losing a life to Teams */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && st && !st.locked && !scrPlay.classList.contains('is-hidden')) {
+      st.paused = true;
+      S.toast('Paused — press Space to resume', 'info', 4000);
+    }
+  });
+});
+</script>
+
+<style>
+  a.locked{
+    opacity:.72; text-decoration:none; cursor:pointer;
+    border-bottom:1px dashed currentColor;
+  }
+  a.locked::after{ content:" 🔒"; font-size:.85em; }
+  .demo-strip{
+    max-width:980px; margin:0 auto 1rem; padding:.65rem .9rem; border-radius:10px;
+    font-size:.85rem; line-height:1.45; display:flex; gap:.7rem; align-items:center;
+    flex-wrap:wrap;
+    border:1px solid var(--mk-green);
+    background:color-mix(in srgb, var(--mk-green) 9%, transparent);
+    color:var(--ink-soft);
+  }
+  .demo-strip b{color:var(--ink)}
+  .demo-strip a{color:var(--mk-blue); font-weight:600}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(!document.querySelector('meta[name="viewport"]')){
+    var mv=document.createElement('meta');
+    mv.name='viewport'; mv.content='width=device-width, initial-scale=1';
+    (document.head||document.documentElement).appendChild(mv);
+  }
+  // Study material is not published here. Any link into it becomes an upgrade prompt.
+  var GATED=/\/(whiteboards|drills|labs|tracks)\//;
+  function sweep(root){
+    var as=(root||document).querySelectorAll?(root||document).querySelectorAll('a[href]'):[];
+    for(var i=0;i<as.length;i++){
+      var a=as[i], h=a.getAttribute('href')||'';
+      if(a.dataset.gateDone) continue;
+      a.dataset.gateDone='1';
+      if(!GATED.test(h)) continue;
+      a.setAttribute('href','../index.html#unlock');
+      a.classList.add('locked');
+      a.setAttribute('title','Part of the full study library — see what is included');
+    }
+  }
+  function boot(){
+    sweep(document);
+    new MutationObserver(function(m){for(var i=0;i<m.length;i++)sweep(m[i].target);})
+      .observe(document.body,{childList:true,subtree:true});
+    var host=document.querySelector('.page')||document.body;
+    var s=document.createElement('div');
+    s.className='demo-strip no-print';
+    s.innerHTML='<span><b>Free forever.</b> Every game, every skill level, no account. '+
+      'The whiteboards, flashcards and exam simulator are part of the full library.</span>'+
+      '<a href="../index.html">← All games</a>';
+    host.insertBefore(s,host.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
+</body>
+</html>

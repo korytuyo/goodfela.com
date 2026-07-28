@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subnet Sprint — Certification Station</title>
+<link rel="stylesheet" href="../assets/css/station.css">
+<script src="../assets/js/station.js" defer></script>
+<style>
+/* ====================== SUBNET SPRINT — local styles ====================== */
+.sp-wrap { max-width: 980px; margin: 0 auto; }
+
+.sp-hero { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.sp-hero h1 { margin: 0; }
+.sp-mark { width: 96px; height: 96px; flex: 0 0 auto; }
+.sp-mark .ln { fill: none; stroke: var(--mk-green); stroke-width: 4; stroke-linecap: round; }
+.sp-mark .ln2 { fill: none; stroke: var(--mk-red); stroke-width: 3.5; stroke-linecap: round; }
+.sp-mark text { font-family: var(--font-mono); font-size: 15px; font-weight: 700; fill: var(--ink); text-anchor: middle; }
+
+.sp-rules { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); }
+.sp-rule { font-size: .9rem; }
+.sp-rule b { display: block; font-family: var(--font-hand); font-size: 1.05rem; }
+
+/* --- strip --- */
+.sp-strip { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+.sp-pill {
+  display: inline-flex; align-items: baseline; gap: .35rem; white-space: nowrap;
+  border: 2.5px solid var(--board-edge); border-radius: 999px;
+  padding: .2rem .7rem; background: var(--board-2);
+}
+.sp-pill span { font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.sp-pill b { font-family: var(--font-hand); font-size: 1.25rem; line-height: 1; }
+.sp-lives { display: inline-flex; gap: .18rem; }
+.sp-heart { width: 21px; height: 21px; color: var(--mk-red); }
+.sp-heart path { fill: currentColor; }
+.sp-heart.is-gone { opacity: .28; }
+.sp-heart.is-gone path { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.sp-sudden {
+  font-family: var(--font-hand); font-size: 1.05rem; font-weight: 700; color: #fff;
+  background: var(--mk-red); border-radius: 999px; padding: .15rem .8rem;
+  animation: cs-pulse 1s ease-in-out infinite;
+}
+
+/* --- the track (doubles as the timer) --- */
+.sp-track {
+  position: relative; margin-bottom: .9rem;
+  border: 2.5px solid var(--board-edge); border-radius: 12px;
+  background: var(--board-2); overflow: hidden;
+}
+.sp-track svg { display: block; width: 100%; height: 76px; }
+.sp-road { stroke: var(--ink-soft); stroke-width: 2.5; stroke-linecap: round; opacity: .55; }
+.sp-dash { stroke: var(--ink-soft); stroke-width: 2; stroke-dasharray: 7 9; opacity: .3; }
+.sp-fig { stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.sp-runner { stroke: var(--mk-green); stroke-width: 3; }
+.sp-chaser { stroke: var(--mk-red); stroke-width: 3; }
+.sp-chaser .fillr { fill: color-mix(in srgb, var(--mk-red) 22%, transparent); }
+.sp-tbar { height: 9px; background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.sp-tbar i { display: block; height: 100%; width: 100%; background: var(--mk-green); }
+.sp-track.is-low .sp-tbar i { background: var(--mk-orange); }
+.sp-track.is-crit .sp-tbar i { background: var(--mk-red); }
+
+/* --- question --- */
+.sp-q { margin: 0 0 1rem; }
+.sp-q .qt { font-size: clamp(1.02rem, 2.6vw, 1.3rem); line-height: 1.45; font-weight: 600; margin: .35rem 0 0; max-width: none; }
+.sp-q .qt code { font-family: var(--font-mono); font-size: .95em; }
+.sp-qhead { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+
+/* --- answering --- */
+.sp-answer { display: flex; gap: .55rem; flex-wrap: wrap; align-items: center; }
+.sp-input {
+  font-family: var(--font-mono); font-size: 1.35rem; font-weight: 700;
+  padding: .5rem .8rem; width: min(100%, 300px);
+  color: var(--ink); background: var(--board-2);
+  border: 3px solid var(--ink); border-radius: 10px;
+}
+.sp-input:focus { outline: 3px solid var(--mk-blue); outline-offset: 2px; }
+.sp-choices { display: grid; gap: .6rem; grid-template-columns: repeat(2, minmax(0,1fr)); }
+@media (max-width: 560px) { .sp-choices { grid-template-columns: minmax(0,1fr); } }
+.sp-choice {
+  display: flex; align-items: center; gap: .6rem; text-align: left;
+  padding: .7rem .9rem; min-height: 58px;
+  font-size: .98rem; font-weight: 600; color: var(--ink); background: var(--board-2);
+  border: 3px solid var(--ink); border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px;
+  box-shadow: var(--shadow-2); transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.sp-choice:nth-child(even) { border-radius: 14px 225px 14px 255px / 255px 14px 225px 14px; }
+.sp-choice:hover:not(:disabled) { transform: translate(-2px,-2px); border-color: var(--mk-blue); }
+.sp-choice .num {
+  flex: 0 0 auto; width: 25px; height: 25px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .76rem; font-weight: 800; border: 2px solid var(--ink-soft); color: var(--ink-soft);
+}
+.sp-choice.is-right { border-color: var(--mk-green); background: color-mix(in srgb, var(--mk-green) 18%, var(--board-2)); }
+.sp-choice.is-wrong { border-color: var(--mk-red);   background: color-mix(in srgb, var(--mk-red) 16%, var(--board-2)); }
+.sp-choice.is-dim { opacity: .42; }
+.sp-hint { font-size: .78rem; color: var(--ink-soft); }
+
+/* --- reveal + viz --- */
+.sp-reveal { margin-top: 1rem; }
+.sp-reveal .key { font-family: var(--font-hand); font-size: clamp(1.15rem,3vw,1.5rem); margin: 0 0 .25rem; max-width: none; }
+.sp-reveal .why { margin: 0 0 .6rem; font-size: .95rem; max-width: none; }
+.sp-reveal .foot { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: .7rem; }
+.sp-points { font-family: var(--font-hand); font-size: 1.45rem; color: var(--mk-green); }
+
+.sp-bits { display: flex; align-items: flex-end; gap: 9px; padding: .3rem 0 .1rem; min-width: 520px; }
+.sp-oct { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.sp-octrow { display: flex; gap: 2px; }
+.sp-bit {
+  width: 15px; height: 24px; line-height: 24px; text-align: center;
+  font-family: var(--font-mono); font-size: .68rem; font-weight: 700;
+  border-radius: 3px; color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border: 1px solid transparent;
+}
+.sp-bit.net { color: #fff; background: var(--mk-blue); border-color: var(--mk-blue); }
+.sp-bit.host { color: var(--mk-orange); background: color-mix(in srgb, var(--mk-orange) 20%, transparent); border-color: color-mix(in srgb, var(--mk-orange) 55%, transparent); }
+.sp-bit.edge { box-shadow: 3px 0 0 var(--mk-red); }
+.sp-oct em { font-family: var(--font-mono); font-size: .72rem; font-style: normal; color: var(--ink-soft); }
+.sp-bitkey { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .74rem; color: var(--ink-soft); margin-top: .35rem; }
+.sp-bitkey i { display: inline-block; width: .65em; height: .65em; border-radius: 2px; margin-right: .3em; font-style: normal; }
+
+.sp-ladder { width: 100%; font-size: .82rem; margin-top: .6rem; }
+.sp-ladder td { padding: .3rem .5rem; }
+.sp-ladder td:first-child { font-family: var(--font-mono); font-weight: 700; white-space: nowrap; }
+.sp-ladder tr.res td { color: var(--mk-red); }
+.sp-ladder tr.ok td { color: var(--mk-green); }
+@media (max-width: 560px) {
+  .sp-ladder { font-size: .7rem; }
+  .sp-ladder td { padding: .25rem .35rem; }
+  .sp-ladder td:first-child { font-size: .68rem; }
+}
+
+.sp-ranges { margin-top: .5rem; }
+.sp-rline {
+  display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap;
+  font-size: .76rem; color: var(--ink-soft); margin: .55rem 0 .2rem;
+}
+.sp-rline b { font-size: .95rem; }
+.sp-rline code { font-family: var(--font-mono); font-size: .82rem; }
+.sp-rtrack {
+  position: relative; height: 24px; border-radius: 7px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border: 1px solid var(--board-edge); overflow: hidden;
+}
+.sp-rtrack i { position: absolute; top: 2px; bottom: 2px; border-radius: 5px; min-width: 4px; font-style: normal; }
+.sp-rtrack i.a { background: color-mix(in srgb, var(--mk-blue) 45%, transparent); border: 2px solid var(--mk-blue); }
+.sp-rtrack i.b { background: color-mix(in srgb, var(--mk-purple) 45%, transparent); border: 2px solid var(--mk-purple); }
+.sp-rtrack i.clash {
+  border: 2px dashed var(--mk-red);
+  background: repeating-linear-gradient(45deg,
+    color-mix(in srgb, var(--mk-red) 70%, transparent) 0 4px, transparent 4px 9px);
+}
+
+/* --- game over --- */
+.sp-final { text-align: center; }
+.sp-final .big { font-family: var(--font-hand); font-size: clamp(3rem,14vw,6rem); line-height: .95; color: var(--az104); display: block; }
+.sp-missrow {
+  display: block; text-decoration: none; color: inherit;
+  border-left: 6px solid var(--mk-red); border-radius: 3px 10px 10px 3px;
+  background: color-mix(in srgb, var(--mk-red) calc(var(--wash-soft) * 100%), var(--board-2));
+  padding: .6rem .8rem; transition: transform .14s ease;
+}
+.sp-missrow:hover { transform: translateX(3px); }
+.sp-missrow .qq { display: block; font-size: .86rem; color: var(--ink-soft); margin-bottom: .2rem; }
+.sp-missrow .kk { font-family: var(--font-hand); font-size: 1.08rem; }
+.sp-missrow .ll { font-size: .74rem; color: var(--mk-blue); font-weight: 700; }
+.sp-miss { display: grid; gap: .55rem; }
+.sp-fambar { display: grid; grid-template-columns: minmax(110px,36%) 1fr auto; gap: .5rem; align-items: center; font-size: .78rem; }
+.sp-fambar i { display: block; height: 11px; border-radius: 999px; min-width: 4px; font-style: normal; }
+
+/* --- drills --- */
+.sp-details { border: 3px dashed var(--board-edge); border-radius: 12px; padding: .75rem 1rem; margin-top: 2.5rem; background: var(--board-2); }
+.sp-details > summary { cursor: pointer; font-family: var(--font-hand); font-size: 1.2rem; font-weight: 700; list-style: none; }
+.sp-details > summary::-webkit-details-marker { display: none; }
+.sp-details > summary::before { content: "▸ "; color: var(--mk-orange); }
+.sp-details[open] > summary::before { content: "▾ "; }
+.sp-drillgrid { display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); margin-top: .9rem; }
+.sp-drill {
+  display: block; text-decoration: none; color: inherit;
+  border: 2px solid var(--board-edge); border-left-width: 6px; border-left-color: var(--dc, var(--mk-blue));
+  border-radius: 10px; padding: .6rem .75rem; transition: transform .14s ease;
+}
+.sp-drill:hover { transform: translateY(-2px); border-color: var(--dc, var(--mk-blue)); border-left-color: var(--dc, var(--mk-blue)); }
+.sp-drill b { display: block; font-family: var(--font-hand); font-size: 1.05rem; }
+.sp-drill span { font-size: .78rem; color: var(--ink-soft); }
+.sp-kbdhint { font-size: .78rem; color: var(--ink-soft); }
+@media (max-width: 520px) { .sp-kbdhint { display: none; } }
+
+/* --- tier furniture --- */
+.sp-tierbox { margin-bottom: 1.1rem; }
+.sp-hintrow { margin-top: .75rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; min-width: 0; }
+.sp-hintout {
+  display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; min-width: 0;
+  border-left: 6px solid var(--mk-orange); border-radius: 3px 10px 10px 3px;
+  background: color-mix(in srgb, var(--mk-orange) calc(var(--wash-soft) * 100%), var(--board-2));
+  padding: .5rem .75rem; font-size: .9rem;
+}
+.sp-hintout b { font-family: var(--font-hand); font-size: 1.05rem; color: var(--mk-orange); }
+.sp-hintout span { min-width: 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="sp-wrap">
+
+    <!-- ============================ START ============================ -->
+    <section id="scr-start">
+      <div class="sp-hero">
+        <svg class="sp-mark" viewBox="0 0 100 100" aria-hidden="true">
+          <path class="ln" d="M8 78h84"/>
+          <path class="ln" d="M30 74V52l10-8 8 10 6-16 10 12v24"/>
+          <path class="ln2" d="M12 74c6-10 10-4 16-14"/>
+          <circle class="ln2" cx="20" cy="34" r="9"/>
+          <path class="ln2" d="M20 43v14M13 48l14-3M16 70l4-13 6 12"/>
+          <text x="66" y="34">/26</text>
+          <path class="ln" d="M50 40h34"/>
+        </svg>
+        <div>
+          <h1>Subnet&nbsp;Sprint</h1>
+          <p class="lede" style="margin:0">CIDR maths with a clock chasing you. Azure quietly steals five addresses
+            from every subnet — and the exam absolutely knows it.</p>
+        </div>
+      </div>
+
+      <div class="row" style="margin:.9rem 0 1.2rem">
+        <span class="chip chip--az104">AZ-104</span>
+        <span class="chip chip--blue">Virtual networking</span>
+        <span class="chip chip--ink" id="bank-size">— item types</span>
+        <span class="chip chip--green" id="best-chip">no score yet</span>
+        <span class="tier-pill" id="tier-chip">400 Expert</span>
+      </div>
+
+      <div class="marker-box mk-purple sp-tierbox">
+        <div class="box-title" style="color:var(--mk-purple)">SKILL TIER</div>
+        <div id="tier-picker-host"></div>
+        <p class="small" id="tier-line" style="margin:.55rem 0 0">—</p>
+      </div>
+
+      <div id="tier-empty-host"></div>
+
+      <div class="marker-box mk-green">
+        <div class="box-title" style="color:var(--mk-green)">HOW IT WORKS</div>
+        <div class="sp-rules">
+          <div class="sp-rule"><b>Type or tap</b>Numeric and IP answers go in the box — hit <span class="kbd">Enter</span>.
+            Multiple choice takes <span class="kbd">1</span>–<span class="kbd">4</span> or a tap.</div>
+          <div class="sp-rule"><b>The clock chases</b>Answer before it catches you. Time left becomes score.</div>
+          <div class="sp-rule" id="rule-lives"><b>Three lives → then none</b>From round 16 it is <strong style="color:var(--mk-red)">sudden death</strong>:
+            one mistake ends the run, and every point is doubled.</div>
+          <div class="sp-rule"><b>You see the bits</b>Every reveal shows the bit boundary, the block size and the five
+            addresses Azure took, so the maths stops being magic.</div>
+        </div>
+      </div>
+
+      <div class="keyfact">
+        <p style="margin:0">Azure reserves <strong>5</strong> addresses per subnet, not 2:
+          <code>x.x.x.0</code> network id, <code>.1</code> default gateway, <code>.2</code> and <code>.3</code> Azure DNS mapping,
+          and the final address as broadcast. Usable = 2<sup>(32−prefix)</sup> − 5. That single line is worth several exam questions.</p>
+      </div>
+
+      <div class="row" id="start-row" style="margin-top:1.2rem">
+        <button class="btn btn--primary btn--lg" id="btn-start">▶ START SPRINT</button>
+        <a class="btn btn--ghost" href="../index.html#unlock" class="locked">AZ-104 track</a>
+        <a class="btn btn--ghost" href="../index.html">← Back to hub</a>
+        <span class="sp-kbdhint">Press <span class="kbd">Enter</span> to start</span>
+      </div>
+    </section>
+
+    <!-- ============================ PLAY ============================ -->
+    <section id="scr-play" class="is-hidden">
+      <div class="sp-strip">
+        <span class="sp-pill"><span>Score</span><b id="ui-score">0</b></span>
+        <span class="sp-pill"><span>Combo</span><b id="ui-combo">×1.0</b></span>
+        <span class="sp-pill"><span>Round</span><b id="ui-round">1</b></span>
+        <span class="sp-pill"><span>Lives</span><span class="sp-lives" id="ui-lives"></span></span>
+        <span class="sp-sudden is-hidden" id="ui-sudden">SUDDEN DEATH</span>
+      </div>
+
+      <div class="sp-track" id="ui-track">
+        <svg viewBox="0 0 400 76" aria-hidden="true">
+          <path class="sp-road" d="M6 64h388"/>
+          <path class="sp-dash" d="M6 70h388"/>
+          <!-- runner -->
+          <g id="fig-runner" transform="translate(348 0)">
+            <g class="sp-fig sp-runner">
+              <circle cx="0" cy="26" r="6"/>
+              <path d="M0 32v14M-8 38l8-3 9 4M-7 62l7-16 8 15"/>
+            </g>
+          </g>
+          <!-- chaser: a clock with legs -->
+          <g id="fig-chaser" transform="translate(10 0)">
+            <g class="sp-fig sp-chaser">
+              <circle class="fillr" cx="0" cy="34" r="13"/>
+              <path d="M0 34V26M0 34l7 4M-9 22l-5-5M9 22l5-5"/>
+              <path d="M-7 47l-4 15M7 47l4 15"/>
+            </g>
+          </g>
+        </svg>
+        <div class="sp-tbar"><i id="ui-timerfill"></i></div>
+      </div>
+
+      <div class="marker-box mk-blue sp-q">
+        <div class="sp-qhead">
+          <span class="chip" id="ui-con">—</span>
+          <span class="small" id="ui-tag"></span>
+        </div>
+        <p class="qt" id="ui-q">…</p>
+      </div>
+
+      <div id="ui-answerhost"></div>
+      <div class="sp-hintrow" id="ui-hint"></div>
+      <div id="ui-reveal" class="sp-reveal is-hidden" aria-live="polite"></div>
+    </section>
+
+    <!-- ========================== GAME OVER ========================== -->
+    <section id="scr-over" class="is-hidden">
+      <div class="board sp-final">
+        <p class="small" style="letter-spacing:.2em;margin:0">SPRINT OVER</p>
+        <span class="big" id="fin-score">0</span>
+        <p id="fin-delta" style="font-weight:700">—</p>
+        <div class="row" style="justify-content:center;margin-top:.7rem">
+          <span class="chip chip--blue" id="fin-rounds">0 rounds</span>
+          <span class="chip chip--green" id="fin-acc">0%</span>
+          <span class="chip chip--orange" id="fin-combo">best combo 0</span>
+          <span class="chip chip--purple" id="fin-fast">—</span>
+          <span class="tier-pill" id="fin-tier">400</span>
+        </div>
+        <div class="row" style="justify-content:center;margin-top:1.1rem">
+          <button class="btn btn--primary btn--lg" id="btn-again">↻ SPRINT AGAIN</button>
+          <a class="btn btn--ghost" href="../index.html">← Hub</a>
+        </div>
+        <p class="small" style="margin-top:.6rem">Press <span class="kbd">R</span> to go again.</p>
+      </div>
+
+      <div id="fin-missblock">
+        <h2>Where you tripped 🩹</h2>
+        <p class="muted" style="margin-bottom:.8rem">Every row links to the whiteboard that covers it.</p>
+        <div class="sp-miss" id="fin-miss"></div>
+        <h3>Damage by concept</h3>
+        <div id="fin-fambars" style="display:grid;gap:.35rem"></div>
+      </div>
+    </section>
+
+    <!-- ========================= WHAT THIS DRILLS ========================= -->
+    <details class="sp-details no-print">
+      <summary>WHAT THIS DRILLS</summary>
+      <p class="small" style="margin-top:.6rem">Item types in the rotation, and the board that fixes each weakness.</p>
+      <div class="sp-drillgrid" id="drill-grid"></div>
+      <div class="trap" style="margin-top:1rem">
+        <p style="margin:0"><strong>The four that kill people:</strong> (1) subtracting 2 instead of 5;
+          (2) forgetting <code>GatewaySubnet</code> / <code>AzureFirewallSubnet</code> / <code>AzureBastionSubnet</code>
+          must be named <em>exactly</em> that, with no other resources in them;
+          (3) assuming peering is transitive; (4) planning overlapping address space with on-prem, which quietly
+          removes VPN/ExpressRoute and peering from the table forever.</p>
+      </div>
+    </details>
+
+    <p class="center small no-print" style="margin-top:1.6rem">
+      <a href="../index.html" style="font-weight:700">← Back to the Certification Station hub</a>
+    </p>
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  'use strict';
+  var S = window.Station;
+  var GAME_ID = 'subnet-sprint';
+  S.mountHud({ title: 'Subnet Sprint', cert: 'az104', back: '../index.html' });
+
+  var $ = function (id) { return document.getElementById(id); };
+  var scrStart = $('scr-start'), scrPlay = $('scr-play'), scrOver = $('scr-over');
+
+  /* ------------------------------------------------------------------ *
+   * Concepts → whiteboards
+   * ------------------------------------------------------------------ */
+  var CON = {
+    reserved: { n: 'The 5 reserved IPs',  wb: 'az104-networking',     col: 'var(--mk-red)' },
+    math:     { n: 'CIDR block maths',    wb: 'az104-networking',     col: 'var(--mk-blue)' },
+    overlap:  { n: 'Overlap & peering',   wb: 'az104-networking',     col: 'var(--mk-purple)' },
+    named:    { n: 'Named subnets',       wb: 'az104-networking',     col: 'var(--mk-orange)' },
+    sizing:   { n: 'Right-sizing subnets',wb: 'az104-networking',     col: 'var(--mk-green)' },
+    ops:      { n: 'Operational traps',   wb: 'az104-networking',     col: 'var(--mk-pink)' },
+    design:   { n: 'Address plan design', wb: 'az305-decision-trees', col: 'var(--mk-teal)' },
+    basics:   { n: 'Networking basics',   wb: 'az104-networking',     col: 'var(--mk-teal)' }
+  };
+
+  /* ------------------------------------------------------------------ *
+   * IP helpers (no bitwise — stays correct above 2^31)
+   * ------------------------------------------------------------------ */
+  function ipToInt(ip) {
+    var p = ip.split('.');
+    return ((+p[0]) * 16777216) + ((+p[1]) * 65536) + ((+p[2]) * 256) + (+p[3]);
+  }
+  function intToIp(n) {
+    return Math.floor(n / 16777216) % 256 + '.' + Math.floor(n / 65536) % 256 + '.' +
+           Math.floor(n / 256) % 256 + '.' + (n % 256);
+  }
+  function blockSize(p) { return Math.pow(2, 32 - p); }
+  function usable(p) { return blockSize(p) - 5; }
+  function bitAt(n, i) { return Math.floor(n / Math.pow(2, 31 - i)) % 2; }
+  function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  var SPACES = [
+    { base: ipToInt('10.0.0.0'), p: 8 },
+    { base: ipToInt('172.16.0.0'), p: 12 },
+    { base: ipToInt('192.168.0.0'), p: 16 }
+  ];
+  /** Aligned random network address for a given prefix, inside RFC1918 space. */
+  function randNet(prefix) {
+    var pool = SPACES.filter(function (s) { return s.p <= prefix - 2; });
+    var sp = choice(pool.length ? pool : [SPACES[0]]);
+    var slots = Math.pow(2, prefix - sp.p);
+    return sp.base + randInt(0, Math.min(slots - 1, 4000)) * blockSize(prefix);
+  }
+  function cidr(net, p) { return intToIp(net) + '/' + p; }
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  /* ------------------------------------------------------------------ *
+   * Visualisations
+   * ------------------------------------------------------------------ */
+  function bitsViz(net, p) {
+    var h = '<div class="scroll-x"><div class="sp-bits">';
+    for (var o = 0; o < 4; o++) {
+      h += '<div class="sp-oct"><div class="sp-octrow">';
+      for (var b = 0; b < 8; b++) {
+        var i = o * 8 + b;
+        var cls = i < p ? 'net' : 'host';
+        if (i === p - 1) cls += ' edge';
+        h += '<div class="sp-bit ' + cls + '">' + bitAt(net, i) + '</div>';
+      }
+      h += '</div><em>' + (Math.floor(net / Math.pow(256, 3 - o)) % 256) + '</em></div>';
+    }
+    h += '</div></div>' +
+         '<div class="sp-bitkey">' +
+           '<span><i style="background:var(--mk-blue)"></i>network bits: ' + p + '</span>' +
+           '<span><i style="background:var(--mk-orange)"></i>host bits: ' + (32 - p) + '</span>' +
+           '<span style="color:var(--mk-red)">red edge = the /' + p + ' boundary</span>' +
+         '</div>' +
+         '<p class="small" style="margin:.45rem 0 0">2<sup>' + (32 - p) + '</sup> = <b>' + fmt(blockSize(p)) +
+         '</b> addresses in the block → minus Azure’s 5 → <b style="color:var(--mk-green)">' + fmt(usable(p)) +
+         '</b> usable. Doubling the host bits doubles the block: /' + p + ' → /' + (p - 1) + ' is exactly twice the size.</p>';
+    return h;
+  }
+
+  function ladderViz(net, p) {
+    var last = net + blockSize(p) - 1;
+    return '<table class="sp-ladder"><tbody>' +
+      '<tr class="res"><td>' + intToIp(net) + '</td><td>network identifier — never assignable</td></tr>' +
+      '<tr class="res"><td>' + intToIp(net + 1) + '</td><td>default gateway (Azure takes it, always)</td></tr>' +
+      '<tr class="res"><td>' + intToIp(net + 2) + '</td><td>Azure DNS mapping</td></tr>' +
+      '<tr class="res"><td>' + intToIp(net + 3) + '</td><td>Azure DNS mapping (future use)</td></tr>' +
+      '<tr class="ok"><td>' + intToIp(net + 4) + ' … ' + intToIp(last - 1) + '</td><td><b>yours</b> — ' + fmt(usable(p)) + ' addresses</td></tr>' +
+      '<tr class="res"><td>' + intToIp(last) + '</td><td>broadcast — never assignable</td></tr>' +
+      '</tbody></table>';
+  }
+
+  function rangeViz(aNet, aP, bNet, bP) {
+    var aEnd = aNet + blockSize(aP) - 1, bEnd = bNet + blockSize(bP) - 1;
+    var lo = Math.min(aNet, bNet), hi = Math.max(aEnd, bEnd);
+    var span = (hi - lo) + 1;
+    var pad = span * 0.05;
+    var L = lo - pad, R = hi + pad + 1;
+    var pct = function (v) { return (v - L) / (R - L) * 100; };
+    var oLo = Math.max(aNet, bNet), oHi = Math.min(aEnd, bEnd);
+    var clash = oLo <= oHi;
+
+    function row(tag, net, p, cls) {
+      var end = net + blockSize(p) - 1;
+      var left = pct(net), width = Math.max(1.2, pct(end + 1) - pct(net));
+      var h = '<div class="sp-rline"><b style="color:var(--mk-' + (cls === 'a' ? 'blue' : 'purple') + ')">' + tag + '</b>' +
+              '<code>' + cidr(net, p) + '</code><span>' + intToIp(net) + ' → ' + intToIp(end) + '</span></div>' +
+              '<div class="sp-rtrack"><i class="' + cls + '" style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%"></i>';
+      if (clash) {
+        h += '<i class="clash" style="left:' + pct(oLo).toFixed(2) + '%;width:' + Math.max(1.2, pct(oHi + 1) - pct(oLo)).toFixed(2) + '%"></i>';
+      }
+      return h + '</div>';
+    }
+
+    var note = clash
+      ? '<p class="small" style="margin:.45rem 0 0;color:var(--mk-red)"><b>Shared:</b> ' +
+        intToIp(oLo) + ' – ' + intToIp(oHi) + ' belongs to both (the hatched band). Peering is refused, full stop.</p>'
+      : '<p class="small" style="margin:.45rem 0 0;color:var(--mk-green)">Not one address in common — peering is allowed, across regions, subscriptions and tenants alike.</p>';
+
+    return '<div class="sp-ranges">' + row('A', aNet, aP, 'a') + row('B', bNet, bP, 'b') + '</div>' + note;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Authored banks
+   * ------------------------------------------------------------------ */
+  var NAMED = [
+    { tier: 400, q: 'What is the minimum size for <code>AzureFirewallSubnet</code>?',
+      ch: ['/26', '/27', '/28', '/24'], a: 0,
+      k: 'AzureFirewallSubnet — exact name, /26 minimum',
+      w: 'Azure Firewall needs a /26 so it can scale out; the subnet must be named AzureFirewallSubnet exactly, and nothing else may live in it.' },
+    { tier: 400, q: 'What is the minimum size for <code>AzureBastionSubnet</code> under the current requirement?',
+      ch: ['/26', '/27', '/28', '/29'], a: 0,
+      k: 'AzureBastionSubnet — /26 or larger now',
+      w: 'Bastion originally accepted /27; current guidance requires /26 or larger to support scale units and future features. The name is fixed.' },
+    { tier: 400, q: 'What is the absolute minimum size Azure accepts for a <code>GatewaySubnet</code>?',
+      ch: ['/29', '/27', '/26', '/28'], a: 0,
+      k: '/29 works, /27 or larger is what you actually deploy',
+      w: '/29 is accepted but leaves no room for ExpressRoute+VPN coexistence, active-active or future gateway features — design guidance is /27 or larger.' },
+    { tier: 400, q: 'A subnet named <code>GatewaySubnet-Prod</code> is created for the VPN gateway. What happens?',
+      ch: ['Gateway deployment fails — the name must be exactly GatewaySubnet', 'It works, names are cosmetic', 'It works but only for route-based gateways', 'Azure renames it automatically'], a: 0,
+      k: 'the name IS the API contract',
+      w: 'Gateway, Firewall, Bastion and Route Server subnets are discovered by exact name. No prefix, no suffix, no different casing.' },
+    { tier: 400, q: 'Which resources may you deploy into <code>GatewaySubnet</code> alongside the gateway?',
+      ch: ['None — it is reserved for the gateway', 'NVAs only', 'Any VM, if an NSG allows it', 'Private endpoints only'], a: 0,
+      k: 'gateway subnet holds gateways and nothing else',
+      w: 'Putting other resources in GatewaySubnet is unsupported and breaks gateway operations.' },
+    { tier: 400, q: 'Azure Route Server requires a dedicated subnet. What must it be called and how big?',
+      ch: ['RouteServerSubnet, /27 or larger', 'AzureRouteServerSubnet, /26', 'RouteServerSubnet, /29', 'Any name, /28'], a: 0,
+      k: 'RouteServerSubnet, minimum /27',
+      w: 'Route Server has the same exact-name pattern as the other platform subnets, with a /27 minimum.' },
+    { tier: 200, q: 'What is the smallest subnet Azure will let you create at all?',
+      ch: ['/29 — 3 usable addresses', '/30 — 2 usable', '/31 — point-to-point', '/28 — 11 usable'], a: 0,
+      k: '/29 floor, and only 3 usable after the 5 reserved',
+      w: 'Azure IPv4 subnets run from /29 (smallest) to /2 (largest). A /29 has 8 addresses, 5 of which Azure takes.' },
+    { tier: 400, q: 'Azure Firewall is deployed in forced-tunnelling mode. What second subnet is required?',
+      ch: ['AzureFirewallManagementSubnet, /26 minimum', 'AzureFirewallSubnet2, /27', 'GatewaySubnet, /27', 'No second subnet is needed'], a: 0,
+      k: 'forced tunnelling = a second /26 management subnet',
+      w: 'Management traffic is separated onto AzureFirewallManagementSubnet so the platform can still reach the firewall when you route 0.0.0.0/0 on-prem.' },
+    { tier: 400, q: 'App Service regional VNet integration needs a subnet. What is true of it?',
+      ch: ['It must be empty and delegated to Microsoft.Web/serverFarms', 'It can be shared with the VMs it talks to', 'It must be called AppServiceSubnet', 'It must be a /29'], a: 0,
+      k: 'delegation = the subnet is handed to one service',
+      w: 'A delegated subnet is dedicated to that service; plan a /26 so scale-out has addresses (each instance consumes one).' },
+    { tier: 300, q: 'AKS with Azure CNI (not overlay): how do you size the node subnet?',
+      ch: ['Nodes + (nodes × max pods per node) + upgrade headroom', 'One address per node', 'One address per service', 'Nodes + 5 reserved only'], a: 0,
+      k: 'Azure CNI gives every POD an address from the subnet',
+      w: 'With classic Azure CNI every pod gets a real VNet IP, so a /24 disappears fast; kubenet and CNI Overlay put pods on a separate address space.' }
+  ];
+
+  var OPS = [
+    { tier: 300, q: 'Subnet <code>10.0.1.0/24</code> currently hosts six VMs. You need to change its range to <code>/23</code>. What has to happen first?',
+      ch: ['Remove the resources from the subnet — Azure blocks the range change while it is occupied', 'Nothing, resize is always online', 'Delete the whole VNet', 'Stop the VMs; deallocated NICs are ignored'], a: 0,
+      k: 'occupied subnets resist resizing',
+      w: 'The classic exam answer: move or delete the resources (NICs, endpoints, delegated services) before editing the prefix. Design the address plan generously the first time.' },
+    { tier: 400, q: 'You must add <code>10.50.0.0/16</code> to a VNet that is already peered with two others.',
+      ch: ['Add the space, then re-sync the peering on both sides', 'Delete and recreate every peering first', 'Impossible once peered', 'Peering picks it up instantly with no action'], a: 0,
+      k: 'add space then SYNC the peerings',
+      w: 'Peers cache the remote address space. Older Azure forced a delete/recreate; now you add the range and trigger a peering sync on both sides — but something must be re-synced either way.' },
+    { tier: 400, q: 'Spoke A is peered to the hub. Spoke B is peered to the hub. Spoke A cannot reach Spoke B. Why?',
+      ch: ['VNet peering is not transitive', 'The peerings need "allow gateway transit"', 'NSGs block it by default', 'The spokes are in different regions'], a: 0,
+      k: 'peering is NEVER transitive',
+      w: 'Spoke-to-spoke needs a routed hop: firewall/NVA in the hub with UDRs, Azure Route Server, or Virtual WAN — or a direct peering between the spokes.' },
+    { tier: 400, q: 'VNet A is <code>10.0.0.0/16</code> in West US. VNet B is <code>10.0.0.0/24</code> in North Europe. Can you peer them?',
+      ch: ['No — the address spaces overlap', 'Yes, global peering allows overlap', 'Yes, if you use a gateway instead', 'Only if they are in the same subscription'], a: 0,
+      k: 'overlap kills peering, region and tenant do not',
+      w: 'Global VNet peering happily crosses regions, subscriptions and tenants. It never tolerates a single overlapping address.' },
+    { tier: 200, q: 'A subnet range of <code>10.5.0.0/24</code> is proposed for a VNet whose address space is <code>10.4.0.0/16</code>.',
+      ch: ['Rejected — a subnet must sit inside the VNet address space', 'Accepted, subnets are independent', 'Accepted, Azure expands the VNet automatically', 'Accepted with a warning'], a: 0,
+      k: 'subnets are carved FROM the VNet space',
+      w: 'You add address space to the VNet first, then carve subnets out of it. Subnets can never sit outside or straddle the boundary.' },
+    { tier: 300, q: 'Someone proposes subnets <code>10.1.0.0/24</code> and <code>10.1.0.128/25</code> in the same VNet.',
+      ch: ['Rejected — those two overlap', 'Accepted — different prefixes', 'Accepted if in different regions', 'Accepted but the second is unusable'], a: 0,
+      k: '/25 at .128 lives inside the /24',
+      w: '10.1.0.0/24 covers .0–.255, which already contains .128–.255. Subnets inside a VNet must be strictly non-overlapping.' },
+    { tier: 300, q: 'How many private IP addresses does each private endpoint consume from its subnet?',
+      ch: ['One per endpoint', 'Five', 'None — it uses the public IP', 'One per client'], a: 0,
+      k: 'private endpoint = one NIC = one IP',
+      w: 'Size subnets that host private endpoints for growth: every PaaS resource you privatise costs another address.' },
+    { tier: 300, q: 'Your Azure address plan reuses <code>192.168.1.0/24</code>, which also exists in the on-prem datacentre. Consequence?',
+      ch: ['Site-to-site VPN / ExpressRoute routing to that range breaks', 'Nothing — NAT handles it', 'Only DNS is affected', 'Azure automatically re-addresses the VNet'], a: 0,
+      k: 'overlap with on-prem poisons hybrid connectivity',
+      w: 'Hybrid routing has no NAT by default. Overlapping ranges are the single most expensive address-plan mistake because fixing it means re-addressing live workloads.' },
+    { tier: 400, q: 'You want to delete a subnet, but the portal refuses.',
+      ch: ['Something still references it: a NIC, delegation, private endpoint or service endpoint policy', 'Subnets can never be deleted', 'You need Owner on the subscription', 'Only Azure CLI can delete subnets'], a: 0,
+      k: 'delete blocked = something still holds a reference',
+      w: 'Empty it properly — NICs, delegated services, private endpoints, gateways — then the delete succeeds.' },
+    { tier: 400, q: 'A VNet in West Europe must talk to a VNet in the same region owned by another Entra ID tenant, with no gateway hop.',
+      ch: ['VNet peering (it works across tenants and subscriptions)', 'VPN gateway VNet-to-VNet only', 'Impossible across tenants', 'ExpressRoute only'], a: 0,
+      k: 'peering crosses subscription and tenant boundaries',
+      w: 'Cross-tenant peering just needs the right permission on both sides; the constraint that matters is still non-overlapping address space.' },
+    { tier: 300, q: 'Which statement about NSGs and subnets is correct?',
+      ch: ['One NSG per subnet, but one NSG can be associated with many subnets', 'One NSG per VNet', 'NSGs can only be attached to NICs', 'Each subnet can have several NSGs'], a: 0,
+      k: 'subnet ↔ NSG is one-to-one; NSG ↔ subnets is one-to-many',
+      w: 'A subnet holds at most one NSG (plus optionally one per NIC — both are evaluated). Reusing one NSG across subnets is normal.' },
+    { tier: 400, q: 'Traffic from a VM to another VM in a peered VNet is not hitting your firewall in the hub.',
+      ch: ['Add a UDR on the subnet pointing at the firewall — peering routes are direct by default', 'Enable "allow forwarded traffic" only', 'Delete the peering', 'Add an NSG allow rule'], a: 0,
+      k: 'peering installs a direct system route',
+      w: 'Peering creates system routes straight to the peer. To force inspection you must override with a user-defined route to the NVA’s private IP.' },
+    { tier: 400, q: 'A subnet uses a service endpoint for Storage. On-prem servers over ExpressRoute now need access to the same account.',
+      ch: ['Service endpoints do not extend on-prem — use a private endpoint', 'Add the on-prem range to the subnet', 'Enable service endpoint policies', 'It already works'], a: 0,
+      k: 'service endpoints are VNet-only; private endpoints are reachable from on-prem',
+      w: 'Service endpoints tag traffic leaving a subnet. On-prem traffic never leaves that subnet, so it does not qualify.' },
+    { tier: 200, q: 'You need 3 IP addresses for a small appliance cluster and want the smallest possible subnet.',
+      ch: ['/29 — 8 addresses, 3 usable', '/30 — 4 addresses', '/28 — 16 addresses', '/31 — 2 addresses'], a: 0,
+      k: '/29 is the floor and gives exactly 3',
+      w: 'Anything smaller than /29 is rejected by Azure outright — the platform needs its five.' }
+  ];
+
+  var DESIGN = [
+    { tier: 500, q: 'Hub-and-spoke for four business units, each needing ~2,000 addresses, with room to double. Which VNet size per spoke?',
+      ch: ['/21 (2,048 addresses) with a /20 reserved per unit', '/24', '/29', '/16 per spoke'], a: 0,
+      k: 'size for two doublings, allocate on nibble boundaries',
+      w: 'Design address plans with headroom on clean boundaries: resizing later means emptying subnets, and overlapping later means re-addressing.' },
+    { tier: 500, q: 'Which range should you avoid handing to a VNet that will later connect to a partner network over VPN?',
+      ch: ['Anything the partner also uses — verify their plan first', '10.0.0.0/8 always', 'Only 192.168.0.0/16', 'Anything larger than /16'], a: 0,
+      k: 'overlap is the only hard blocker in hybrid design',
+      w: 'RFC1918 space is enormous; the constraint is not which block you pick, it is that nobody you will ever connect to picked the same one.' },
+    { tier: 300, q: 'How many /26 subnets can you carve from a single /22?',
+      ch: ['16', '4', '8', '64'], a: 0,
+      k: '2^(26−22) = 16',
+      w: 'Every extra bit of prefix halves the block: /22 → /23 is 2, /24 is 4, /25 is 8, /26 is 16.' },
+    { tier: 400, q: 'A VNet is <code>10.10.0.0/16</code>. Which of these subnets is safe to add alongside <code>10.10.0.0/22</code> and <code>10.10.8.0/21</code>?',
+      ch: ['10.10.16.0/24', '10.10.4.0/23', '10.10.9.0/24', '10.10.0.128/25'], a: 0,
+      k: 'walk the boundaries: /22 ends at .3.255, /21 covers .8–.15',
+      w: '10.10.4.0/23 collides with nothing here — but 10.10.9.0/24 sits inside the /21 and 10.10.0.128/25 sits inside the /22. Only .16.0/24 is clear of both.' },
+    { tier: 300, q: 'A /24 subnet hosts 200 VMs, and the team wants to add 60 more. What is the honest answer?',
+      ch: ['It does not fit — /24 gives 251 usable; move to a /23', 'Add them, /24 holds 254', 'Add a second NIC to each VM', 'Enable IP forwarding'], a: 0,
+      k: '/24 = 251 usable in Azure, not 254',
+      w: '256 − 5 = 251. 200 + 60 = 260, so the subnet is short by nine addresses and needs a /23 (507 usable).' },
+    { tier: 300, q: 'You plan a /27 for a subnet that will hold 25 VMs plus an internal load balancer frontend.',
+      ch: ['Too small — /27 gives 27 usable and leaves almost no headroom', 'Fine, /27 gives 32 usable', 'Fine, load balancer frontends are free', 'Too big'], a: 0,
+      k: 'ILB frontends and private endpoints eat subnet IPs too',
+      w: '32 − 5 = 27 usable. 25 VMs + a frontend leaves one spare address; one scale event and the deployment fails.' }
+  ];
+
+
+  /* ================================================================== *
+   * TIER 100 — FOUNDATION. Vocabulary and the mental model. Nobody here
+   * has opened the portal yet, and nothing below assumes they have.
+   * ================================================================== */
+  var T100 = [
+    { tier: 100, c: 'basics', q: 'What is an IP address, in one line?',
+      ch: ['A number that identifies one network interface so traffic can be delivered to it', 'A name you type into a browser', 'A password used to join a network'], a: 0,
+      k: 'an address, not a name',
+      w: 'Every network interface in a VNet gets one from the subnet it sits in. DNS is the separate thing that turns a name into one of these.' },
+    { tier: 100, c: 'basics', q: 'What is a subnet?',
+      ch: ['A slice of a larger network range, holding a group of addresses that sit together', 'A single computer on the network', 'A cable connecting two buildings'], a: 0,
+      k: 'a subnet is a range carved out of a bigger range',
+      w: 'In Azure you first give a VNet an address space, and then you cut subnets out of it.' },
+    { tier: 100, c: 'math', q: 'In <code>10.0.0.0/24</code>, what does the <code>/24</code> mean?',
+      ch: ['The first 24 bits are fixed as the network — the remaining 8 bits are free for hosts', 'There are 24 addresses in the range', 'It is the 24th subnet in the VNet'], a: 0,
+      k: 'the number after the slash counts fixed network bits',
+      w: '32 total bits minus 24 network bits leaves 8 host bits, and 2 to the power of 8 is 256 addresses.' },
+    { tier: 100, c: 'math', q: 'How many addresses are in a <code>/24</code> block altogether?',
+      ch: ['256', '254', '1024'], a: 0,
+      k: '2^(32−24) = 256',
+      w: 'That is the size of the block. How many you can actually assign is a different question, and in Azure the answer is smaller.' },
+    { tier: 100, c: 'reserved', q: 'How many addresses does Azure reserve in every single subnet?',
+      ch: ['5', '2', '0'], a: 0,
+      k: 'five, in every subnet, always',
+      w: 'Network identifier, default gateway, two for Azure DNS, and the last address. On-prem you learned two; Azure takes five.' },
+    { tier: 100, c: 'reserved', q: 'Which address in a subnet does Azure always use as the default gateway?',
+      ch: ['The second address in the block, x.x.x.1', 'The first address, x.x.x.0', 'The very last address'], a: 0,
+      k: '.1 is always the gateway',
+      w: '.0 is the network identifier, .1 is the gateway, .2 and .3 are Azure DNS, and the final address is broadcast.' },
+    { tier: 100, c: 'basics', q: 'Which of these is a private IP address range?',
+      ch: ['10.0.0.0/8', '8.8.8.0/24', '52.10.0.0/16'], a: 0,
+      k: 'RFC1918: 10/8, 172.16/12, 192.168/16',
+      w: 'Private ranges are not routable across the internet, which is exactly why every VNet is built out of them.' },
+    { tier: 100, c: 'basics', q: 'What is CIDR notation?',
+      ch: ['Writing an address and its prefix length together, like 10.1.0.0/16', 'A way of encrypting IP addresses', 'A protocol for handing out addresses automatically'], a: 0,
+      k: 'address plus prefix length, in one string',
+      w: 'Classless Inter-Domain Routing replaced the old class A/B/C system, which is why a /17 or a /21 is perfectly normal.' },
+    { tier: 100, c: 'basics', q: 'What does a default gateway do?',
+      ch: ['Forwards traffic destined for anything outside the local subnet', 'Blocks all traffic leaving the subnet', 'Hands out IP addresses to devices'], a: 0,
+      k: 'the exit door of a subnet',
+      w: 'If the destination is inside the subnet, traffic goes straight there. Anything else gets handed to the gateway.' },
+    { tier: 100, c: 'basics', q: 'What does DNS do?',
+      ch: ['Turns a name like myapp.contoso.com into an IP address', 'Encrypts traffic between two subnets', 'Assigns private addresses to virtual machines'], a: 0,
+      k: 'name to address',
+      w: 'Azure gives every VNet a built-in resolver, and reserves two addresses in every subnet to reach it.' },
+    { tier: 100, c: 'named', q: 'Some Azure subnets must carry an exact name. Why?',
+      ch: ['The platform finds them by name — a gateway or firewall will not deploy into a differently named subnet', 'Because the portal sorts subnets alphabetically', 'Because subnet names must be unique across Azure'], a: 0,
+      k: 'for those subnets, the name IS the API contract',
+      w: 'GatewaySubnet, AzureFirewallSubnet, AzureBastionSubnet and RouteServerSubnet all behave this way.' },
+    { tier: 100, c: 'overlap', q: 'What does it mean for two address ranges to overlap?',
+      ch: ['At least one IP address belongs to both ranges', 'They are in the same Azure region', 'They have the same prefix length'], a: 0,
+      k: 'one shared address is enough to count as overlap',
+      w: 'Overlap is the one thing VNet peering will never allow, so an address plan is really an exercise in not overlapping.' },
+    { tier: 100, c: 'basics', q: 'What is VNet peering, in one line?',
+      ch: ['A direct private connection between two virtual networks', 'A public internet link between two regions', 'A firewall rule that permits traffic between VNets'], a: 0,
+      k: 'private, direct, low latency',
+      w: 'Peered VNets behave almost like one network — as long as their address spaces do not overlap.' },
+    { tier: 100, c: 'sizing', q: 'Why do you plan a subnet larger than the number of VMs you have today?',
+      ch: ['Because resizing later is disruptive, and other things consume addresses too', 'Because Azure charges less for large subnets', 'Because small subnets run slower'], a: 0,
+      k: 'headroom is cheaper than a re-address',
+      w: 'Load balancer frontends, private endpoints and scale events all eat addresses nobody counted at the start.' },
+    { tier: 100, c: 'basics', q: 'What is a NIC, in Azure terms?',
+      ch: ['The network interface object that carries a VM private IP address', 'A physical network cable', 'A network security rule'], a: 0,
+      k: 'one NIC takes one address from the subnet',
+      w: 'A NIC can outlive the VM it belonged to, which is one reason a subnet can refuse to be deleted.' },
+    { tier: 100, c: 'basics', q: 'What does an Azure region mean for a VNet?',
+      ch: ['A VNet lives in exactly one region, though it can be peered to VNets in others', 'A VNet spans every region automatically', 'A VNet must be recreated in each availability zone'], a: 0,
+      k: 'one VNet, one region',
+      w: 'Subnets inside it can span availability zones, but the VNet itself never leaves its region.' },
+    { tier: 100, c: 'math', q: 'Which is bigger, a <code>/16</code> or a <code>/24</code>?',
+      ch: ['The /16 — a smaller prefix number means a larger block', 'The /24, because 24 is the larger number', 'They are the same size'], a: 0,
+      k: 'smaller prefix number, bigger block',
+      w: 'Every bit you add to the prefix halves the block. A /16 is 65,536 addresses; a /24 is 256.' },
+    { tier: 100, c: 'reserved', q: 'On-prem you subtract 2 addresses from a subnet. What do you subtract in Azure?',
+      ch: ['5', '2', '3'], a: 0,
+      k: 'Azure takes three more than you are used to',
+      w: 'Network identifier and broadcast are the familiar two. Azure adds the gateway and two DNS addresses on top of them.' },
+    { tier: 100, c: 'basics', q: 'What is the address space of a VNet?',
+      ch: ['The overall range or ranges the VNet owns, out of which subnets are carved', 'The list of VM names in the VNet', 'The amount of storage the VNet may use'], a: 0,
+      k: 'VNet address space first, subnets inside it second',
+      w: 'A subnet can never sit outside the VNet address space, and it can never straddle the edge of it.' },
+    { tier: 100, c: 'ops', q: 'Can two subnets in the same VNet use the same address range?',
+      ch: ['No — subnets inside a VNet must never overlap each other', 'Yes, if they are in different availability zones', 'Yes, Azure resolves the conflict automatically'], a: 0,
+      k: 'an address belongs to exactly one subnet',
+      w: 'The rule is the same at every level: inside a VNet, between VNets, and between Azure and on-prem.' },
+    { tier: 100, c: 'basics', q: 'What is a network security group?',
+      ch: ['A list of allow and deny rules applied to a subnet or a network interface', 'A group of virtual machines that scale together', 'A DNS zone for private names'], a: 0,
+      k: 'rules on addresses, ports and direction',
+      w: 'It is stateful: allow the inbound flow and the reply is permitted back automatically.' },
+    { tier: 100, c: 'sizing', q: 'How many usable addresses does an Azure <code>/24</code> subnet actually give you?',
+      ch: ['251', '254', '256'], a: 0,
+      k: '256 − 5 = 251',
+      w: 'This single number is worth memorising: it is the difference between a plan that fits and a deployment that fails.' }
+  ];
+
+  /* ================================================================== *
+   * TIER 200 — PRACTITIONER. The happy path in the portal and the CLI,
+   * plus the arithmetic you do without thinking about it.
+   * ================================================================== */
+  var T200 = [
+    { tier: 200, c: 'math', q: 'How many addresses are in a <code>/26</code> block?',
+      ch: ['64', '32', '128'], a: 0,
+      k: '2^(32−26) = 64',
+      w: 'Halving down from a /24 twice: 256 → 128 → 64.' },
+    { tier: 200, c: 'reserved', q: 'How many usable addresses does an Azure <code>/26</code> subnet give you?',
+      ch: ['59', '62', '64'], a: 0,
+      k: '64 − 5 = 59',
+      w: 'Take the block size, then take five away. That is the entire calculation, every time.' },
+    { tier: 200, c: 'reserved', q: 'A subnet is <code>10.0.1.0/24</code>. Which address does the first VM you deploy receive?',
+      ch: ['10.0.1.4', '10.0.1.1', '10.0.1.0'], a: 0,
+      k: 'first usable is always network + 4',
+      w: '.0 network, .1 gateway, .2 and .3 DNS. Your first NIC lands on .4, in every subnet you will ever build.' },
+    { tier: 200, c: 'named', q: 'Which command creates the subnet a VPN gateway needs?',
+      ch: ['az network vnet subnet create -g rg-net --vnet-name vnet-hub -n GatewaySubnet --address-prefixes 10.0.255.0/27', 'az network vnet-gateway subnet create -n gw-subnet', 'az network vnet subnet create -n VPNSubnet --address-prefixes 10.0.255.0/27'], a: 0,
+      k: 'the name must be exactly GatewaySubnet',
+      w: 'No prefix, no suffix, no different casing. The platform looks that subnet up by its literal name.' },
+    { tier: 200, c: 'ops', q: 'Where do you associate an NSG with a subnet?',
+      ch: ['On the subnet blade of the VNet, or the Subnets blade of the NSG — both write the same association', 'On the VM networking blade only', 'In Azure Policy'], a: 0,
+      k: 'one NSG per subnet, set from either side',
+      w: 'The same NSG can be associated with many subnets, but a subnet holds at most one of them.' },
+    { tier: 200, c: 'math', q: 'Which subnet mask matches a <code>/26</code>?',
+      ch: ['255.255.255.192', '255.255.255.0', '255.255.255.224'], a: 0,
+      k: '/26 is 192 in the last octet',
+      w: 'The ladder in the last octet: /24 is 0, /25 is 128, /26 is 192, /27 is 224, /28 is 240.' },
+    { tier: 200, c: 'ops', q: 'You want to see which addresses in a subnet are already taken. Where do you look?',
+      ch: ['The connected devices / IP configurations view on the subnet, which lists every NIC and endpoint', 'The VM Overview blade', 'Storage account diagnostics'], a: 0,
+      k: 'the subnet knows every address it has handed out',
+      w: 'It is also the fastest way to find whatever is stopping a subnet from being deleted.' },
+    { tier: 200, c: 'math', q: 'What is the network address of <code>10.4.7.130/25</code>?',
+      ch: ['10.4.7.128', '10.4.7.0', '10.4.7.130'], a: 0,
+      k: '/25 blocks start at .0 and .128',
+      w: 'Round the address down to the nearest multiple of the block size. For a /25 the block size is 128.' },
+    { tier: 200, c: 'sizing', q: 'A team needs 20 VM NICs in one subnet. What is the smallest Azure subnet that fits?',
+      ch: ['/27 — 32 addresses, 27 usable', '/28 — 16 addresses', '/26 — 64 addresses'], a: 0,
+      k: '27 usable is the first size above 20',
+      w: 'A /28 leaves only 11 usable after the five reservations, which is the classic off-by-five mistake.' },
+    { tier: 200, c: 'named', q: 'You are deploying Azure Bastion. What must the subnet be called?',
+      ch: ['AzureBastionSubnet', 'BastionSubnet', 'AzureBastion'], a: 0,
+      k: 'AzureBastionSubnet, spelled exactly',
+      w: 'Deploy Bastion and the portal simply will not offer any subnet that is named anything else.' },
+    { tier: 200, c: 'ops', q: 'Which command lists the subnets in a VNet?',
+      ch: ['az network vnet subnet list -g rg-net --vnet-name vnet-hub -o table', 'az network subnet show --all', 'az vnet list-subnets vnet-hub'], a: 0,
+      k: 'subnet commands always need -g and --vnet-name',
+      w: 'Subnets are child resources of the VNet, so every subnet command has to name the parent.' },
+    { tier: 200, c: 'reserved', q: 'Which two addresses in a subnet are reserved for Azure DNS?',
+      ch: ['The third and fourth, x.x.x.2 and x.x.x.3', 'The first and second', 'The last two'], a: 0,
+      k: '.2 and .3 are the DNS reservations',
+      w: '168.63.129.16 is the virtual resolver behind them, and it is the same address in every VNet in Azure.' },
+    { tier: 200, c: 'ops', q: 'How do you add a second address range to an existing VNet?',
+      ch: ['Edit the VNet address space and add the range — the existing one stays', 'Delete and recreate the VNet', 'Create a second VNet and peer it'], a: 0,
+      k: 'address space is a list, not a single value',
+      w: 'If the VNet is peered, the peerings must be re-synced afterwards or the peers will never see the new range.' },
+    { tier: 200, c: 'sizing', q: 'You are sizing a subnet for App Service regional VNet integration. What do you size for?',
+      ch: ['One address per instance as the plan scales out — a /26 is the usual starting point', 'One address in total', 'Five addresses, matching the reservations'], a: 0,
+      k: 'a delegated subnet consumes an address per instance',
+      w: 'Scale out to 30 instances inside a /28 and you run out of subnet long before you run out of plan.' },
+    { tier: 200, c: 'math', q: 'How many <code>/24</code> subnets fit inside a <code>/22</code>?',
+      ch: ['4', '2', '8'], a: 0,
+      k: '2^(24−22) = 4',
+      w: 'Each extra prefix bit doubles the count: /23 gives 2, /24 gives 4, /25 gives 8.' },
+    { tier: 200, c: 'overlap', q: 'Do <code>10.1.0.0/16</code> and <code>10.2.0.0/16</code> overlap?',
+      ch: ['No — the second octet differs, so they share no address at all', 'Yes, they both start with 10', 'Only if they are in the same region'], a: 0,
+      k: 'compare the actual ranges, not the first octet',
+      w: '10.1.x.x and 10.2.x.x are entirely separate blocks, so peering between them is fine.' },
+    { tier: 200, c: 'ops', q: 'Where do you set a custom DNS server for a VNet?',
+      ch: ['On the VNet DNS servers blade — the setting applies to every resource in the VNet', 'On each NIC individually only', 'In the NSG rules'], a: 0,
+      k: 'DNS is a VNet-level setting',
+      w: 'It takes effect when the NICs renew their lease, which in practice means a restart.' },
+    { tier: 200, c: 'math', q: 'What is the block size of a <code>/27</code>?',
+      ch: ['32', '16', '64'], a: 0,
+      k: '2^(32−27) = 32',
+      w: 'And 32 − 5 = 27 usable, which is worth memorising next to 251 for a /24.' },
+    { tier: 200, c: 'sizing', q: 'How many usable addresses does a <code>/28</code> give you in Azure?',
+      ch: ['11', '14', '16'], a: 0,
+      k: '16 − 5 = 11',
+      w: 'A /28 feels roomy right up until you remember the reservations. Eleven interfaces is not many.' },
+    { tier: 200, c: 'ops', q: 'A subnet has just been created and is empty. Can you change its address range?',
+      ch: ['Yes — the range is editable until something is deployed into it', 'No, never', 'Only through the CLI'], a: 0,
+      k: 'empty subnets resize freely; occupied ones do not',
+      w: 'Which is why the honest sequence is: plan the space, create the subnet, then deploy into it.' },
+    { tier: 200, c: 'math', q: 'What is the last address of <code>192.168.4.0/22</code>?',
+      ch: ['192.168.7.255', '192.168.4.255', '192.168.8.0'], a: 0,
+      k: 'a /22 is four /24s wide',
+      w: 'It covers 192.168.4.0 through 192.168.7.255. Add the block size to the network address and step back one.' },
+    { tier: 200, c: 'overlap', q: 'Two VNets you want to peer sit in different subscriptions. Is that a problem?',
+      ch: ['No — peering works across subscriptions, and across tenants too', 'Yes, peering requires a single subscription', 'Only if they are in the same region'], a: 0,
+      k: 'subscription boundaries are fine; overlap is not',
+      w: 'The permissions differ a little across tenants, but the technical blocker is always overlapping address space.' }
+  ];
+
+  /* ================================================================== *
+   * TIER 300 — PROFESSIONAL. Production sizing, real limits, and the
+   * troubleshooting you do when a deployment refuses.
+   * ================================================================== */
+  var T300 = [
+    { tier: 300, c: 'sizing', q: 'Sizing a subnet for a scale set that autoscales from 10 to 100 instances with rolling upgrades.',
+      ch: ['At least 100 plus surge capacity plus the five reservations — a /25 is the realistic floor', 'Ten addresses, matching today', 'Exactly 100 addresses','A /28 — scale set instances share addresses'], a: 0,
+      k: 'plan for maximum instances plus upgrade surge',
+      w: 'A rolling upgrade creates new instances before removing old ones. A subnet that is exactly full cannot upgrade itself.' },
+    { tier: 300, c: 'ops', q: 'A deployment fails citing insufficient IP addresses, but the portal shows free addresses in the subnet.',
+      ch: ['Something is holding them — surge instances, delegated services or endpoints have IP configurations you did not count', 'The subnet is corrupt and must be recreated', 'The region is out of capacity','The subnet needs a route table before addresses can be assigned'], a: 0,
+      k: 'count IP configurations, not virtual machines',
+      w: 'Scale-out surges, upgrades and delegated services all take addresses temporarily, and temporary is quite enough to fail a deployment.' },
+    { tier: 300, c: 'ops', q: 'After changing the VNet DNS servers, only some VMs resolve internal names.',
+      ch: ['The setting lands at lease renewal — the NICs that have not renewed still hold the old server', 'DNS is per-subnet and only one subnet was updated', 'An NSG is blocking port 53 selectively','Custom DNS applies only to VMs created after the change'], a: 0,
+      k: 'a DNS change needs a NIC or VM restart to take effect',
+      w: 'It is one of the classic half-broken states, and it looks far more mysterious than it actually is.' },
+    { tier: 300, c: 'math', q: 'How many <code>/25</code> subnets fit in a <code>/21</code>, and how many usable addresses does each hold?',
+      ch: ['16 subnets, 123 usable each', '8 subnets, 128 usable each', '16 subnets, 128 usable each','32 subnets, 123 usable each'], a: 0,
+      k: '2^(25−21) = 16, and 128 − 5 = 123',
+      w: 'Carving is powers of two; usable is always minus five. Keep the two calculations separate and neither one bites you.' },
+    { tier: 300, c: 'math', q: 'You must split <code>10.20.0.0/20</code> into subnets of roughly 500 addresses each.',
+      ch: ['/23 subnets, giving 8 of them at 507 usable', '/22 subnets, giving 4 of them', '/24 subnets, giving 16 of them','/25 subnets, giving 32 of them'], a: 0,
+      k: '/23 is 512 addresses; 20 to 23 is 3 bits, so 8 blocks',
+      w: 'Pick the prefix from the requirement first, then count the borrowed bits to learn how many you get.' },
+    { tier: 300, c: 'sizing', q: 'A <code>/23</code> is proposed for 500 virtual machines.',
+      ch: ['It fits, but only just — 512 − 5 = 507 usable, leaving seven spare', 'It does not fit; a /23 gives exactly 500', 'It fits comfortably with 12 spare','It does not fit; a /23 gives only 254 usable'], a: 0,
+      k: '507 usable, and seven spare is not headroom',
+      w: 'One scale event, one load balancer frontend or one private endpoint eats that margin immediately.' },
+    { tier: 300, c: 'sizing', q: 'A <code>/28</code> subnet was chosen to host private endpoints for 40 PaaS resources.',
+      ch: ['Far too small — each private endpoint consumes one address, and 11 usable will not cover 40', 'Fine, private endpoints share a single address', 'Fine, a /28 gives 16 usable','Fine — private endpoints draw from a separate delegated pool'], a: 0,
+      k: 'one private endpoint = one NIC = one address',
+      w: 'Privatising PaaS is an address-consumption decision, and it grows every time somebody adds another service.' },
+    { tier: 300, c: 'sizing', q: 'What consumes addresses in a subnet besides VM NICs?',
+      ch: ['Internal load balancer frontends, private endpoints, delegated service instances and scale-set surge capacity', 'Nothing else does', 'Only NSG rules','Route tables and service endpoints'], a: 0,
+      k: 'anything with an IP configuration counts against you',
+      w: 'Sizing from the VM count alone is exactly how a subnet ends up a handful of addresses short on go-live day.' },
+    { tier: 300, c: 'ops', q: 'You attach an NSG to <code>AzureBastionSubnet</code> and Bastion stops working.',
+      ch: ['That subnet tolerates an NSG only with the documented rules — GatewayManager, AzureCloud and VNet traffic must be allowed', 'NSGs cannot be attached to AzureBastionSubnet at all', 'Bastion ignores NSGs entirely','Bastion requires the NSG on the NIC instead of the subnet'], a: 0,
+      k: 'platform subnets have rule requirements, not just name requirements',
+      w: 'It is one of the few places where the platform has hard expectations of your rule set rather than only of your naming.' },
+    { tier: 300, c: 'overlap', q: 'Two VNets overlap and the business needs them connected anyway.',
+      ch: ['Re-address one of them, or connect through an appliance that performs NAT — peering itself will never accept it', 'Enable global peering, which tolerates overlap', 'Use a VPN gateway, which NATs automatically','Peer them and add user-defined routes to disambiguate'], a: 0,
+      k: 'overlap has no supported native workaround',
+      w: 'The NAT appliance route works, and it adds a hop, a cost and a troubleshooting surface that never goes away.' },
+    { tier: 300, c: 'ops', q: 'You enable a service endpoint for Storage on a subnet, and a storage account that used to work starts denying the VMs.',
+      ch: ['The source address presented to storage changed from the public IP to a private one, so any firewall allow-listing the old public IP now denies it', 'Service endpoints disable all public access', 'Nothing changes; something else is wrong','The service endpoint simply has not finished propagating'], a: 0,
+      k: 'a service endpoint changes the source identity of the traffic',
+      w: 'Every storage account firewall that trusted your outbound public IP has to be switched to trusting the subnet instead.' },
+    { tier: 300, c: 'design', q: 'Why do landing zone address plans allocate on clean boundaries such as /20 and /24?',
+      ch: ['Because the ranges stay readable and later subdivision never straddles an octet', 'Because Azure requires those prefixes', 'Because smaller prefixes cost less','Because route summarisation only works on /8, /16 and /24'], a: 0,
+      k: 'a plan people can recite is a plan people follow',
+      w: 'A scheme a network engineer can recall at 2am is worth more than one that squeezes out a few thousand extra addresses.' },
+    { tier: 300, c: 'design', q: 'How much address space should a hub VNet get compared with a spoke?',
+      ch: ['Usually less — the hub carries fixed platform subnets, while the spokes carry application scale', 'More, because all traffic passes through it', 'Exactly the same, for symmetry','It depends only on how many spokes are peered to it'], a: 0,
+      k: 'hubs are small and fixed; spokes are large and grow',
+      w: 'A /24 hub with well-sized gateway, firewall and Bastion subnets is common. The consumption lives in the spokes.' },
+    { tier: 300, c: 'math', q: 'What is the network address of <code>172.16.37.200/26</code>?',
+      ch: ['172.16.37.192', '172.16.37.128', '172.16.37.0','172.16.37.64'], a: 0,
+      k: '/26 blocks start at .0, .64, .128 and .192',
+      w: 'Round down to the nearest multiple of 64. 200 lands inside the block that starts at 192 and ends at 255.' },
+    { tier: 300, c: 'sizing', q: 'How much of a <code>/22</code> should you leave unallocated when you carve it up?',
+      ch: ['Whole blocks, left on clean boundaries — growth arrives as new subnets, not as bigger ones', 'None; allocate every address', 'The last five addresses','A few addresses at the end of every subnet'], a: 0,
+      k: 'growth arrives as new subnets',
+      w: 'You cannot grow a subnet in place once it is occupied, so an unallocated adjacent block is the only headroom that is real.' },
+    { tier: 300, c: 'ops', q: 'A VM has a public IP and an NSG allowing RDP from anywhere. What is the production objection?',
+      ch: ['Management ports open to the internet are the most common compromise path — use Bastion or just-in-time access', 'None; the NSG makes it safe', 'Public IPs are cheap, so it is fine','None, provided the local administrator password is strong'], a: 0,
+      k: 'exposed 3389 and 22 are the standard finding',
+      w: 'Defender for Cloud raises it every time, and a great many incident reports that begin with brute force end right here.' },
+    { tier: 300, c: 'reserved', q: 'Why can Azure not give you 2^n − 2 usable addresses the way on-prem does?',
+      ch: ['The platform itself lives in your subnet — it needs the gateway address and two for DNS', 'Because of IPv6 compatibility', 'It can, if you disable Azure DNS','Because the broadcast address is counted twice'], a: 0,
+      k: 'the extra three are the platform, and you cannot opt out',
+      w: 'Even when you configure custom DNS servers, .2 and .3 stay reserved. There is no setting that gives them back.' },
+    { tier: 300, c: 'overlap', q: 'A peering exists, and somebody tries to add an overlapping range to one of the VNets.',
+      ch: ['The address space update is rejected while the peering exists', 'The peering silently breaks', 'Azure NATs the overlap automatically','The range is accepted but never advertised to the peer'], a: 0,
+      k: 'Azure validates new space against every existing peer',
+      w: 'Which is a mercy: the failure arrives as an error message rather than as a routing mystery three weeks later.' },
+    { tier: 300, c: 'named', q: 'Which of the platform subnets may share space with ordinary workloads?',
+      ch: ['None — GatewaySubnet, AzureFirewallSubnet, AzureBastionSubnet and RouteServerSubnet are each dedicated', 'All of them, if the NSG permits it', 'Only AzureBastionSubnet','GatewaySubnet only, and only for network virtual appliances'], a: 0,
+      k: 'platform subnets are dedicated, not merely named',
+      w: 'The exact name is what gets the resource deployed. The dedication is what keeps the deployment supported.' },
+    { tier: 300, c: 'design', q: 'A team asks for a <code>/16</code> per environment in a single region.',
+      ch: ['Push back and size from the real workload — over-allocation fragments the enterprise plan as surely as under-allocation breaks it', 'Approve it; RFC1918 space is effectively unlimited', 'Approve it for production only','Approve it, but require unused space to be returned annually'], a: 0,
+      k: 'the address plan is a shared resource in both directions',
+      w: '10.0.0.0/8 holds 256 /16s. Handing one to every environment in every region exhausts it faster than most people expect.' }
+  ];
+
+  /* ================================================================== *
+   * TIER 500 — ARCHITECT. The address plan as a decade-long commitment.
+   * ================================================================== */
+  var T500 = [
+    { tier: 500, c: 'design', q: 'You are handed <code>10.0.0.0/8</code> for the whole enterprise. What is the first architectural decision?',
+      ch: ['How to partition it by region and environment before anybody deploys, because that partitioning is effectively permanent', 'Which VNet to create first', 'Which subscription owns the range','Which region is given the lowest-numbered block'], a: 0,
+      k: 'the address plan is the hardest thing in the estate to change later',
+      w: 'Compute gets rebuilt weekly. Addressing is inherited by every acquisition, partner link and datacentre you connect for the next decade.' },
+    { tier: 500, c: 'design', q: 'An acquisition arrives using the same <code>10.10.0.0/16</code> as your production hub.',
+      ch: ['Isolate behind NAT now, fund a re-address as a project, and never let NAT become the destination', 'Peer them and fix the routing afterwards', 'Require them to re-address before day one','Route the overlap through a VPN gateway, which NATs by default'], a: 0,
+      k: 'post-acquisition overlap is a programme, not a ticket',
+      w: 'NAT buys time and costs clarity. The design review job is to make that debt explicit and time-boxed rather than permanent.' },
+    { tier: 500, c: 'design', q: 'Why does your address plan constrain future SD-WAN and partner connectivity, not just Azure?',
+      ch: ['Every network you will ever route to must be disjoint from yours, and you cannot negotiate that retroactively', 'It does not — Azure is isolated from partner networks', 'Because Azure reserves RFC1918 ranges globally','Only if the partner also runs workloads in Azure'], a: 0,
+      k: 'your plan is a promise to networks you have not met yet',
+      w: 'This is why mature enterprises keep a registry of allocated ranges and treat a new allocation as a governed request.' },
+    { tier: 500, c: 'design', q: 'A design proposes one enormous flat <code>/16</code> subnet, "so we never run out".',
+      ch: ['The subnet is the unit of NSG, route table and delegation — a flat subnet surrenders every network control at once', 'It is efficient and should be adopted', 'It is fine as long as an NSG is applied','It is fine as long as every workload gets its own application security group'], a: 0,
+      k: 'the subnet is your policy boundary, not just an address range',
+      w: 'You segment for blast radius and for the ability to say no to a flow. One subnet means one answer for everything in it.' },
+    { tier: 500, c: 'design', q: 'Virtual WAN instead of a hand-built hub: what changes in the address plan?',
+      ch: ['Hubs own their own ranges and the platform manages transit routing, so you plan capacity for hubs rather than for route tables', 'Nothing changes in addressing', 'Virtual WAN removes the need for non-overlapping ranges','You may reuse hub ranges, because the platform isolates them'], a: 0,
+      k: 'you plan for hubs, not for routes',
+      w: 'The overlap rule never relaxes. What changes is who maintains the routing, and therefore how many people can break it.' },
+    { tier: 500, c: 'overlap', q: 'What is the failure mode of letting teams self-serve VNet creation with no central allocation?',
+      ch: ['Two teams pick the same range, and the collision surfaces years later as an unpeerable, unroutable pair', 'Nothing — Azure prevents duplicate ranges', 'Cost overruns from unused address space','Azure quietly renumbers the second VNet when they are peered'], a: 0,
+      k: 'duplicate ranges are legal and free until they need to meet',
+      w: 'Azure will happily let two VNets use identical space. The bill arrives on the day somebody needs them connected.' },
+    { tier: 500, c: 'sizing', q: 'A platform team must choose between CNI Overlay and classic Azure CNI across fifty AKS clusters.',
+      ch: ['Overlay decouples pod scale from the VNet plan; classic CNI makes every pod an enterprise address you must have allocated', 'Classic CNI is always faster and should be preferred', 'They consume identical address space','Overlay demands a dedicated /16 per cluster from the VNet space'], a: 0,
+      k: 'pod networking is an address-plan decision, not a cluster setting',
+      w: 'At fifty clusters, classic CNI quietly makes the Kubernetes team one of the largest consumers of the enterprise address registry.' },
+    { tier: 500, c: 'design', q: 'Why is "we will just add another address space to the VNet later" a weak plan?',
+      ch: ['Peers must be re-synced, on-prem routing updated, and every partner has to accept the new range', 'It is not weak; adding space is free and instant', 'Because a VNet may only ever have one address space','It is not weak, because peers pick up new ranges automatically'], a: 0,
+      k: 'adding space is a coordination cost, not a technical one',
+      w: 'The Azure side is one click. The firewall rules, route filters and partner change requests are the actual project.' },
+    { tier: 500, c: 'ops', q: 'A hub firewall becomes the single path for all spoke-to-spoke traffic. What does the design review ask for?',
+      ch: ['An explicit availability and capacity argument — zones, throughput headroom, and a stated behaviour when it is down', 'A second firewall inside every spoke', 'Removal of the firewall from the path','Accept it; the platform SLA already covers the firewall'], a: 0,
+      k: 'centralised inspection concentrates control and risk together',
+      w: 'Naming the failure mode is the deliverable. Every hub-and-spoke design has this property; not every design has admitted it.' },
+    { tier: 500, c: 'design', q: 'What does an address plan owe a regulator-driven environment separation requirement?',
+      ch: ['Ranges that are separable by summary route, so the boundary can be enforced and evidenced at the routing layer', 'Nothing; separation is a subscription concern', 'Identical ranges per environment, for consistency','Deliberately interleaved ranges, so no single route exposes an environment'], a: 0,
+      k: 'summarisable ranges make a policy provable',
+      w: 'If production, test and development interleave inside one block, you can no longer express the boundary as a route or a firewall rule.' },
+    { tier: 500, c: 'design', q: 'How should an address plan anticipate Azure region expansion two years out?',
+      ch: ['Reserve per-region blocks up front — retrofitting a region into a fully allocated plan means fragmentation forever', 'Regions do not affect addressing', 'Allocate a region only when it is needed, smallest first','Reuse identical ranges in every region, since those VNets never meet'], a: 0,
+      k: 'reserve, do not allocate',
+      w: 'Reserving costs nothing today. Fragmentation costs every network engineer who reads the plan after you have left.' },
+    { tier: 500, c: 'sizing', q: 'Why do private endpoints change the shape of a long-term address plan?',
+      ch: ['Every PaaS resource you privatise permanently consumes a VNet address, so the plan grows with PaaS adoption rather than VM count', 'They do not; they use the PaaS public IP', 'They consume five addresses each','They release the address again as soon as the connection closes'], a: 0,
+      k: 'zero trust converts PaaS adoption into address consumption',
+      w: 'A team that privatises a thousand PaaS resources has quietly become one of the largest consumers of your address space.' },
+    { tier: 500, c: 'overlap', q: 'Two business units overlap each other, but neither overlaps the shared services VNet.',
+      ch: ['That works — the overlap rule is per peering, so each can peer shared services independently and never each other', 'Impossible; any overlap anywhere blocks all peering', 'It works only if shared services uses a /8','It works, but only for VNets inside one subscription'], a: 0,
+      k: 'the overlap rule applies per relationship, not globally',
+      w: 'They each reach shared services and never each other. Whether that is a feature or a trap depends entirely on what somebody asks for next year.' },
+    { tier: 500, c: 'design', q: 'What should an address plan document contain that most of them do not?',
+      ch: ['The ranges deliberately left unallocated, and who has to approve taking them', 'A list of every VM and its address', 'The NSG rules for each subnet','The DNS zone names each business unit has been given'], a: 0,
+      k: 'the reservations are the plan; the allocations are just history',
+      w: 'Without recorded reservations, the next engineer sees free space and takes it, and the growth room quietly disappears.' }
+  ];
+
+
+  /* ------------------------------------------------------------------ *
+   * Generators — each returns a question object
+   * ------------------------------------------------------------------ */
+  function gUsable(pool) {
+    var p = choice(pool || [22, 23, 24, 24, 25, 26, 27, 28, 29]);
+    var net = randNet(p);
+    return {
+      c: 'reserved',
+      q: 'Subnet <code>' + cidr(net, p) + '</code> in an Azure VNet. How many <b>usable</b> IP addresses do you get?',
+      kind: 'num', ans: usable(p), hint: 'number only',
+      k: '2^(32−' + p + ') − 5 = ' + fmt(usable(p)),
+      w: 'Azure takes five per subnet, not the two you learned for on-prem: network id, gateway, two for DNS, and broadcast.',
+      viz: bitsViz(net, p) + ladderViz(net, p)
+    };
+  }
+
+  function gFirstUsable(pool) {
+    var p = choice(pool || [22, 23, 24, 25, 26, 27]);
+    var net = randNet(p);
+    return {
+      c: 'reserved',
+      q: 'What is the <b>first</b> address you can assign to a NIC in <code>' + cidr(net, p) + '</code>?',
+      kind: 'ip', ans: intToIp(net + 4), hint: 'e.g. 10.0.0.4',
+      k: 'first usable is always network + 4',
+      w: '.0 is the network id, .1 is the gateway, .2 and .3 are Azure DNS. Your first NIC lands on .4.',
+      viz: ladderViz(net, p) + bitsViz(net, p)
+    };
+  }
+
+  function gLast(pool) {
+    var p = choice(pool || [22, 23, 24, 25, 26, 27, 28]);
+    var net = randNet(p);
+    return {
+      c: 'math',
+      q: 'What is the <b>last</b> address (the broadcast address) of <code>' + cidr(net, p) + '</code>?',
+      kind: 'ip', ans: intToIp(net + blockSize(p) - 1), hint: 'e.g. 10.0.3.255',
+      k: 'network + block size − 1',
+      w: 'Block size for a /' + p + ' is ' + fmt(blockSize(p)) + '. Add it to the network address and step back one.',
+      viz: bitsViz(net, p) + ladderViz(net, p)
+    };
+  }
+
+  function gGateway(pool) {
+    var p = choice(pool || [23, 24, 25, 26]);
+    var net = randNet(p);
+    var which = choice(['gateway', 'dns']);
+    var ans = which === 'gateway' ? net + 1 : net + 2;
+    return {
+      c: 'reserved',
+      q: which === 'gateway'
+        ? 'Which address in <code>' + cidr(net, p) + '</code> does Azure use as the <b>default gateway</b>?'
+        : 'In <code>' + cidr(net, p) + '</code>, which address is the <b>first of the two Azure DNS</b> reservations?',
+      kind: 'choice',
+      ch: [intToIp(net), intToIp(net + 1), intToIp(net + 2), intToIp(net + 3)],
+      a: which === 'gateway' ? 1 : 2,
+      ansText: intToIp(ans),
+      k: '.0 network · .1 gateway · .2 + .3 DNS · last broadcast',
+      w: 'The five reservations are always the first four addresses of the block plus the last one — in every subnet, in every VNet.',
+      viz: ladderViz(net, p)
+    };
+  }
+
+  function gCount() {
+    var outer = choice([16, 20, 21, 22, 23]);
+    var inner = outer + choice([1, 2, 3, 4]);
+    if (inner > 29) inner = 29;
+    var net = randNet(outer);
+    return {
+      c: 'math',
+      q: 'How many <code>/' + inner + '</code> subnets fit inside <code>' + cidr(net, outer) + '</code>?',
+      kind: 'num', ans: Math.pow(2, inner - outer), hint: 'number only',
+      k: '2^(' + inner + '−' + outer + ') = ' + Math.pow(2, inner - outer),
+      w: 'Each extra prefix bit halves the block. Count the bits you borrowed, raise 2 to that power — the reserved five never enter this calculation.',
+      viz: bitsViz(net, outer) +
+           '<p class="small" style="margin:.5rem 0 0">Borrowing ' + (inner - outer) + ' host bit' + ((inner - outer) > 1 ? 's' : '') +
+           ' turns one /' + outer + ' into ' + Math.pow(2, inner - outer) + ' × /' + inner +
+           ', each with ' + fmt(usable(inner)) + ' usable addresses.</p>'
+    };
+  }
+
+  function gFit(pool) {
+    var need = choice(pool || [12, 25, 40, 60, 120, 200, 250, 300, 500, 900, 2000, 3000]);
+    var p = 29;
+    while (p > 2 && usable(p) < need) p--;
+    var chs = [p, p + 1, p - 1, p + 2].filter(function (x) { return x >= 2 && x <= 29; });
+    while (chs.length < 4) chs.push(chs[chs.length - 1] - 1);
+    var order = S.shuffle(chs.slice(0, 4));
+    return {
+      c: 'sizing',
+      q: 'What is the <b>smallest</b> Azure subnet that can host <b>' + fmt(need) + '</b> VM NICs?',
+      kind: 'choice',
+      ch: order.map(function (x) { return '/' + x; }),
+      a: order.indexOf(p),
+      ansText: '/' + p,
+      k: '/' + p + ' → ' + fmt(usable(p)) + ' usable ≥ ' + fmt(need) + ' (a /' + (p + 1) + ' only gives ' + fmt(usable(p + 1)) + ')',
+      w: 'Always test the candidate against 2^(32−prefix) − 5. Sizing off 2^n or off "minus 2" is how people pick a subnet that is exactly five addresses too small.',
+      viz: '<table class="sp-ladder"><tbody>' +
+           [p + 1, p, p - 1].filter(function (x) { return x >= 2 && x <= 29; }).map(function (x) {
+             return '<tr class="' + (x === p ? 'ok' : '') + '"><td>/' + x + '</td><td>' + fmt(blockSize(x)) + ' addresses → <b>' +
+                    fmt(usable(x)) + '</b> usable ' + (usable(x) >= need ? '✔ fits' : '✘ too small') + '</td></tr>';
+           }).join('') + '</tbody></table>'
+    };
+  }
+
+  function gOverlap() {
+    var aP = choice([16, 20, 21, 22]);
+    var aNet = randNet(aP);
+    var bP = choice([22, 23, 24, 25]);
+    var bNet;
+    if (Math.random() < 0.5) {
+      /* deliberately inside A */
+      var slots = Math.pow(2, bP - aP);
+      bNet = aNet + randInt(0, slots - 1) * blockSize(bP);
+    } else {
+      /* disjoint, but keep it inside the same /8 so the address stays plausible */
+      var base8 = Math.floor(aNet / 16777216) * 16777216;
+      var aEndTmp = aNet + blockSize(aP) - 1;
+      var slotsIn8 = 16777216 / blockSize(bP);
+      for (var t = 0; t < 40; t++) {
+        bNet = base8 + randInt(0, slotsIn8 - 1) * blockSize(bP);
+        if (bNet > aEndTmp || bNet + blockSize(bP) - 1 < aNet) break;
+      }
+      if (!(bNet > aEndTmp || bNet + blockSize(bP) - 1 < aNet)) bNet = aNet + blockSize(aP);
+    }
+    var aEnd = aNet + blockSize(aP) - 1, bEnd = bNet + blockSize(bP) - 1;
+    var clash = (aNet <= bEnd && bNet <= aEnd);
+    var peer = Math.random() < 0.5;
+    return {
+      c: 'overlap',
+      q: peer
+        ? 'VNet A is <code>' + cidr(aNet, aP) + '</code>. VNet B is <code>' + cidr(bNet, bP) + '</code>. Can you peer them?'
+        : 'Do <code>' + cidr(aNet, aP) + '</code> and <code>' + cidr(bNet, bP) + '</code> overlap?',
+      kind: 'choice',
+      ch: peer ? ['Yes — peering is allowed', 'No — Azure refuses'] : ['Yes — they overlap', 'No — they are disjoint'],
+      a: peer ? (clash ? 1 : 0) : (clash ? 0 : 1),
+      ansText: peer ? (clash ? 'No — Azure refuses' : 'Yes — peering is allowed') : (clash ? 'Yes — they overlap' : 'No — they are disjoint'),
+      k: clash ? 'B sits inside A → overlap → peering refused' : 'ranges are disjoint → peering is fine',
+      w: 'Compare the first and last address of each block. Overlap is the one condition VNet peering will never forgive — region, subscription and tenant differences are all fine.',
+      viz: rangeViz(aNet, aP, bNet, bP)
+    };
+  }
+
+  function fromItem(it, con) {
+    var order = S.shuffle(it.ch.map(function (_, i) { return i; }));
+    return {
+      c: it.c || con, q: it.q, kind: 'choice',
+      ch: order.map(function (i) { return it.ch[i]; }),
+      a: order.indexOf(it.a),
+      ansText: it.ch[it.a],
+      k: it.k, w: it.w, viz: null, sig: it.q
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * SOURCES — one tier-tagged entry per authored item and per generator
+   * variant, so Station.tier.filter() can select over both kinds at once.
+   * ------------------------------------------------------------------ */
+  var SOURCES = [];
+
+  function addBank(bank, defCon) {
+    bank.forEach(function (it) {
+      SOURCES.push({
+        tier: it.tier, c: it.c || defCon,
+        make: function () { return fromItem(it, defCon); }
+      });
+    });
+  }
+  function addGen(tier, con, fn) { SOURCES.push({ tier: tier, c: con, make: fn }); }
+
+  addBank(T100, 'basics');
+  addBank(T200, 'math');
+  addBank(T300, 'ops');
+  addBank(NAMED, 'named');
+  addBank(OPS, 'ops');
+  addBank(DESIGN, 'design');
+  addBank(T500, 'design');
+
+  /* generated arithmetic, pitched at the tier by how nasty the prefixes are */
+  addGen(200, 'reserved', function () { return gUsable([24, 25, 26, 27]); });
+  addGen(200, 'reserved', function () { return gFirstUsable([24, 25, 26]); });
+  addGen(200, 'reserved', function () { return gGateway([24, 25, 26]); });
+  addGen(200, 'math',     function () { return gLast([24, 25, 26]); });
+  addGen(300, 'reserved', function () { return gUsable([22, 23, 25, 26, 27, 28, 29]); });
+  addGen(300, 'math',     function () { return gLast([22, 23, 24, 25, 26]); });
+  addGen(300, 'math',     gCount);
+  addGen(300, 'sizing',   function () { return gFit([25, 40, 60, 120, 200, 250]); });
+  addGen(300, 'overlap',  gOverlap);
+  addGen(400, 'reserved', gUsable);
+  addGen(400, 'reserved', gFirstUsable);
+  addGen(400, 'math',     gLast);
+  addGen(400, 'reserved', gGateway);
+  addGen(400, 'math',     gCount);
+  addGen(400, 'sizing',   gFit);
+  addGen(400, 'overlap',  gOverlap);
+  addGen(400, 'overlap',  gOverlap);
+  addGen(500, 'sizing',   function () { return gFit([900, 2000, 3000, 8000, 20000]); });
+
+  /* ------------------------------------------------------------------ *
+   * TIERS — the clock, the lives, the number of choices and the score
+   * multiplier all move with the tier. A Foundation run is a different
+   * game from an Architect run, not the same game with easier words.
+   * ------------------------------------------------------------------ */
+  var TIER_CFG = {
+    100: { lives: 5, opts: 2, t0: 40, dec: 0.50, floor: 22, mult: 0.6, hint: true,  sudden: Infinity },
+    200: { lives: 4, opts: 3, t0: 32, dec: 0.70, floor: 16, mult: 0.8, hint: true,  sudden: 28 },
+    300: { lives: 3, opts: 4, t0: 27, dec: 0.80, floor: 12, mult: 1.0, hint: false, sudden: 20 },
+    400: { lives: 3, opts: 4, t0: 23, dec: 0.85, floor:  8, mult: 1.3, hint: false, sudden: 16 },
+    500: { lives: 2, opts: 4, t0: 20, dec: 0.95, floor:  7, mult: 1.7, hint: false, sudden: 12 }
+  };
+  var MIN_SOURCES = 6;
+  var cfg  = TIER_CFG[400];
+  var POOL = [];
+
+  /** Personal bests are stored per tier: 'subnet-sprint@300'. */
+  function scoreKey() { return GAME_ID + '@' + S.tier.get(); }
+
+  function tintPill(el, t) {
+    el.setAttribute('data-tier', t);
+    el.style.setProperty('--tier-color', 'var(--t' + t + ')');
+    el.textContent = t + ' ' + S.tier.label(t);
+  }
+
+  function nearestPlayableTier() {
+    var here = S.tier.get(), all = S.tier.all(), best = null, bestGap = Infinity;
+    for (var i = 0; i < all.length; i++) {
+      var t = all[i];
+      if (t === here) continue;
+      var n = 0;
+      SOURCES.forEach(function (sc) { if (S.tier.of(sc.tier) === t) n++; });
+      if (n < MIN_SOURCES) continue;
+      var gap = Math.abs(t - here);
+      if (gap < bestGap) { bestGap = gap; best = t; }
+    }
+    return best;
+  }
+
+  /** Repoint everything at the current tier. @returns {boolean} playable */
+  function refreshTier() {
+    var t = S.tier.get();
+    cfg  = TIER_CFG[t] || TIER_CFG[400];
+    POOL = S.tier.filter(SOURCES);
+
+    tintPill($('tier-chip'), t);
+    $('bank-size').textContent = POOL.length + ' item source' + (POOL.length === 1 ? '' : 's') + ' at this tier';
+
+    var b = S.score.best(scoreKey());
+    $('best-chip').textContent = b ? '★ tier ' + t + ' best ' + b : 'no tier ' + t + ' score yet';
+
+    $('rule-lives').innerHTML = '<b>' + cfg.lives + ' lives' + (isFinite(cfg.sudden) ? ' → then none' : '') + '</b>' +
+      (isFinite(cfg.sudden)
+        ? 'From round ' + cfg.sudden + ' it is <strong style="color:var(--mk-red)">sudden death</strong>: one mistake ends the run, and every point is doubled.'
+        : 'At Foundation there is no sudden death. Take the time, get the model right.');
+
+    $('tier-line').innerHTML =
+      'Tier <b>' + t + ' ' + S.tier.label(t) + '</b> gives you <b>' + cfg.lives + ' lives</b>, about <b>' +
+      cfg.t0 + 's</b> on the opening clock, at most <b>' + cfg.opts + ' choices</b> on a multiple-choice item, ' +
+      'and scores at <b>×' + cfg.mult.toFixed(1) + '</b>' +
+      (cfg.hint ? '. Press <span class="kbd">H</span> for a hint — it costs most of the speed bonus.' : '. No hints up here.') +
+      (S.tier.below() ? ' Lower tiers are mixed in.' : '');
+
+    buildDrills();
+
+    var ok = POOL.length >= MIN_SOURCES;
+    $('start-row').classList.toggle('is-hidden', !ok);
+    var host = $('tier-empty-host');
+    host.innerHTML = '';
+    if (!ok) {
+      var alt = nearestPlayableTier();
+      var box = document.createElement('div');
+      box.className = 'tier-empty';
+      var h = '<b>Nothing worth sprinting at tier ' + t + ' yet</b>' +
+              '<p>Only ' + POOL.length + ' item source' + (POOL.length === 1 ? '' : 's') + (POOL.length === 1 ? ' sits' : ' sit') + ' at ' + t + ' ' +
+              S.tier.label(t) + ', and a sprint needs at least ' + MIN_SOURCES + '. Tick “show lower tiers too” in ' +
+              'the picker, or drop to a tier that is stocked.</p>';
+      if (alt) {
+        h += '<p style="margin-top:.8rem"><button class="btn btn--primary btn--sm" id="btn-tierjump">' +
+             'Sprint tier ' + alt + ' ' + S.tier.label(alt) + ' instead</button></p>';
+      }
+      box.innerHTML = h;
+      host.appendChild(box);
+      if (alt) $('btn-tierjump').addEventListener('click', function () { S.tier.set(alt); });
+    }
+    return ok;
+  }
+
+  function buildDrills() {
+    var counts = {};
+    POOL.forEach(function (sc) { counts[sc.c] = (counts[sc.c] || 0) + 1; });
+    var types = [
+      ['basics', 'Vocabulary: addresses, subnets, CIDR, gateways, peering'],
+      ['reserved', 'Usable addresses, first usable, gateway and DNS reservations'],
+      ['math', 'Broadcast address, block size, how many /x fit in a /y'],
+      ['overlap', 'Overlap detection and whether two VNets can peer'],
+      ['named', 'GatewaySubnet · AzureFirewallSubnet · AzureBastionSubnet · RouteServerSubnet'],
+      ['sizing', 'Smallest prefix that fits N hosts, without the off-by-five'],
+      ['ops', 'Resizing occupied subnets, peering sync, transitivity, delegation'],
+      ['design', 'Hub-spoke address plans, hybrid overlap, headroom']
+    ];
+    var html = '';
+    types.forEach(function (t) {
+      var c = CON[t[0]];
+      html += '<a class="sp-drill" style="--dc:' + c.col + '" href="../index.html#unlock" class="locked">' +
+              '<b>' + c.n + '</b><span>' + t[1] + '<br>' + (counts[t[0]] || 0) +
+              ' source' + ((counts[t[0]] || 0) === 1 ? '' : 's') + ' at this tier · board: ' + c.wb + '</span></a>';
+    });
+    $('drill-grid').innerHTML = html;
+  }
+
+  S.tier.mountPicker('#tier-picker-host', {
+    compact: true,
+    heading: 'Sprint at which skill tier?',
+    label: 'Skill tier for Subnet Sprint'
+  });
+  refreshTier();
+
+  /* Changing tier mid-session restarts cleanly rather than half-swapping. */
+  document.addEventListener('station:tier', function () {
+    var wasLive = !scrPlay.classList.contains('is-hidden') || !scrOver.classList.contains('is-hidden');
+    cancelAnimationFrame(raf);
+    st = null;
+    refreshTier();
+    if (wasLive) {
+      show(scrStart);
+      S.toast('Tier changed — fresh pool, fresh sprint', 'info', 2000);
+    }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Run state
+   * ------------------------------------------------------------------ */
+  var st = null, raf = null;
+
+  function heartsHTML(lives) {
+    var h = '';
+    for (var i = 0; i < cfg.lives; i++) {
+      h += '<svg class="sp-heart' + (i < lives ? '' : ' is-gone') + '" viewBox="0 0 24 24" aria-hidden="true">' +
+           '<path d="M12 21s-8-4.9-8-10.4A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 3.6C20 16.1 12 21 12 21z"/></svg>';
+    }
+    return h;
+  }
+  function comboMult(c) { return 1 + Math.min(c, 10) * 0.12; }
+  function show(node) {
+    [scrStart, scrPlay, scrOver].forEach(function (n) { n.classList.add('is-hidden'); });
+    node.classList.remove('is-hidden');
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+  function stripTags(s) { return String(s).replace(/<[^>]*>/g, ''); }
+
+  function newRun() {
+    st = { g: 0, round: 0, score: 0, lives: cfg.lives, combo: 0, bestCombo: 0, right: 0, asked: 0,
+           misses: [], fastest: 99, locked: false, paused: false, limit: 0, left: 0, last: 0,
+           cur: null, seen: {} };
+  }
+
+  function startRun() {
+    if (!refreshTier()) { show(scrStart); return; }
+    newRun(); show(scrPlay); S.streak.touch(); nextRound();
+  }
+
+  /** Trim a multiple-choice item down to however many decoys this tier gets. */
+  function trimChoices(q) {
+    if (!q || q.kind !== 'choice' || !q.ch) return q;
+    var want = Math.min(cfg.opts, q.ch.length);
+    if (want >= q.ch.length) return q;
+    var origA = q.a, src = q.ch, decoys = [];
+    src.forEach(function (_, i) { if (i !== origA) decoys.push(i); });
+    var idx = S.shuffle([origA].concat(S.shuffle(decoys).slice(0, want - 1)));
+    q.ansText = q.ansText || src[origA];
+    q.ch = idx.map(function (i) { return src[i]; });
+    q.a  = idx.indexOf(origA);
+    return q;
+  }
+
+  function drawSource() { return POOL[Math.floor(Math.random() * POOL.length)]; }
+
+  function pickQuestion() {
+    for (var tries = 0; tries < 14; tries++) {
+      var q = trimChoices(drawSource().make());
+      var sig = q.sig || stripTags(q.q);
+      if (!st.seen[sig]) { st.seen[sig] = 1; return q; }
+    }
+    return trimChoices(drawSource().make());
+  }
+
+  /** Foundation and Practitioner may buy the key, paid out of the speed bonus. */
+  function useHint() {
+    if (!st || st.locked || st.usedHint || !cfg.hint || !st.cur) return;
+    st.usedHint = true;
+    var host = $('ui-hint');
+    host.innerHTML = '<div class="sp-hintout fx-fade-in"><b>look for</b><span></span></div>';
+    host.querySelector('span').innerHTML = st.cur.k;
+    S.sfx.tick();
+  }
+
+  function renderHint() {
+    var host = $('ui-hint');
+    host.innerHTML = '';
+    if (!cfg.hint) return;
+    var hb = document.createElement('button');
+    hb.className = 'btn btn--ghost btn--sm';
+    hb.id = 'btn-hint';
+    hb.type = 'button';
+    hb.textContent = '🛟 HINT (H)';
+    hb.addEventListener('click', useHint);
+    host.appendChild(hb);
+  }
+
+  function nextRound() {
+    st.round++; st.asked++; st.locked = false; st.paused = false; st.usedHint = false;
+    var q = pickQuestion();
+    st.cur = q;
+
+    st.limit = Math.max(cfg.floor, cfg.t0 - (st.round - 1) * cfg.dec);
+    st.left = st.limit; st.last = 0;
+
+    var con = CON[q.c];
+    var cEl = $('ui-con');
+    cEl.className = 'chip';
+    cEl.style.color = con.col;
+    cEl.textContent = con.n;
+    var sudden = st.round >= cfg.sudden;
+    $('ui-sudden').classList.toggle('is-hidden', !sudden);
+    $('ui-tag').textContent = 'Round ' + st.round + ' · tier ' + S.tier.get() +
+      (sudden ? ' · double points, no second chances' : '');
+    $('ui-q').innerHTML = q.q;
+
+    renderAnswer(q);
+    renderHint();
+    $('ui-reveal').classList.add('is-hidden');
+    $('ui-reveal').innerHTML = '';
+    paintStrip();
+    runTimer();
+  }
+
+  function renderAnswer(q) {
+    var host = $('ui-answerhost');
+    if (q.kind === 'choice') {
+      var html = '<div class="sp-choices">';
+      q.ch.forEach(function (c, i) {
+        html += '<button class="sp-choice fx-fade-in fx-delay-' + Math.min(i + 1, 4) + '" data-i="' + i + '">' +
+                '<span class="num">' + (i + 1) + '</span><span class="txt"></span></button>';
+      });
+      html += '</div><p class="sp-hint">Keys <span class="kbd">1</span>–<span class="kbd">' + q.ch.length + '</span> work too.</p>';
+      host.innerHTML = html;
+      Array.prototype.forEach.call(host.querySelectorAll('.sp-choice'), function (b, i) {
+        b.querySelector('.txt').innerHTML = q.ch[i];
+        b.addEventListener('click', function () { answerChoice(i); });
+      });
+    } else {
+      host.innerHTML =
+        '<div class="sp-answer">' +
+          '<input class="sp-input" id="ui-input" autocomplete="off" autocapitalize="off" spellcheck="false" ' +
+          'inputmode="' + (q.kind === 'num' ? 'numeric' : 'text') + '" placeholder="' + q.hint + '" aria-label="Your answer">' +
+          '<button class="btn btn--primary" id="btn-submit">ENTER ⏎</button>' +
+        '</div>' +
+        '<p class="sp-hint">' + (q.kind === 'num' ? 'Digits only — no commas needed.' : 'Full dotted-quad address.') + '</p>';
+      var inp = $('ui-input');
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submitTyped(); }
+      });
+      $('btn-submit').addEventListener('click', submitTyped);
+      try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
+    }
+  }
+
+  function paintStrip() {
+    $('ui-score').textContent = st.score;
+    $('ui-round').textContent = st.round;
+    $('ui-lives').innerHTML = heartsHTML(st.lives);
+    $('ui-combo').textContent = '×' + comboMult(st.combo).toFixed(2);
+  }
+
+  function runTimer() {
+    cancelAnimationFrame(raf);
+    st.last = 0;
+    var track = $('ui-track'), fill = $('ui-timerfill'), chaser = $('fig-chaser');
+    track.classList.remove('is-low', 'is-crit');
+    function frame(ts) {
+      if (!st.last) st.last = ts;
+      var dt = (ts - st.last) / 1000; st.last = ts;
+      if (!st.locked && !st.paused) {
+        st.left -= dt;
+        var f = Math.max(0, st.left / st.limit);
+        fill.style.width = (f * 100).toFixed(1) + '%';
+        chaser.setAttribute('transform', 'translate(' + (10 + (1 - f) * 322).toFixed(1) + ' 0)');
+        track.classList.toggle('is-low', f < 0.45 && f >= 0.2);
+        track.classList.toggle('is-crit', f < 0.2);
+        if (st.left <= 0) { st.locked = true; cancelAnimationFrame(raf); resolve(null, true); return; }
+      }
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function normIp(s) { return String(s).trim().replace(/\s+/g, ''); }
+
+  function submitTyped() {
+    if (st.locked) return;
+    var v = $('ui-input').value;
+    if (!String(v).trim().length) return;
+    st.locked = true; cancelAnimationFrame(raf);
+    var ok;
+    if (st.cur.kind === 'num') {
+      ok = parseInt(String(v).replace(/[,\s_]/g, ''), 10) === st.cur.ans;
+    } else {
+      ok = normIp(v) === normIp(st.cur.ans);
+    }
+    resolve({ ok: ok, given: String(v).trim() }, false);
+  }
+
+  function answerChoice(i) {
+    if (st.locked) return;
+    st.locked = true; cancelAnimationFrame(raf);
+    resolve({ ok: i === st.cur.a, given: st.cur.ch[i], idx: i }, false);
+  }
+
+  function resolve(res, timedOut) {
+    st.lockedAt = Date.now();     /* stops the same keypress from skipping the reveal */
+    var q = st.cur, con = CON[q.c];
+    var right = !!(res && res.ok);
+    var used = st.limit - Math.max(0, st.left);
+    var sudden = st.round >= cfg.sudden;
+    var gained = 0;
+
+    if (q.kind === 'choice') {
+      Array.prototype.forEach.call($('ui-answerhost').querySelectorAll('.sp-choice'), function (b, i) {
+        b.disabled = true;
+        if (i === q.a) b.classList.add('is-right');
+        else if (res && res.idx === i) b.classList.add('is-wrong', 'fx-shake');
+        else b.classList.add('is-dim');
+      });
+    } else {
+      var inp = $('ui-input');
+      if (inp) { inp.disabled = true; inp.style.borderColor = right ? 'var(--mk-green)' : 'var(--mk-red)'; }
+      var sub = $('btn-submit'); if (sub) sub.disabled = true;
+    }
+
+    var answerText = q.kind === 'choice' ? (q.ansText || q.ch[q.a]) : String(q.ans);
+
+    if (right) {
+      st.right++; st.combo++;
+      st.bestCombo = Math.max(st.bestCombo, st.combo);
+      if (used < st.fastest) st.fastest = used;
+      var speed = Math.round(Math.max(0, st.left / st.limit) * 140 * (st.usedHint ? 0.3 : 1));
+      gained = Math.round((100 + speed) * comboMult(st.combo - 1) * (sudden ? 2 : 1) * cfg.mult);
+      st.score += gained;
+      S.sfx.correct();
+      if (st.combo === 5 || st.combo === 10 || st.combo === 15) { S.confetti({ count: 60 }); S.toast(st.combo + ' clean in a row 🏃', 'good', 1300); }
+    } else {
+      st.combo = 0;
+      st.lives = sudden ? 0 : st.lives - 1;
+      st.misses.push({
+        c: q.c, q: stripTags(q.q), k: q.k, w: q.w,
+        right: answerText,
+        given: timedOut ? null : (res ? res.given : null)
+      });
+      S.sfx.wrong();
+    }
+    paintStrip();
+
+    var r = $('ui-reveal');
+    r.className = 'sp-reveal marker-box ' + (right ? 'mk-green' : 'mk-red');
+    var head = right ? 'CORRECT' : (timedOut ? 'THE CLOCK GOT YOU' : 'NOT QUITE');
+    var html = '<div class="box-title" style="color:' + (right ? 'var(--mk-green)' : 'var(--mk-red)') + '">' +
+               head + ' · answer: ' + esc(answerText) + '</div>';
+    if (!right && res && res.given) html += '<p class="small" style="margin:.1rem 0 .5rem">You said <b>' + esc(res.given) + '</b>.</p>';
+    html += '<p class="key">🔑 ' + q.k + '</p><p class="why">' + q.w + '</p>';
+    if (q.viz) html += '<div>' + q.viz + '</div>';
+    html += '<div class="foot">';
+    if (right) html += '<span class="sp-points fx-pop">+' + gained + (sudden ? ' (×2 sudden death)' : '') + '</span>';
+    html += '<button class="btn btn--primary btn--sm" id="btn-next">' + (st.lives > 0 ? 'NEXT ▸' : 'SEE THE DAMAGE ▸') + '</button>' +
+            '<a class="btn btn--ghost btn--sm" href="../index.html#unlock" class="locked">Board: ' + con.n + '</a>' +
+            '<span class="small">Space / Enter</span></div>';
+    r.innerHTML = html;
+    r.classList.remove('is-hidden');
+    $('btn-next').addEventListener('click', advance);
+    r.scrollIntoView({ block: 'nearest' });
+  }
+
+  function advance() { if (st.lives <= 0) gameOver(); else nextRound(); }
+
+  /* ------------------------------------------------------------------ *
+   * Game over
+   * ------------------------------------------------------------------ */
+  function gameOver() {
+    cancelAnimationFrame(raf);
+    show(scrOver);
+
+    var tnow = S.tier.get(), key = scoreKey();
+    var prevBest = S.score.best(key);
+    var isBest = S.score.save(key, st.score);
+
+    tintPill($('fin-tier'), tnow);
+    $('fin-score').textContent = st.score;
+    var d = $('fin-delta');
+    if (isBest) {
+      d.innerHTML = '<span style="color:var(--mk-green)">★ NEW PERSONAL BEST</span>' +
+                    (prevBest ? ' — ' + (st.score - prevBest) + ' clear of your old ' + prevBest : '');
+      S.confetti(); S.sfx.levelup();
+    } else {
+      var gap = prevBest - st.score;
+      d.innerHTML = '<span style="color:var(--mk-orange)">' + gap + ' points</span> short of ' + prevBest +
+                    '. Roughly ' + Math.max(1, Math.ceil(gap / 200)) + ' more fast answer' + (Math.ceil(gap / 200) > 1 ? 's' : '') + '.';
+    }
+    $('fin-rounds').textContent = st.round + ' rounds' + (st.round > cfg.sudden ? ' (survived sudden death)' : '');
+    $('fin-acc').textContent = (st.asked ? Math.round(st.right / st.asked * 100) : 0) + '% (' + st.right + '/' + st.asked + ')';
+    $('fin-combo').textContent = 'best combo ' + st.bestCombo;
+    $('fin-fast').textContent = st.fastest < 99 ? 'fastest ' + st.fastest.toFixed(1) + 's' : 'no clean answers';
+
+    var block = $('fin-missblock');
+    if (!st.misses.length) {
+      block.innerHTML = '<h2>Nothing missed 🧮</h2><p class="muted">You did not get a single one wrong — the clock ' +
+        'ended you. Go again and answer faster; speed is most of the score.</p>';
+    } else {
+      var html = '';
+      st.misses.forEach(function (m) {
+        var c = CON[m.c];
+        html += '<a class="sp-missrow" href="../index.html#unlock" class="locked">' +
+                '<span class="qq">' + esc(m.q.length > 130 ? m.q.slice(0, 130) + '…' : m.q) + '</span>' +
+                '<span class="kk">🔑 ' + esc(m.k) + '</span><br>' +
+                '<span class="small">Answer: <b>' + esc(m.right) + '</b>' +
+                (m.given ? ' · you said ' + esc(m.given) : ' · the clock caught you') + '</span><br>' +
+                '<span class="ll">' + c.n + ' → ' + c.wb + '.html ▸</span></a>';
+      });
+      $('fin-miss').innerHTML = html;
+
+      var counts = {}, max = 0;
+      st.misses.forEach(function (m) { counts[m.c] = (counts[m.c] || 0) + 1; max = Math.max(max, counts[m.c]); });
+      var bh = '';
+      Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).forEach(function (k) {
+        bh += '<div class="sp-fambar"><span>' + CON[k].n + '</span>' +
+              '<i style="width:' + (counts[k] / max * 100) + '%;background:' + CON[k].col + '"></i>' +
+              '<span>' + counts[k] + '</span></div>';
+      });
+      $('fin-fambars').innerHTML = bh;
+    }
+
+    var xp = S.clamp(Math.round(st.score / 45), 5, 220);
+    S.xp.add(xp, 'Subnet Sprint · tier ' + tnow + ' · ' + st.score);
+    if (!S.progress.isDone(GAME_ID) && st.asked >= 5) S.progress.complete(GAME_ID);
+    $('best-chip').textContent = '★ tier ' + tnow + ' best ' + S.score.best(key);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Input
+   * ------------------------------------------------------------------ */
+  $('btn-start').addEventListener('click', startRun);
+  $('btn-again').addEventListener('click', startRun);
+
+  document.addEventListener('keydown', function (e) {
+    if (!scrStart.classList.contains('is-hidden')) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startRun(); }
+      return;
+    }
+    if (!scrOver.classList.contains('is-hidden')) {
+      if (e.key === 'r' || e.key === 'R' || e.key === 'Enter') { e.preventDefault(); startRun(); }
+      return;
+    }
+    if (scrPlay.classList.contains('is-hidden') || !st) return;
+
+    if (st.paused) {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); st.paused = false; S.toast('Back on the clock', 'info', 900); }
+      return;
+    }
+    if (st.locked) {
+      if ((e.key === ' ' || e.key === 'Enter') && Date.now() - (st.lockedAt || 0) > 250) { e.preventDefault(); advance(); }
+      return;
+    }
+    if ((e.key === 'h' || e.key === 'H') && !(e.target && e.target.id === 'ui-input')) {
+      e.preventDefault(); useHint(); return;
+    }
+    if (st.cur && st.cur.kind === 'choice' && /^[1-9]$/.test(e.key)) {
+      var n = parseInt(e.key, 10) - 1;
+      if (n < st.cur.ch.length) { e.preventDefault(); answerChoice(n); }
+    }
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && st && !st.locked && !scrPlay.classList.contains('is-hidden')) {
+      st.paused = true;
+      S.toast('Paused — press Space to resume', 'info', 4000);
+    }
+  });
+});
+</script>
+
+<style>
+  a.locked{
+    opacity:.72; text-decoration:none; cursor:pointer;
+    border-bottom:1px dashed currentColor;
+  }
+  a.locked::after{ content:" 🔒"; font-size:.85em; }
+  .demo-strip{
+    max-width:980px; margin:0 auto 1rem; padding:.65rem .9rem; border-radius:10px;
+    font-size:.85rem; line-height:1.45; display:flex; gap:.7rem; align-items:center;
+    flex-wrap:wrap;
+    border:1px solid var(--mk-green);
+    background:color-mix(in srgb, var(--mk-green) 9%, transparent);
+    color:var(--ink-soft);
+  }
+  .demo-strip b{color:var(--ink)}
+  .demo-strip a{color:var(--mk-blue); font-weight:600}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(!document.querySelector('meta[name="viewport"]')){
+    var mv=document.createElement('meta');
+    mv.name='viewport'; mv.content='width=device-width, initial-scale=1';
+    (document.head||document.documentElement).appendChild(mv);
+  }
+  // Study material is not published here. Any link into it becomes an upgrade prompt.
+  var GATED=/\/(whiteboards|drills|labs|tracks)\//;
+  function sweep(root){
+    var as=(root||document).querySelectorAll?(root||document).querySelectorAll('a[href]'):[];
+    for(var i=0;i<as.length;i++){
+      var a=as[i], h=a.getAttribute('href')||'';
+      if(a.dataset.gateDone) continue;
+      a.dataset.gateDone='1';
+      if(!GATED.test(h)) continue;
+      a.setAttribute('href','../index.html#unlock');
+      a.classList.add('locked');
+      a.setAttribute('title','Part of the full study library — see what is included');
+    }
+  }
+  function boot(){
+    sweep(document);
+    new MutationObserver(function(m){for(var i=0;i<m.length;i++)sweep(m[i].target);})
+      .observe(document.body,{childList:true,subtree:true});
+    var host=document.querySelector('.page')||document.body;
+    var s=document.createElement('div');
+    s.className='demo-strip no-print';
+    s.innerHTML='<span><b>Free forever.</b> Every game, every skill level, no account. '+
+      'The whiteboards, flashcards and exam simulator are part of the full library.</span>'+
+      '<a href="../index.html">← All games</a>';
+    host.insertBefore(s,host.firstChild);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
+
+</body>
+</html>
